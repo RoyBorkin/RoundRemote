@@ -73,7 +73,7 @@ export class HttpError extends Error {
 export async function http(url, { method = 'GET', headers = {}, body, json, timeout = 12000, raw = false, ...rest } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
-  const opts = { method, headers: { ...headers }, signal: ctrl.signal, ...rest };
+  const opts = { method, headers: { ...headers }, signal: ctrl.signal, ...lanOpts(url), ...rest };
   if (json !== undefined) { opts.body = JSON.stringify(json); opts.headers['Content-Type'] = 'application/json'; }
   else if (body !== undefined) opts.body = body;
   try {
@@ -85,6 +85,37 @@ export async function http(url, { method = 'GET', headers = {}, body, json, time
     if (!res.ok) throw new HttpError(res.status, data, url);
     return data;
   } finally { clearTimeout(timer); }
+}
+
+/** True when this https page wants a plain-http URL (mixed content). */
+export function isMixed(url) {
+  try { return location.protocol === 'https:' && new URL(url, location.href).protocol === 'http:'; } catch { return false; }
+}
+/**
+ * Chrome's Local Network Access lets an https page (e.g. GitHub Pages) call http:// servers on
+ * your LAN (Jellyfin, Plex, the bridge) after a one-time permission prompt — but only when the
+ * request says it's going to the local network.
+ */
+export function lanOpts(url) {
+  try {
+    const u = new URL(url, location.href);
+    if (isMixed(u.href) && isPrivateHost(u.hostname) && !/^(localhost|127\.)/.test(u.hostname)) return { targetAddressSpace: 'local' };
+  } catch {}
+  return {};
+}
+const blobCache = new Map();
+/** Image URL usable from this page: LAN http images are fetched (with LNA) and turned into blob: URLs. */
+export async function lanImage(url) {
+  if (!url || !isMixed(url)) return url;
+  if (blobCache.has(url)) return blobCache.get(url);
+  try {
+    const r = await fetch(url, lanOpts(url));
+    if (!r.ok) return '';
+    const obj = URL.createObjectURL(await r.blob());
+    blobCache.set(url, obj);
+    if (blobCache.size > 80) { const [k, v] = blobCache.entries().next().value; URL.revokeObjectURL(v); blobCache.delete(k); }
+    return obj;
+  } catch { return ''; }
 }
 
 export function qs(obj) {

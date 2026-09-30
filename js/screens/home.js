@@ -16,7 +16,7 @@ export function HomeScreen() {
       type: 'button', 'aria-label': svc.name, '--c': svc.color,
       style: { left: `${50 + 37.5 * Math.sin(a)}%`, top: `${50 - 37.5 * Math.cos(a)}%`, animationDelay: `${i * 35}ms` },
       onclick: () => openService(svc.id),
-    }, badge(svc), h('span.svc-name', svc.name.replace(' / Plexamp', '').replace(' / DLNA', '')), h('span.svc-dot'));
+    }, badge(svc), h('span.svc-name', svc.short || svc.name), h('span.svc-dot'), h('span.svc-tag', 'bridge'));
     if (svc.id === store.get('lastService')) btn.classList.add('last');
     ring.appendChild(btn);
     return { svc, btn };
@@ -67,6 +67,7 @@ export function HomeScreen() {
         : ad[svc.id]?.enabled;
       btn.classList.toggle('ready', !!ok);
       if (info && !ok) btn.classList.add('off');
+      if (!info) btn.classList.add('needs-bridge');
     }
   })();
 

@@ -12,9 +12,10 @@ import { toast, topPanel } from '../ui/overlay.js';
 import { createInfoView } from '../views/info.js';
 import { createVinylView } from '../views/vinyl.js';
 import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
+import { createVideoView } from '../views/video.js';
 import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles } from './panels.js';
 
-const VIEWS = ['info', 'vinyl', 'lyrics'];
+const VIEWS = ['info', 'vinyl', 'lyrics', 'video'];
 const RING_R = 47.4, C = 2 * Math.PI * RING_R;
 
 export function PlayerScreen() {
@@ -45,7 +46,7 @@ export function PlayerScreen() {
   const pill = h('button.device-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
   const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume()), -118, 38.5);
-  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : openMore())), 118, 38.5);
+  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : openMore(view))), 118, 38.5);
   const btnPrev = iconBtn('prev', 'Previous', () => player.prev(), 'ctl');
   const btnPlay = iconBtn('play', 'Play', () => player.toggle(), 'ctl play');
   const btnNext = iconBtn('next', 'Next', () => player.next(), 'ctl');
@@ -58,11 +59,11 @@ export function PlayerScreen() {
   const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
   const miniMeta = h('div.mini-meta');
   const cta = h('div.cta');
-  const chrome = h('div.chrome', btnHome, btnLib, btnSearch, btnDev, pill, btnVol, btnSide, cta, controls, viewSwitch);
+  const chrome = h('div.chrome', btnHome, btnLib, btnSearch, btnDev, pill, miniMeta, btnVol, btnSide, cta, controls, viewSwitch);
 
   const bubble = h('div.scrub-bubble', h('div.sb-time'), h('div.sb-rem'));
   const stage = h('div.stage');
-  const el = h('div.player', bgA, bgB, h('div.bg-shade'), stage, miniMeta, chrome, ring, bubble);
+  const el = h('div.player', bgA, bgB, h('div.bg-shade'), stage, chrome, ring, bubble);
 
   // ---------- views ----------
   let view = store.get('view');
@@ -82,22 +83,33 @@ export function PlayerScreen() {
     current?.destroy(); current?.el.remove();
     current = v === 'vinyl' ? createVinylView({ player, onPreview: preview })
       : v === 'lyrics' ? createLyricsView({ player })
+      : v === 'video' ? createVideoView({ player })
       : createInfoView();
     stage.appendChild(current.el);
     current.update(player.state);
     el.dataset.view = v;
     viewBtns.forEach((b) => b.classList.toggle('on', b.dataset.v === v));
     btnSide.innerHTML = icon(v === 'lyrics' ? 'text' : 'more');
+    placeYt();
     btnSide.setAttribute('aria-label', v === 'lyrics' ? 'Lyrics style' : 'More');
     showChrome();
   }
+
+  // ---------- YouTube player placement (YouTube/YouTube Music keep their video visible) ----------
+  function placeYt() {
+    const hidden = el.classList.contains('chrome-hidden');
+    app.dataset.ytpos = view === 'video' ? 'bg' : view === 'info' && hidden ? 'full' : view;
+    app.style.setProperty('--lbl', store.get('vinylLabelSize'));
+  }
+  const ytObserver = new MutationObserver(placeYt);
+  ytObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
 
   // ---------- chrome auto-hide ----------
   let hideT = null;
   function showChrome() {
     el.classList.remove('chrome-hidden');
     clearTimeout(hideT);
-    if (store.get('autoHideChrome') && view !== 'info') hideT = setTimeout(() => { if (!topPanel()) el.classList.add('chrome-hidden'); }, 6000);
+    if (store.get('autoHideChrome')) hideT = setTimeout(() => { if (!topPanel()) el.classList.add('chrome-hidden'); }, 6000);
   }
 
   // ---------- ring seeking ----------
@@ -106,7 +118,7 @@ export function PlayerScreen() {
     wasHidden = el.classList.contains('chrome-hidden');
     showChrome();
     if (!player.caps.seek || !player.state.track) return;
-    if (distFromCenter(el, e.clientX, e.clientY) < 0.86) return;
+    if (distFromCenter(el, e.clientX, e.clientY) < 0.9) return;
     e.stopPropagation();
     ringDrag = { id: e.pointerId };
     el.setPointerCapture(e.pointerId);
@@ -146,7 +158,7 @@ export function PlayerScreen() {
       setView(VIEWS[(i + (dx < 0 ? 1 : VIEWS.length - 1)) % VIEWS.length]);
       return;
     }
-    if (Math.hypot(dx, dy) < 10 && view !== 'info' && !wasHidden && store.get('autoHideChrome')) {
+    if (Math.hypot(dx, dy) < 10 && !wasHidden && store.get('autoHideChrome')) {
       clearTimeout(hideT); el.classList.add('chrome-hidden');
     }
   });
@@ -201,7 +213,10 @@ export function PlayerScreen() {
     current?.update(s);
   }
 
+  const applyArtMode = () => el.classList.toggle('art-milky', store.get('infoFullArt') === 'milky');
+  applyArtMode();
   const offs = [
+    store.on('change:infoFullArt', applyArtMode),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),
   ];
@@ -225,7 +240,7 @@ export function PlayerScreen() {
 
   return {
     el,
-    destroy() { cancelAnimationFrame(raf); clearTimeout(hideT); offs.forEach((f) => f()); current?.destroy(); },
+    destroy() { cancelAnimationFrame(raf); clearTimeout(hideT); ytObserver.disconnect(); app.dataset.ytpos = 'mini'; offs.forEach((f) => f()); current?.destroy(); },
     setView, showChrome,
     cycleLyricStyle() {
       const i = LYRIC_STYLES.findIndex((x) => x.id === store.get('lyricsStyle'));

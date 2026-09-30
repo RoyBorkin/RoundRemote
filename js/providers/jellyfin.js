@@ -3,7 +3,7 @@
 // (no typing on the round screen) or username/password.
 import { Provider } from './base.js';
 import { store } from '../core/store.js';
-import { http, qs, uid, sleep } from '../core/util.js';
+import { http, HttpError, qs, uid, sleep, isMixed, lanImage } from '../core/util.js';
 import { bridgeBase } from './bridge.js';
 
 const T = 10000; // ticks per ms
@@ -32,21 +32,36 @@ export class JellyfinProvider extends Provider {
     if (token) parts.push(`Token="${token}"`);
     return { Authorization: `MediaBrowser ${parts.join(', ')}` };
   }
-  async _url(path) {
-    const full = this.server + path;
-    // An https page can't call an http server directly (mixed content) → go through the bridge.
-    if (location.protocol === 'https:' && full.startsWith('http:')) {
-      const b = this.proxy || (this.proxy = await bridgeBase());
-      if (b) return `${b}/api/proxy?${qs({ url: full })}`;
-    }
-    return full;
+  // An https page (GitHub Pages) talking to an http:// Jellyfin server: try Chrome's Local
+  // Network Access first (one-time permission prompt), and fall back to the bridge's LAN proxy.
+  async _proxyUrl(full) {
+    const b = this.proxy || (this.proxy = await bridgeBase());
+    if (!b) throw Object.assign(new Error('mixed content'), {
+      userMessage: 'Your browser blocked the http:// Jellyfin server. Use Chrome (allow local network access), an https:// address, or run the bridge.',
+    });
+    return `${b}/api/proxy?${qs({ url: full })}`;
   }
   async api(path, { method = 'GET', json, token = this.auth?.token } = {}) {
-    return http(await this._url(path), { method, json, headers: { ...this._authHeader(token), Accept: 'application/json' } });
+    const full = this.server + path;
+    const opts = { method, json, headers: { ...this._authHeader(token), Accept: 'application/json' } };
+    if (!isMixed(full) || this.route === 'proxy') return http(isMixed(full) ? await this._proxyUrl(full) : full, opts);
+    try {
+      const r = await http(full, opts);
+      this.route = 'direct';
+      return r;
+    } catch (e) {
+      if (e instanceof HttpError || this.route === 'direct') throw e;
+      const proxied = await this._proxyUrl(full); // network/mixed-content failure → bridge
+      this.route = 'proxy';
+      return http(proxied, opts);
+    }
   }
   async img(itemId, tag, size = 600) {
     if (!itemId) return '';
-    return this._url(`/Items/${itemId}/Images/Primary?${qs({ maxHeight: size, maxWidth: size, tag, quality: 90 })}`);
+    const full = `${this.server}/Items/${itemId}/Images/Primary?${qs({ maxHeight: size, maxWidth: size, tag, quality: 90 })}`;
+    if (!isMixed(full)) return full;
+    if (this.route === 'proxy') return this._proxyUrl(full).catch(() => '');
+    return lanImage(full);
   }
 
   // ---------- auth ----------

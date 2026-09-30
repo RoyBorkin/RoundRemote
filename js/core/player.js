@@ -25,7 +25,9 @@ export class Player extends Emitter {
     this.provider = provider;
     this.state = emptyState();
     this._trackKey = null;
-    this._off = provider.on('state', (s) => this._ingest(s));
+    const offState = provider.on('state', (s) => this._ingest(s));
+    const offNotice = provider.on('notice', (m) => this.emit('error', m));
+    this._off = () => { offState(); offNotice(); };
     this.emit('provider', provider);
     this.emit('state', this.state);
     try { await provider.start(); } catch (e) { this._error(e); }

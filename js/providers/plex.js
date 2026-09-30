@@ -53,7 +53,7 @@ export class PlexProvider extends Provider {
     // "Sign in on this screen": redirect to Plex, come back with ?plexpin=
     const { id, code } = await this.pinStart(true);
     store.temp('plex_pin', String(id));
-    const forwardUrl = `${location.origin}${location.pathname}?plexpin=${id}`;
+    const forwardUrl = `${location.origin}${location.pathname.replace(/index\.html$/, '')}?plexpin=${id}`;
     location.href = `https://app.plex.tv/auth#?${qs({ clientID: clientId(), code, forwardUrl, 'context[device][product]': PRODUCT })}`;
   }
   async handleRedirect(params) {

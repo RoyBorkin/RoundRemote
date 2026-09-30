@@ -215,6 +215,11 @@ export class DemoProvider extends Provider {
   }
   async getDevices() { return DEVICES.map((d) => ({ ...d, active: d.id === this.device.id, volume: this.vol })); }
   async selectDevice(dev) { this.device = DEVICES.find((d) => d.id === dev.id) || this.device; this._emit(); }
+  // Video view: a generated colour loop in the song's colours (no network needed).
+  async getVideo(track) {
+    const s = SONGS.find((x) => x.id === track.id);
+    return s ? { type: 'generated', hue: s.hue } : null;
+  }
   async getLyrics(track) {
     const s = SONGS.find((x) => x.id === track.id);
     if (!s) return null;

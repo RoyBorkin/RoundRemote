@@ -4,8 +4,9 @@ import { h } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, angleDelta, distFromCenter, clamp, throttle } from '../core/util.js';
 
-const RPM_DEG_PER_MS = (100 / 3) * 360 / 60000; // 33⅓ rpm
-const SLOW_DEG_PER_MS = 60 / 1000;
+// One setting drives both the spin and the scratch: the record turns once per
+// `vinylSecondsPerTurn` seconds of music (1.8 s = a real 33⅓ rpm record), so dragging it
+// one full turn moves exactly that much through the song.
 // Tone-arm geometry in a 0..100 viewBox (see README for the derivation).
 const PIVOT = { x: 86, y: 13 }, ARM_LEN = 42;
 const D = Math.hypot(50 - PIVOT.x, 50 - PIVOT.y);
@@ -14,7 +15,7 @@ function armDegForRadius(r) {
   const c = clamp((D * D + ARM_LEN * ARM_LEN - r * r) / (2 * D * ARM_LEN), -1, 1);
   return BASE_DEG - (Math.acos(c) * 180) / Math.PI;
 }
-const ARM_OUTER = armDegForRadius(43.5), ARM_INNER = armDegForRadius(25.5), ARM_REST = ARM_OUTER - 8;
+const ARM_OUTER = armDegForRadius(43.5), ARM_REST = ARM_OUTER - 8;
 
 export function createVinylView({ player, onPreview }) {
   const label = h('div.vinyl-label');
@@ -46,12 +47,25 @@ export function createVinylView({ player, onPreview }) {
   const armRot = arm.querySelector('.arm-rot');
   const el = h('div.view.view-vinyl', disc, sheen, arm);
 
+  // Centre artwork size: 0 = no artwork … 100 = artwork fills the whole record.
+  let armInner = armDegForRadius(25.5);
+  function applyLabel(v = store.get('vinylLabelSize')) {
+    v = clamp(+v || 0, 0, 100);
+    el.style.setProperty('--lbl', v);
+    el.classList.toggle('no-label', v < 1);
+    el.classList.toggle('big-label', v > 86);
+    el.classList.toggle('small-label', v < 22);
+    armInner = armDegForRadius(clamp(v / 2 + 2.5, 12, 40));
+  }
+  applyLabel();
+  const offLabel = store.on('change:vinylLabelSize', applyLabel);
+
   let rot = 0, speed = 0, lastT = performance.now();
   let dragging = false, lastAngle = 0, lastMoveT = 0, angVel = 0; // deg/ms
   let scrubMs = null, inertia = false, pointerId = null;
   let armDeg = ARM_REST;
 
-  const perTurnMs = () => (store.get('vinylSecondsPerTurn') || 12) * 1000;
+  const perTurnMs = () => (store.get('vinylSecondsPerTurn') || 1.8) * 1000;
   const liveSeek = throttle((ms) => player.seek(ms), 300);
 
   function beginScrub() { if (scrubMs == null) scrubMs = player.position(); }
@@ -113,7 +127,7 @@ export function createVinylView({ player, onPreview }) {
       // Motor: spin up quickly, coast down slowly.
       const target = s.isPlaying && !dragging ? 1 : 0;
       speed += (target - speed) * (target > speed ? 0.06 : 0.025) * (dt / 16.7);
-      if (!dragging && !inertia) rot += speed * dt * (store.get('vinylRealSpeed') ? RPM_DEG_PER_MS : SLOW_DEG_PER_MS);
+      if (!dragging && !inertia) rot += speed * dt * (360 / perTurnMs());
       if (inertia) {
         const d = angVel * dt;
         applyDelta(d);
@@ -125,11 +139,11 @@ export function createVinylView({ player, onPreview }) {
       // Tone arm follows the (possibly scrubbed) position.
       const dur = s.track?.durationMs || 0;
       const p = scrubMs ?? pos;
-      const want = dur ? ARM_OUTER + (ARM_INNER - ARM_OUTER) * clamp(p / dur, 0, 1) : ARM_REST;
+      const want = dur ? ARM_OUTER + (armInner - ARM_OUTER) * clamp(p / dur, 0, 1) : ARM_REST;
       armDeg += (want - armDeg) * (scrubMs != null ? 0.35 : 0.08);
       armRot.style.transform = `rotate(${armDeg.toFixed(2)}deg)`;
       arm.classList.toggle('lifted', !s.isPlaying || dragging);
     },
-    destroy() { onPreview?.(null); },
+    destroy() { onPreview?.(null); offLabel(); },
   };
 }

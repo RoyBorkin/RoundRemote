@@ -1,25 +1,21 @@
-// View 3: synced lyrics with seven selectable styles.
+// View 3: synced lyrics with five selectable styles (Kinetic Type has six variants).
 //   basic    – classic centred list that glides to the active line
-//   animated – karaoke: words fill in as they're sung, lines rise & blur between
+//   animated – (Kinetic Type variant) karaoke: words fill in as they're sung, lines rise & blur between
 //   typing   – typewriter / terminal, each line typed out in time
 //   roll     – 3D drum that rolls line by line
-//   kinetic  – modern moving words: each word flies in, drifts, and scatters
+//   moving   – (Kinetic Type variant) modern moving words: each word flies in, drifts, and scatters
 //   fluid    – Lyricify / Apple-Music-like flowing lyrics (see lyrics-extra.js)
 //   typo     – kinetic typography, 3 variants: stack / camera / slam (see lyrics-extra.js)
 import { h, clear } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { getLyrics, lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
-import { fluidStyle, typoStyle, TYPO_VARIANTS } from './lyrics-extra.js';
-
-export { TYPO_VARIANTS };
+import { fluidStyle, typoStyle } from './lyrics-extra.js';
 
 export const LYRIC_STYLES = [
   { id: 'basic', name: 'Basic' },
-  { id: 'animated', name: 'Animated' },
   { id: 'typing', name: 'Typing' },
   { id: 'roll', name: 'Roll' },
-  { id: 'kinetic', name: 'Moving Words' },
   { id: 'fluid', name: 'Fluid' },
   { id: 'typo', name: 'Kinetic Type' },
 ];
@@ -34,7 +30,7 @@ function basicStyle(box, lyr, api) {
   const L = lyr.lines;
   const list = h('div.lyb-list');
   const lead = h('div.lyb-line.lead', h('span.dots', h('i'), h('i'), h('i')));
-  const rows = L.map((ln) => h('div.lyb-line', { onclick: () => api.seek(ln.t) }, ln.text.trim() || '♪'));
+  const rows = L.map((ln) => h('div.lyb-line', ln.text.trim() || '♪'));
   list.append(lead, ...rows);
   box.appendChild(list);
   let cur = -99;
@@ -63,7 +59,7 @@ function animatedStyle(box, lyr, api) {
   wrap.appendChild(nextEl);
   function build(i) {
     const ln = L[i];
-    const el = h('div.lya-line.enter', { onclick: () => api.seek(ln.t) });
+    const el = h('div.lya-line.enter');
     words = (ln.words || []).map((w) => { const s = h('span.lya-w', w.text); el.append(s, ' '); return s; });
     if (!words.length) el.append(h('span.dots', h('i'), h('i'), h('i')));
     return el;
@@ -109,7 +105,7 @@ function typingStyle(box, lyr, api) {
       const i = lineAt(L, ms);
       if (i !== idx) {
         if (idx >= 0 && L[idx].text.trim()) {
-          const done = h('div.lyt-old', { onclick: () => api.seek(L[idx].t) }, L[idx].text);
+          const done = h('div.lyt-old', L[idx].text);
           log.appendChild(done);
           while (log.children.length > 4) log.firstChild.remove();
           [...log.children].forEach((c, k, a) => (c.style.opacity = String(0.14 + (0.5 * (k + 1)) / a.length)));
@@ -136,7 +132,7 @@ function rollStyle(box, lyr, api) {
   const L = lyr.lines;
   const drum = h('div.lyr-drum');
   const STEP = 22; // degrees between lines
-  const rows = L.map((ln) => h('div.lyr-line', { onclick: () => api.seek(ln.t) }, ln.text.trim() || '♪'));
+  const rows = L.map((ln) => h('div.lyr-line', ln.text.trim() || '♪'));
   drum.append(...rows);
   box.appendChild(h('div.lyr', drum));
   let last = null;
@@ -173,7 +169,7 @@ function kineticStyle(box, lyr, api) {
   const rnd = (a, b) => a + Math.random() * (b - a);
   function build(i) {
     const ln = L[i];
-    const g = h('div.lyk-group', { onclick: () => api.seek(ln.t) });
+    const g = h('div.lyk-group');
     const ws = ln.words || [];
     const longest = ws.reduce((a, w) => (w.text.length > a.length ? w.text : a), '');
     spans = ws.map((w, j) => {
@@ -225,9 +221,59 @@ function kineticStyle(box, lyr, api) {
   };
 }
 
+// Kinetic Type variants (Animated and Moving Words live here too).
+export const TYPO_VARIANTS = [
+  { id: 'stack', name: 'Stack' },
+  { id: 'camera', name: 'Camera' },
+  { id: 'slam', name: 'Slam' },
+  { id: 'animated', name: 'Animated' },
+  { id: 'moving', name: 'Moving Words' },
+  { id: 'random', name: 'Random' },
+];
+const VARIANT_FNS = {
+  stack: (b, l, a) => typoStyle(b, l, a, 'stack'),
+  camera: (b, l, a) => typoStyle(b, l, a, 'camera'),
+  slam: (b, l, a) => typoStyle(b, l, a, 'slam'),
+  animated: animatedStyle,
+  moving: kineticStyle,
+};
+
+/** Random: every new line gets a different Kinetic Type variant, cross-fading between them. */
+function randomStyle(box, lyr, api) {
+  const L = lyr.lines;
+  const pool = Object.keys(VARIANT_FNS);
+  let cur = -99, active = null, last = null;
+  function make(v) {
+    const sub = h('div.kt-sub');
+    box.appendChild(sub);
+    return { sub, r: VARIANT_FNS[v](sub, lyr, api) };
+  }
+  return {
+    tick(ms) {
+      const i = lineAt(L, ms);
+      if (i !== cur) {
+        cur = i;
+        const choices = pool.filter((v) => v !== last);
+        const v = choices[Math.floor(Math.random() * choices.length)];
+        if (active) {
+          const old = active;
+          old.sub.classList.add('fade-out');
+          setTimeout(() => { old.r.destroy(); old.sub.remove(); }, 700);
+        }
+        active = make(v); last = v;
+      }
+      active?.r.tick(ms);
+    },
+    destroy() { active?.r.destroy(); },
+  };
+}
+
 const STYLES = {
-  basic: basicStyle, animated: animatedStyle, typing: typingStyle, roll: rollStyle, kinetic: kineticStyle,
-  fluid: fluidStyle, typo: (b, l, a) => typoStyle(b, l, a, store.get('typoVariant')),
+  basic: basicStyle, typing: typingStyle, roll: rollStyle, fluid: fluidStyle,
+  typo: (b, l, a) => {
+    const v = store.get('typoVariant');
+    return v === 'random' ? randomStyle(b, l, a) : (VARIANT_FNS[v] || VARIANT_FNS.stack)(b, l, a);
+  },
 };
 
 export function createLyricsView({ player }) {
@@ -241,7 +287,7 @@ export function createLyricsView({ player }) {
   const api = {
     bg,
     get track() { return curTrack; },
-    seek: (t) => { if (player.caps.seek && lyr?.synced) player.seek(Math.max(0, t - store.get('lyricsOffsetMs') - 150)); },
+    seek: () => {}, // tapping lyrics no longer skips (it only shows/hides the controls)
   };
 
   function mount() {

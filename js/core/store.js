@@ -11,12 +11,14 @@ const DEFAULT_SPOTIFY_CLIENT_ID = 'ae4f9dd4cc124d92b33737be4ff31c1f';
 export const DEFAULTS = Object.freeze({
   lastService: null,
   autoResume: true,            // jump straight to the last service on launch
-  view: 'info',                // info | vinyl | lyrics
-  lyricsStyle: 'basic',        // basic | animated | typing | roll | kinetic | fluid | typo
-  typoVariant: 'stack',        // kinetic typography variant: stack | camera | slam
+  view: 'info',                // info | vinyl | lyrics | video
+  lyricsStyle: 'basic',        // basic | typing | roll | fluid | typo
+  typoVariant: 'stack',        // Kinetic Type: stack | camera | slam | animated | moving | random
   lyricsOffsetMs: 0,
-  vinylSecondsPerTurn: 12,     // scratch sensitivity; 1.8 = real 33⅓ rpm
-  vinylRealSpeed: true,        // spin at 33⅓ rpm while playing
+  vinylSecondsPerTurn: 1.8,    // record speed = spin + scratch: seconds of music per turn (1.8 = real 33⅓ rpm)
+  vinylLabelSize: 46,          // centre artwork size, % of the record (0 = none, 100 = full screen)
+  infoFullArt: 'clear',        // Info view artwork when controls hide: clear | milky
+  uiSize: 'L',                 // control size: XS | S | M | L | XL
   autoHideChrome: true,
   liteMode: false,             // fewer blur effects for slower GPUs (Pi 3/Zero)
   artAccent: true,
@@ -26,6 +28,9 @@ export const DEFAULTS = Object.freeze({
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)
   bridgeKnown: false,          // a bridge was found before → OK to probe for it in the background
   spotifyClientId: DEFAULT_SPOTIFY_CLIENT_ID,
+  spotifyWebPlayer: true,      // make this display a Spotify Connect speaker (Web Playback SDK)
+  youtubeApiKey: '',           // YouTube Data API v3 key: YouTube search + music videos for the Video view
+  googleClientId: '',          // Google OAuth client ID (optional): your YouTube playlists & likes
   appleDeveloperToken: '',
   jellyfinServer: '',
   plexServerId: '',

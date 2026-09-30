@@ -206,17 +206,29 @@ export function openLyricStyles() {
         variants,
         stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)),
           { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
-        h('div.opt-hint', 'Lyrics from LRCLIB (or your server). Tap a line to jump there.'),
+        h('div.opt-hint', 'Lyrics from LRCLIB (or your server).'),
       );
     },
   });
 }
 
-export function openMore() {
+// seconds of music per turn → shown as rpm (1.8 s = a real 33⅓ rpm record)
+export const VINYL_SPEEDS = [
+  { id: 1.333, name: '45 rpm' }, { id: 1.8, name: '33⅓ rpm' }, { id: 3.75, name: '16 rpm' }, { id: 7.5, name: '8 rpm' }, { id: 15, name: '4 rpm' },
+];
+export const vinylArtFmt = (v) => (v <= 0 ? 'No artwork' : v >= 100 ? 'Full screen' : `${Math.round(v)}%`);
+export const vinylArtSlider = () => slider('Centre artwork', () => store.get('vinylLabelSize'), (v) => store.set('vinylLabelSize', v),
+  { min: 0, max: 100, step: 1, fmt: vinylArtFmt, ends: ['None', 'Full'] });
+export const infoArtChips = () => h('div.opt', h('div.opt-label', 'Full-screen art when controls hide'),
+  chips([{ id: 'clear', name: 'Original clear' }, { id: 'milky', name: 'Milky blur' }], store.get('infoFullArt'), (v) => store.set('infoFullArt', v)));
+
+export function openMore(view = 'info') {
   openPanel({
-    title: 'Playback', className: 'opts-panel',
+    title: view === 'vinyl' ? 'Vinyl' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
+      if (view === 'vinyl') body.append(vinylArtSlider());
+      if (view === 'info') body.append(infoArtChips());
       const toggles = h('div.toggles');
       if (c.shuffle) {
         const b = h(`button.tog${s.shuffle ? '.on' : ''}`, { type: 'button', html: `${icon('shuffle')}<span>Shuffle</span>` });
@@ -235,12 +247,22 @@ export function openMore() {
           h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); player.seekBy(-15000); } }, '−15s'),
           h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); player.seekBy(15000); } }, '+15s'))));
       }
-      body.append(h('div.opt', h('div.opt-label', 'Vinyl scratch speed'), chips([
-        { id: 1.8, name: 'Real 33⅓' }, { id: 6, name: 'Slow' }, { id: 12, name: 'Normal' }, { id: 30, name: 'Fast' },
-      ], store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))));
-      if (!toggles.children.length && !c.seek) body.append(h('div.opt-hint', 'This device only supports basic controls.'));
+      if (view === 'vinyl') {
+        body.append(h('div.opt', h('div.opt-label', 'Record speed (spin + scratch)'), chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))));
+      }
     },
   });
+}
+
+export function slider(label, get, set, { min = 0, max = 100, step = 1, fmt = (v) => v, ends = null } = {}) {
+  const val = h('span.slider-val', fmt(get()));
+  const input = h('input.slider', { type: 'range', min, max, step, value: get(), 'aria-label': label });
+  const paint = () => input.style.setProperty('--fill', `${((+input.value - min) / (max - min)) * 100}%`);
+  input.addEventListener('input', () => { set(+input.value); val.textContent = fmt(+input.value); paint(); });
+  input.addEventListener('pointerdown', (e) => e.stopPropagation());
+  paint();
+  return h('div.opt', h('div.opt-label', label),
+    h('div.slider-row', ends ? h('span.slider-end', ends[0]) : null, input, ends ? h('span.slider-end', ends[1]) : null), val);
 }
 
 export function toggle(label, get, set) {

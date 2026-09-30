@@ -21,7 +21,7 @@ const DEFAULTS = {
   port: 8765,
   host: '0.0.0.0',
   allowedOrigins: ['https://royborkin.github.io'],
-  adapters: { roon: true, upnp: true, cast: true, airplay: true, mock: false },
+  adapters: { roon: true, upnp: true, cast: true, airplay: process.platform === 'linux', mock: false }, // AirPlay needs shairport-sync (Linux/Pi)
   airplay: { metadataPipe: '/tmp/shairport-sync-metadata', bus: 'system', name: 'Round Display' },
   upnp: { pollMs: 2000, searchEverySec: 60 },
   apple: { teamId: '', keyId: '', privateKeyPath: '' },

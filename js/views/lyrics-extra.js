@@ -14,11 +14,6 @@ import { h } from '../ui/dom.js';
 import { lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
 
-export const TYPO_VARIANTS = [
-  { id: 'stack', name: 'Stack' },
-  { id: 'camera', name: 'Camera' },
-  { id: 'slam', name: 'Slam' },
-];
 
 const lineEnd = (L, i) => (L[i + 1] ? L[i + 1].t : L[i].t + 6000);
 const wordEnd = (ln, j, L, i) => (ln.words[j + 1] ? ln.words[j + 1].t : Math.min(lineEnd(L, i), ln.words[j].t + 1600));
@@ -52,7 +47,7 @@ export function fluidStyle(box, lyr, api) {
   const list = h('div.flu-list');
   const lead = h('div.flu-line.lead', dots());
   const rows = L.map((ln, i) => {
-    const el = h('div.flu-line', { onclick: () => api.seek(ln.t) });
+    const el = h('div.flu-line');
     const words = (ln.words || []).map((w, j) => {
       const dur = wordEnd(ln, j, L, i) - w.t;
       const emph = dur > 950 && clean(w.text).length >= 3;
@@ -157,7 +152,7 @@ function typoStack(box, lyr, api) {
     const ln = L[i];
     const W = box.clientWidth * 0.8, H = box.clientHeight;
     cam.style.width = `${W}px`;
-    const b = h('div.kt-block', { style: { width: `${W}px` }, onclick: () => api.seek(ln.t) });
+    const b = h('div.kt-block', { style: { width: `${W}px` } });
     spans = []; rowEls = [];
     rowsOf(ln.words || []).forEach((idxs, r) => {
       const text = idxs.map((k) => ln.words[k].text).join(' ').toUpperCase();
@@ -223,7 +218,7 @@ function typoCamera(box, lyr, api) {
   function build(i) {
     const ln = L[i];
     const W = box.clientWidth * 0.78, H = box.clientHeight;
-    const el = h('div.kt-cblock', { style: { width: `${W}px` }, onclick: () => api.seek(ln.t) });
+    const el = h('div.kt-cblock', { style: { width: `${W}px` } });
     const base = H * 0.085;
     const spans = (ln.words || []).map((w, j) => {
       const len = clean(w.text).length;

@@ -5,6 +5,7 @@ import { toast } from '../ui/overlay.js';
 import { getService, provider } from '../providers/registry.js';
 import { bridgeInfo, bridgeBase } from '../providers/bridge.js';
 import { redirectUri } from '../providers/spotify.js';
+import { googleSignIn, googleSignOut, googleSignedIn } from '../core/youtube.js';
 import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
@@ -49,6 +50,7 @@ export function ConnectScreen({ id }) {
     const kind = svc.kind;
     if (id === 'demo') { body.append(h('div.actions', btn('Start demo', () => openService(id), 'primary'))); return; }
     if (kind === 'bridge') return renderBridge();
+    if (kind === 'youtube') return renderYouTube();
     if (id === 'spotify') return renderSpotify();
     if (id === 'apple') return renderApple();
     if (id === 'plex') return renderPlex();
@@ -60,11 +62,38 @@ export function ConnectScreen({ id }) {
     body.append(f,
       h('div.note', 'Add this Redirect URI to your Spotify app:'),
       h('code.uri', redirectUri()));
-    if (signedIn()) { body.append(signedInActions()); return; }
+    if (signedIn()) {
+      const scope = store.auth('spotify')?.scope || '';
+      if (store.get('spotifyWebPlayer') && !/\bstreaming\b/.test(scope)) {
+        body.append(h('div.note', 'Sign in once more to also use this display as a Spotify speaker.'),
+          h('div.actions', btn('Sign in again', () => p.connect().catch((e) => setStatus(err(e), 'error')))));
+      }
+      body.append(signedInActions(), status);
+      return;
+    }
+    body.append(h('div.note.dim', 'Remote control needs Spotify Premium. In the developer dashboard, add your account under User Management.'));
     body.append(h('div.actions', btn('Sign in with Spotify', async () => {
       store.set('spotifyClientId', f.querySelector('input').value.trim());
       try { await p.connect(); } catch (e) { setStatus(err(e), 'error'); }
     }, 'primary')), status);
+  }
+
+  function renderYouTube() {
+    const key = field({ label: 'YouTube Data API key', value: store.get('youtubeApiKey'), secret: true, placeholder: 'AIza…', onChange: (v) => store.set('youtubeApiKey', v) });
+    const cid = field({ label: 'Google OAuth Client ID (optional)', value: store.get('googleClientId'), placeholder: '…apps.googleusercontent.com', onChange: (v) => store.set('googleClientId', v) });
+    const save = () => {
+      store.set('youtubeApiKey', key.querySelector('input').value.trim());
+      store.set('googleClientId', cid.querySelector('input').value.trim());
+    };
+    body.append(key, cid,
+      h('div.note.dim', 'The API key is free (Google Cloud → YouTube Data API v3) — see the README. The Client ID only adds your own playlists.'));
+    const actions = h('div.actions', btn('Open remote', () => { save(); if (p.setupHint()) setStatus(p.setupHint(), 'error'); else openService(id); }, 'primary'));
+    if (googleSignedIn()) actions.append(btn('Sign out of Google', () => { googleSignOut(); render(); toast('Signed out'); }));
+    else actions.append(btn('Sign in with Google', async () => {
+      save();
+      try { await googleSignIn(); toast('Signed in with Google'); render(); } catch (e) { setStatus(err(e), 'error'); }
+    }));
+    body.append(actions, status);
   }
 
   function renderApple() {
@@ -143,7 +172,13 @@ export function ConnectScreen({ id }) {
     const bf = field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto (http://localhost:8765)', onChange: async (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); await bridgeBase({ force: true }); render(); } });
     const info = await bridgeInfo();
     if (!info) {
-      setStatus('Bridge not found. Start it on the Pi: node bridge/server.js', 'error');
+      setStatus('Bridge not found.', 'error');
+      body.append(
+        h('div.note', 'This service talks to devices on your home network, which a web page can’t reach on its own. Run the small bridge on this computer (or the Pi):'),
+        h('code.uri', 'Windows: double-click start-bridge.bat\nMac/Linux: ./start-bridge.sh'),
+        h('div.note.dim', 'Needs Node.js. Chrome will ask to allow access to your local network — choose Allow.'),
+        h('div.actions', btn('Try again', async () => { await bridgeBase({ force: true }); render(); }), btn('Try the Demo', () => openService('demo'))),
+      );
     } else {
       const base = await bridgeBase();
       const a = adapter ? info.adapters?.[adapter] : null;

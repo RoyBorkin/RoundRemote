@@ -46,8 +46,9 @@ export function iconBtn(name, label, onClick, extraClass = '') {
 /** Position an element on a circle: angle in degrees (0 = top, clockwise), radius in % of the container. */
 export function onCircle(el, angleDeg, radiusPct) {
   const a = (angleDeg * Math.PI) / 180;
-  el.style.left = `${50 + radiusPct * Math.sin(a)}%`;
-  el.style.top = `${50 - radiusPct * Math.cos(a)}%`;
+  // --rad lets CSS pull buttons inward (e.g. for the XL control size).
+  el.style.left = `calc(50% + ${Math.sin(a).toFixed(4)} * var(--rad, ${radiusPct}) * 1%)`;
+  el.style.top = `calc(50% - ${Math.cos(a).toFixed(4)} * var(--rad, ${radiusPct}) * 1%)`;
   el.classList.add('on-circle');
   return el;
 }
@@ -77,6 +78,27 @@ export function onLongPress(el, fn, ms = 550) {
 }
 
 /** Service monogram badge. */
+const ICON_CDN = 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/';
+const iconOk = new Map(); // slug -> Promise<boolean>
+function probeIcon(slug) {
+  if (!iconOk.has(slug)) {
+    iconOk.set(slug, new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res(true); img.onerror = () => res(false);
+      img.src = ICON_CDN + slug + '.svg';
+    }));
+  }
+  return iconOk.get(slug);
+}
+
+/** Service badge: the platform's icon (Simple Icons) in its brand colour; initials if offline. */
 export function badge(svc, size = '') {
-  return h(`div.badge${size ? '.' + size : ''}`, { '--c': svc.color, 'aria-hidden': 'true' }, h('span', svc.mono));
+  const el = h(`div.badge${size ? '.' + size : ''}`, { '--c': svc.color, 'aria-hidden': 'true' }, h('span.badge-mono', svc.mono));
+  if (svc.glyph) { el.classList.add('has-icon'); el.append(h('i.badge-glyph', { html: icon(svc.glyph) })); }
+  else if (svc.icon) {
+    const i = h('i.badge-ic', { '--src': `url("${ICON_CDN}${svc.icon}.svg")` });
+    el.append(i);
+    probeIcon(svc.icon).then((ok) => el.classList.toggle('has-icon', ok));
+  }
+  return el;
 }

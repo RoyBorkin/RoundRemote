@@ -9,10 +9,29 @@ const API = 'https://api.spotify.com/v1/';
 const SCOPES = [
   'user-read-playback-state', 'user-modify-playback-state', 'user-read-currently-playing',
   'playlist-read-private', 'playlist-read-collaborative', 'user-library-read',
+  // Web Playback SDK — lets this display itself be a Spotify Connect speaker
+  'streaming', 'user-read-email', 'user-read-private',
 ].join(' ');
 const STATE = 'rr-spotify';
+const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 
-export function redirectUri() { return location.origin + location.pathname; }
+let sdkPromise = null;
+function loadSdk() {
+  if (window.Spotify?.Player) return Promise.resolve();
+  if (sdkPromise) return sdkPromise;
+  sdkPromise = new Promise((resolve, reject) => {
+    const t = setTimeout(() => { sdkPromise = null; reject(new Error('Spotify player SDK timed out')); }, 15000);
+    window.onSpotifyWebPlaybackSDKReady = () => { clearTimeout(t); resolve(); };
+    const s = document.createElement('script');
+    s.src = SDK_URL; s.async = true;
+    s.onerror = () => { clearTimeout(t); sdkPromise = null; reject(new Error('Spotify player SDK failed to load')); };
+    document.head.appendChild(s);
+  });
+  return sdkPromise;
+}
+
+/** The page URL without query/hash or a trailing index.html — register exactly this in the Spotify dashboard. */
+export function redirectUri() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
 
 export class SpotifyProvider extends Provider {
   constructor(meta) {
@@ -56,6 +75,7 @@ export class SpotifyProvider extends Provider {
       access: res.access_token,
       refresh: res.refresh_token || prev.refresh,
       expiresAt: Date.now() + (res.expires_in || 3600) * 1000,
+      scope: res.scope || prev.scope || '',
     });
   }
   async _refresh() {
@@ -106,6 +126,7 @@ export class SpotifyProvider extends Provider {
   // ---------- state ----------
   async start() {
     this.publish({ status: 'loading' });
+    this._startWebPlayer().catch((e) => console.info('spotify web player', e.message));
     await this.refresh().catch(() => {});
     const loop = async () => {
       const hidden = document.hidden;
@@ -117,7 +138,36 @@ export class SpotifyProvider extends Provider {
     };
     loop();
   }
+  // Keep the web player connected when switching services so music on this display keeps playing.
   stop() { clearTimeout(this.timer); this.timer = null; }
+
+  // ---------- this display as a Spotify Connect speaker (Web Playback SDK, Premium) ----------
+  async _startWebPlayer() {
+    if (!store.get('spotifyWebPlayer') || this.webPlayer || !window.isSecureContext) return;
+    const scope = store.auth('spotify')?.scope;
+    if (scope && !/\bstreaming\b/.test(scope)) {
+      this.emit('notice', 'Sign in to Spotify again to use this display as a speaker');
+      return;
+    }
+    await loadSdk();
+    const p = new window.Spotify.Player({
+      name: 'Round Remote',
+      getOAuthToken: (cb) => { this._token().then(cb).catch(() => {}); },
+      volume: 0.7,
+    });
+    p.addListener('ready', ({ device_id: id }) => { this.localDeviceId = id; });
+    p.addListener('not_ready', () => { this.localDeviceId = null; });
+    p.addListener('initialization_error', ({ message }) => { console.info('spotify sdk', message); this.emit('notice', 'This browser can’t play Spotify audio (needs Widevine DRM) — it can still remote-control other devices'); });
+    p.addListener('authentication_error', () => this.emit('notice', 'Sign in to Spotify again to use this display as a speaker'));
+    p.addListener('account_error', () => this.emit('notice', 'Playing on this display needs Spotify Premium'));
+    p.addListener('player_state_changed', () => { if (this.state.device?.id === this.localDeviceId) setTimeout(() => this.refresh().catch(() => {}), 250); });
+    if (await p.connect()) {
+      this.webPlayer = p;
+      // Browsers only allow audio after a user gesture: unlock on the first touch.
+      const unlock = () => { try { p.activateElement?.(); } catch {} };
+      document.addEventListener('pointerdown', unlock, { once: true, capture: true });
+    }
+  }
 
   async refresh() {
     const d = await this.api('me/player?additional_types=episode');
@@ -147,7 +197,7 @@ export class SpotifyProvider extends Provider {
     });
     if (d.device?.id) store.setZone('spotify', d.device.id);
   }
-  _dev(d) { return { id: d.id, name: d.name, type: d.type }; }
+  _dev(d) { return { id: d.id, name: d.id === this.localDeviceId ? 'This display' : d.name, type: d.type }; }
 
   // ---------- transport ----------
   async _withDevice(fn) {
@@ -156,7 +206,7 @@ export class SpotifyProvider extends Provider {
       // Nothing active: wake the last used (or first available) device and retry.
       const { devices = [] } = (await this.api('me/player/devices')) || {};
       const want = store.getZone('spotify');
-      const dev = devices.find((d) => d.id === want) || devices[0];
+      const dev = devices.find((d) => d.id === want) || devices.find((d) => d.id !== this.localDeviceId) || devices[0];
       if (!dev) throw e;
       await this.api('me/player', { method: 'PUT', json: { device_ids: [dev.id], play: false } });
       await sleep(700);
@@ -219,11 +269,18 @@ export class SpotifyProvider extends Provider {
   }
   async getDevices() {
     const d = await this.api('me/player/devices');
-    return (d?.devices || []).map((x) => ({ id: x.id, name: x.name, type: x.type, active: x.is_active, volume: x.volume_percent }));
+    return (d?.devices || []).map((x) => ({
+      id: x.id, name: x.id === this.localDeviceId ? 'This display' : x.name,
+      type: x.id === this.localDeviceId ? 'Round Remote (plays here)' : x.type, active: x.is_active, volume: x.volume_percent,
+    }));
   }
   async selectDevice(dev) {
     await this.api('me/player', { method: 'PUT', json: { device_ids: [dev.id], play: this.state.isPlaying || undefined } });
     store.setZone('spotify', dev.id);
   }
-  signOut() { store.setAuth('spotify', null); }
+  signOut() {
+    try { this.webPlayer?.disconnect(); } catch {}
+    this.webPlayer = null; this.localDeviceId = null;
+    store.setAuth('spotify', null);
+  }
 }

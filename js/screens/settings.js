@@ -3,7 +3,7 @@
 import { h, iconBtn, onCircle, badge } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
 import { curve, toast } from '../ui/overlay.js';
-import { chips, stepper, toggle } from './panels.js';
+import { chips, stepper, toggle, vinylArtSlider, infoArtChips, VINYL_SPEEDS } from './panels.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
@@ -23,9 +23,11 @@ export function SettingsScreen() {
 
   list.append(
     section('Display'),
-    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }], store.get('view'), (v) => store.set('view', v))),
+    opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
+    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
     toggle('Colours from artwork', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
+    infoArtChips(),
     toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
@@ -37,8 +39,8 @@ export function SettingsScreen() {
     stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
 
     section('Vinyl'),
-    opt('Scratch speed', chips([{ id: 1.8, name: 'Real 33⅓' }, { id: 6, name: 'Slow' }, { id: 12, name: 'Normal' }, { id: 30, name: 'Fast' }], store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
-    toggle('Spin at real 33⅓ rpm', () => store.get('vinylRealSpeed'), (v) => store.set('vinylRealSpeed', v)),
+    vinylArtSlider(),
+    opt('Record speed (spin + scratch)', chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
 
     section('Connection'),
     field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
@@ -46,6 +48,9 @@ export function SettingsScreen() {
 
     section('Service keys'),
     field({ label: 'Spotify Client ID', value: store.get('spotifyClientId'), onChange: (v) => store.set('spotifyClientId', v) }),
+    toggle('Play Spotify on this display', () => store.get('spotifyWebPlayer'), (v) => store.set('spotifyWebPlayer', v)),
+    field({ label: 'YouTube Data API key', value: store.get('youtubeApiKey'), secret: true, placeholder: 'for YouTube + music videos', onChange: (v) => store.set('youtubeApiKey', v) }),
+    field({ label: 'Google OAuth Client ID', value: store.get('googleClientId'), placeholder: 'optional: your YouTube playlists', onChange: (v) => store.set('googleClientId', v) }),
     field({ label: 'Apple developer token', value: store.get('appleDeveloperToken'), secret: true, onChange: (v) => store.set('appleDeveloperToken', v) }),
     field({ label: 'Jellyfin server', value: store.get('jellyfinServer'), placeholder: 'http://192.168.1.20:8096', onChange: (v) => store.set('jellyfinServer', v.replace(/\/$/, '')) }),
 

@@ -22,6 +22,24 @@ register('player', () => { playerScreen = PlayerScreen(); return playerScreen; }
 register('connect', (p) => { closeAllPanels(); return ConnectScreen(p); });
 register('settings', () => { closeAllPanels(); return SettingsScreen(); });
 
+// ---------- control size (XS … XL; L is the original size) ----------
+export const UI_SIZES = { XS: 0.7, S: 0.8, M: 0.9, L: 1, XL: 1.12 };
+const applyUi = () => app.style.setProperty('--ui', UI_SIZES[store.get('uiSize')] || 1);
+applyUi();
+store.on('change:uiSize', applyUi);
+
+// Animated and Moving Words used to be separate lyric styles; they're Kinetic Type variants now.
+if (['animated', 'kinetic'].includes(store.get('lyricsStyle'))) {
+  store.set('typoVariant', store.get('lyricsStyle') === 'animated' ? 'animated' : 'moving');
+  store.set('lyricsStyle', 'typo');
+}
+
+// Record speed used to be a scratch-only setting with other values; map old values over.
+{
+  const v = store.get('vinylSecondsPerTurn');
+  if (![1.333, 1.8, 3.75, 7.5, 15].includes(v)) store.set('vinylSecondsPerTurn', v <= 2 || v === 12 ? 1.8 : v <= 5 ? 3.75 : v <= 10 ? 7.5 : 15);
+}
+
 // ---------- low-power look ----------
 const applyLite = () => app.classList.toggle('lite', !!store.get('liteMode'));
 applyLite();
@@ -60,7 +78,7 @@ window.addEventListener('keydown', (e) => {
     ArrowDown: () => player.caps.volume && player.setVolume((player.state.volume ?? 50) - 5),
     n: () => player.next(), MediaTrackNext: () => player.next(),
     p: () => player.prev(), MediaTrackPrevious: () => player.prev(),
-    1: () => playerScreen?.setView('info'), 2: () => playerScreen?.setView('vinyl'), 3: () => playerScreen?.setView('lyrics'),
+    1: () => playerScreen?.setView('info'), 2: () => playerScreen?.setView('vinyl'), 3: () => playerScreen?.setView('lyrics'), 4: () => playerScreen?.setView('video'),
     l: () => playerScreen?.cycleLyricStyle(), v: () => openVolume(), '/': () => openSearch(), b: () => openLibrary(),
   };
   const fn = map[k] || map[k.toLowerCase?.()];
@@ -100,3 +118,8 @@ async function boot() {
 for (const svc of SERVICES) provider(svc.id).on('signedout', () => { toast(`${svc.name}: please sign in again`, { kind: 'error' }); go('connect', { id: svc.id }); });
 
 boot().catch((e) => { console.error(e); go('home'); });
+
+// Installable + works offline (GitHub Pages is https; the Pi uses 127.0.0.1).
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((e) => console.info('sw', e.message)));
+}

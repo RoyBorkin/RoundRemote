@@ -79,7 +79,7 @@ export function create({ hub, cfg, setStatus }) {
   function open() {
     clearTimeout(retryT);
     if (!fs.existsSync(conf.metadataPipe)) {
-      setStatus(`waiting for shairport-sync (${conf.metadataPipe} not found)`, true);
+      setStatus(`waiting for shairport-sync (${conf.metadataPipe} not found)`, false);
       retryT = setTimeout(open, 10000);
       return;
     }

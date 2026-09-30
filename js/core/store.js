@@ -33,6 +33,8 @@ export const DEFAULTS = Object.freeze({
   vinylShowTitle: true,        // Vinyl view: song / artist / album text around the label
   videoShowArt: true,          // Video view: the round artwork over the video
   videoMode: 'video',          // Video view: video | slides (photo slideshow)
+  videoPreferClip: true,       // Video view: try the official clip first when there is one
+  videoHud: false,             // Video view: show song, artist, album and time left while the controls are hidden
   videoKinds: null,            // Video view: kinds of video to use — clip, abstract, live, fan, cover, lyric (null = clip + live)
   factSeconds: 12,             // Fun Facts: seconds per fact
   toneVariant: 'ferro',        // Tone Visual style

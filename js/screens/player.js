@@ -228,11 +228,12 @@ export function PlayerScreen() {
     el.classList.toggle('arm-autohide', store.get('vinylArmHide') !== false);
     el.classList.toggle('vinyl-notitle', store.get('vinylShowTitle') === false);
     el.classList.toggle('video-noart', store.get('videoShowArt') === false);
+    el.classList.toggle('video-hud', !!store.get('videoHud'));
     el.classList.toggle('no-pill', store.get('showDevicePill') === false);
   };
   applyArtMode();
   const offs = [
-    ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'showDevicePill'].map((k) => store.on(`change:${k}`, applyArtMode)),
+    ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'videoHud', 'showDevicePill'].map((k) => store.on(`change:${k}`, applyArtMode)),
     store.on('change:infoAutoHide', () => showChrome()),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),

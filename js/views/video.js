@@ -15,6 +15,8 @@ import { createInfoView } from './info.js';
 import { loadIframeApi, findMusicVideo, canSearch } from '../core/youtube.js';
 import { songPhotos } from '../core/songinfo.js';
 import { store } from '../core/store.js';
+import { fmtTime } from '../core/util.js';
+import { dirOf } from '../lyrics/bidi.js';
 
 /** The video kinds the user picked (older setups had a single clip/live choice). */
 export function videoKinds() {
@@ -28,7 +30,19 @@ export function createVideoView({ player }) {
   const shade = h('div.vid-shade');
   const note = h('div.vid-note');
   const info = createInfoView();
-  const el = h('div.view.view-video', layer, shade, info.el, note);
+  // song info shown over the video while the controls are hidden (option "Show song info when the controls hide")
+  const hTitle = h('div.vh-title'), hSub = h('div.vh-sub'), hLeft = h('span.vh-left'), hBar = h('i.vh-bar');
+  const hud = h('div.vid-hud', hTitle, hSub, h('div.vh-foot', hLeft, h('div.vh-track', hBar)));
+  const el = h('div.view.view-video', layer, shade, info.el, hud, note);
+  let hudKey = null, hudLeft = '';
+  function paintHud(t) {
+    const k = t ? `${t.id}|${t.title}` : null;
+    if (k === hudKey) return;
+    hudKey = k;
+    hTitle.textContent = t?.title || ''; hTitle.dir = dirOf(hTitle.textContent);
+    hSub.dir = dirOf(`${t?.title || ''} ${t?.artist || ''}`);
+    hSub.replaceChildren(...[t?.artist, t?.album].filter(Boolean).flatMap((x, i) => (i ? [h('span.vh-dot', '·'), h('span', { dir: dirOf(x) }, x)] : [h('span', { dir: dirOf(x) }, x)])));
+  }
   let key = null, bg = null, gen = null, slides = null, lastSync = 0, destroyed = false;
   const END_SKIP = 20; // seconds at the end of a video that are never shown (end screens / suggestions)
 
@@ -50,7 +64,8 @@ export function createVideoView({ player }) {
   async function load(track) {
     const mode = store.get('videoMode') || 'video';
     const kinds = videoKinds();
-    const k = track ? `${track.id}|${track.title}|${mode}|${kinds.join(',')}` : null;
+    const preferClip = store.get('videoPreferClip') !== false;
+    const k = track ? `${track.id}|${track.title}|${mode}|${kinds.join(',')}|${preferClip}` : null;
     if (k === key) return;
     key = k;
     reset();
@@ -65,7 +80,7 @@ export function createVideoView({ player }) {
     if (own?.type === 'youtube') return startYouTube(own.id, k);
     if (!canSearch()) { artFallback(track, 'Add a YouTube API key in Settings to show music videos'); return; }
     let id = null;
-    try { id = await findMusicVideo(track, { kinds }); } catch (e) { if (key === k) artFallback(track, e.userMessage || 'Video search failed'); return; }
+    try { id = await findMusicVideo(track, { kinds, preferClip }); } catch (e) { if (key === k) artFallback(track, e.userMessage || 'Video search failed'); return; }
     if (key !== k || destroyed) return;
     if (id) startYouTube(id, k);
     else artFallback(track, 'No video of the chosen types found for this song');
@@ -165,12 +180,16 @@ export function createVideoView({ player }) {
   }
 
   const reload = () => { key = null; load(player.state.track); };
-  const offs = [store.on('change:videoMode', reload), store.on('change:videoKinds', reload)];
+  const offs = [store.on('change:videoMode', reload), store.on('change:videoKinds', reload), store.on('change:videoPreferClip', reload)];
 
   return {
     el,
-    update(s) { info.update(s); load(s.track); layer.classList.toggle('paused', !s.isPlaying); },
+    update(s) { info.update(s); paintHud(s.track); load(s.track); layer.classList.toggle('paused', !s.isPlaying); },
     tick(pos, s) {
+      const d = s?.track?.durationMs || 0;
+      const left = d ? `−${fmtTime(Math.max(0, d - pos))}` : '';
+      if (left !== hudLeft) { hudLeft = left; hLeft.textContent = left; }
+      if (d) hBar.style.transform = `scaleX(${Math.min(1, pos / d).toFixed(4)})`;
       if (!bg?.ready) return;
       const now = performance.now();
       if (now - lastSync < 400) return;

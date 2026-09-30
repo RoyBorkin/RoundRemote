@@ -280,6 +280,8 @@ export const VIDEO_MODES = [{ id: 'video', name: 'Music video' }, { id: 'slides'
 export const videoOpts = () => [
   h('div.opt', h('div.opt-label', 'Background'), chips(VIDEO_MODES, store.get('videoMode'), (v) => store.set('videoMode', v))),
   h('div.opt', h('div.opt-label', 'Video types (pick one or more)'), multiChips(VIDEO_KINDS, videoKinds, (v) => store.set('videoKinds', v))),
+  flag('videoPreferClip', 'Prefer the official clip when there is one'),
+  toggle('Show song info when the controls hide', () => !!store.get('videoHud'), (v) => store.set('videoHud', v)),
   videoArtToggle(),
 ];
 export const FACT_SECONDS = [6, 8, 12, 20, 30, 60].map((n) => ({ id: n, name: `${n} s` }));

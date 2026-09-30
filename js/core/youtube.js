@@ -188,14 +188,14 @@ const seeded = (arr, seed) => {
  * mixes official clips, live shows, visualizers… Covers by other artists, karaoke, remixes, loops,
  * shorts and anything far longer or shorter than the song are always skipped.
  */
-export async function findMusicVideo(track, { kinds = ['clip', 'live'] } = {}) {
+export async function findMusicVideo(track, { kinds = ['clip', 'live'], preferClip = false } = {}) {
   if (!track?.title) return null;
   const want = normalizeText(track.title);
   const artist = (track.artist || '').split(/,|&| feat\.? | ft\.? /i)[0].trim();
   const artistNorm = normalizeText(artist);
   const picked = VIDEO_KINDS.map((k) => k.id).filter((id) => kinds.includes(id));
   if (!picked.length) picked.push('clip');
-  const key = `${picked.join(',')}|${artistNorm}|${want}`;
+  const key = `${preferClip ? 'pc|' : ''}${picked.join(',')}|${artistNorm}|${want}`;
   const cache = mvCache();
   if (key in cache) return cache[key];
   if (!canSearch()) return null;
@@ -204,7 +204,10 @@ export async function findMusicVideo(track, { kinds = ['clip', 'live'] } = {}) {
     const wantsRemix = /remix|mix\b/i.test(track.title);
     const songSec = (track.durationMs || 0) / 1000;
     const tried = new Map(); // videoId → { it, kind, score }
-    for (const kindId of seeded(picked, `${artistNorm}|${want}`)) {
+    // "Prefer official clip": try the official clip first, then the picked types in this song's order
+    let order = seeded(picked, `${artistNorm}|${want}`);
+    if (preferClip) order = ['clip', ...order.filter((k) => k !== 'clip')];
+    for (const kindId of order) {
       const kind = VIDEO_KINDS.find((k) => k.id === kindId);
       const d = await data('search', { part: 'snippet', type: 'video', maxResults: 12, videoEmbeddable: 'true', videoSyndicated: 'true', q: `${artist} ${track.title} ${kind.query}` });
       const items = (d?.items || []).filter((it) => it.id?.videoId && !tried.has(it.id.videoId));
@@ -239,7 +242,7 @@ export async function findMusicVideo(track, { kinds = ['clip', 'live'] } = {}) {
       }
     }
     // nothing great for the first choices: take the best of any picked kind we saw
-    const any = [...tried.values()].filter((c) => picked.includes(c.kind)).sort((a, b) => b.score - a.score)[0];
+    const any = [...tried.values()].filter((c) => order.includes(c.kind)).sort((a, b) => b.score - a.score)[0];
     const id = any && any.score >= 4 ? any.it.id.videoId : null;
     const c = mvCache(); c[key] = id; mvSave(c);
     return id;

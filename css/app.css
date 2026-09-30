@@ -937,6 +937,19 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 .vid-credit { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font-size: 1.8cqmin; letter-spacing: .06em; color: rgba(255,255,255,.55);
   text-shadow: 0 0 1cqmin rgba(0,0,0,.8); white-space: nowrap; }
 
+/* Video: song info over the video while the controls are hidden */
+.vid-hud { position: absolute; left: 14%; right: 14%; bottom: 13%; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .8cqmin;
+  padding: 3cqmin 4cqmin 2.4cqmin; border-radius: 4cqmin; background: radial-gradient(ellipse at 50% 60%, rgba(0,0,0,.55), rgba(0,0,0,0) 72%);
+  opacity: 0; transform: translateY(3%); transition: opacity .6s, transform .6s; pointer-events: none; text-shadow: 0 .2cqmin 1.2cqmin rgba(0,0,0,.85); }
+.player.video-hud[data-view="video"].chrome-hidden .vid-hud { opacity: 1; transform: none; }
+.vh-title { font-size: 5.4cqmin; font-weight: 800; letter-spacing: -.015em; line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vh-sub { font-size: 2.9cqmin; font-weight: 600; color: rgba(255,255,255,.82); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vh-dot { margin: 0 1.2cqmin; opacity: .6; }
+.vh-foot { display: flex; align-items: center; gap: 1.6cqmin; margin-top: .6cqmin; font-size: 2.8cqmin; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.vh-track { width: 18cqmin; height: .5cqmin; border-radius: 99px; background: rgba(255,255,255,.22); overflow: hidden; }
+.vh-bar { display: block; height: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(0); }
+.player.video-hud[data-view="video"].chrome-hidden .vid-credit, .player.video-hud[data-view="video"].chrome-hidden .vid-note { opacity: 0; }
+
 /* View 6 · Fun Facts */
 .player[data-view="facts"] .bg-art { filter: blur(6cqmin) brightness(.38) saturate(1.3); }
 .view-facts { display: grid; place-items: center; }

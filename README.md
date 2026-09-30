@@ -61,6 +61,8 @@ The current song can be shown **six ways**:
    - **Video types:** pick one or more of *Official clip*, *Abstract* (visualizers and animated videos), *Live*, *Fan made*, *Album cover* (the song with its cover art) and *Lyric video*. Every YouTube result is sorted into one of these from its title and channel, and only the types you picked are used. With several picked, each song tries them in its own order, so a playlist gets a mix. Covers by other artists, karaoke, remixes, slowed/sped-up versions, loops, shorts and videos much longer or shorter than the song are always skipped.
    - **No suggestion screens:** the last 20 seconds of a video (where YouTube puts its end screens) are never played; it loops before them. The video fades out while the song is paused, so YouTube's "More videos" panel never shows.
    - **Photo slideshow** (instead of a video): photos of the artist and album from Wikipedia, Wikimedia Commons and Deezer, crossfading with a slow zoom.
+   - **Prefer the official clip** (on by default): when a song has an official clip, it's used first, whatever else you picked; the other types are the fallback.
+   - **Show song info when the controls hide** (off by default): the song name, artist, album and time left, with a small progress bar, over the video.
    - The round artwork on top can be hidden.
 5. **Tone Visual:** abstract shapes and colours that move with the music, in eight styles:
    - **Ferrofluid:** black magnetic liquid in a glowing lamp. Spikes rise with the bass; the fluid pulls together when it's loud and breaks into droplets when it's quiet.
@@ -384,7 +386,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Colours from artwork | Accent colour follows the album art |
 | Classic: when the controls hide, show | Artwork (clear or milky blur) or song info (on black or on blurred art) |
 | Classic: show the artwork / hide the controls by themselves | Round artwork in the middle; Classic-only auto-hide |
-| Video: background / video types / show the artwork | Music video or photo slideshow; any mix of official clip, abstract, live, fan made, album cover and lyric video |
+| Video: background / video types / prefer the official clip / song info when the controls hide / show the artwork | Music video or photo slideshow; any mix of official clip, abstract, live, fan made, album cover and lyric video |
 | Fun Facts: next fact every | 6, 8, 12, 20, 30 or 60 seconds |
 | Reduce effects | Fewer blur effects for slower GPUs |
 | Open last service on start | Go straight to the last service |

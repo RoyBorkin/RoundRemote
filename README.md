@@ -2,6 +2,20 @@
 
 A circular touch remote for your music services, built for a Raspberry Pi with a 4" round 720×720 touch display. It also runs as an ordinary web page, for example on GitHub Pages.
 
+**▶ Try it: [royborkin.github.io/RoundSpotify](https://royborkin.github.io/RoundSpotify/)** (tap **Demo** to try it without an account)
+
+## Screenshots
+
+| Info | Info, controls hidden | Vinyl |
+|:---:|:---:|:---:|
+| <img src="screenshots/info.png" width="240" alt="Info view"> | <img src="screenshots/info-full.png" width="240" alt="Info view with full-screen artwork"> | <img src="screenshots/vinyl.png" width="240" alt="Vinyl view"> |
+| **Lyrics: Fluid** | **Lyrics: Kinetic Type (Stack)** | **Video** |
+| <img src="screenshots/lyrics-fluid.png" width="240" alt="Fluid lyrics"> | <img src="screenshots/lyrics-kinetic.png" width="240" alt="Kinetic Type lyrics"> | <img src="screenshots/video.png" width="240" alt="Video view"> |
+| **Search + round keyboard** | **Volume dial** | **Settings** |
+| <img src="screenshots/search.png" width="240" alt="Search with on-screen keyboard"> | <img src="screenshots/volume.png" width="240" alt="Volume dial"> | <img src="screenshots/settings.png" width="240" alt="Settings"> |
+
+*Screenshots show Demo mode on a 720×720 round screen.*
+
 Sign in to each service once. After that, one round screen lets you:
 - control volume and seek
 - skip forward and back
@@ -78,20 +92,21 @@ The platform logos come from the free [Simple Icons](https://simpleicons.org) se
 
 ## 1. Put it on GitHub Pages
 
-1. On github.com, create a new **public** repository called `RoundRemote`.
-2. Upload **the contents** of this folder. Either:
-   - on the web: *Add file → Upload files*, drag everything in, then *Commit changes*; or
-   - with git:
+The app is published from the existing **RoundSpotify** repository, at **[royborkin.github.io/RoundSpotify](https://royborkin.github.io/RoundSpotify/)**.
+
+1. Replace the old files in [github.com/RoyBorkin/RoundSpotify](https://github.com/RoyBorkin/RoundSpotify) with **the contents** of this folder. Either:
+   - on the web: delete the old `spotifyround.html`, `applemusicround.html`, `Vinyl1.png` and `Vinyl2.jpg`. Then choose *Add file → Upload files*, drag everything from this folder in (it replaces `index.html`) and click *Commit changes*; or
+   - with git (from the `music remote` folder):
      ```bash
-     cd RoundRemote
-     git init && git add . && git commit -m "Round Remote"
-     git branch -M main
-     git remote add origin https://github.com/RoyBorkin/RoundRemote.git
-     git push -u origin main
+     cd RoundSpotify
+     git rm -q spotifyround.html applemusicround.html Vinyl1.png Vinyl2.jpg
+     cp -r ../RoundRemote/. .
+     git add -A && git commit -m "Round Remote 2"
+     git push
      ```
-3. In the repository, go to **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main`, folder `/ (root)` → Save**.
-4. After about a minute, the app is live at **https://royborkin.github.io/RoundRemote/**.
-5. Optional: in Chrome/Edge, click the *Install* icon in the address bar. It then opens full-screen like an app and also works offline.
+2. Check that Pages is on: in the repository, open **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main`, folder `/ (root)` → Save**.
+3. After about a minute, the app is live at **https://royborkin.github.io/RoundSpotify/**.
+4. Optional: in Chrome/Edge, click the *Install* icon in the address bar. It then opens full-screen like an app and also works offline.
 
 To publish an update, upload the changed files again (or `git push`). If you still see the old version, reload once more; the offline cache refreshes in the background.
 
@@ -108,7 +123,7 @@ Settings are saved in the browser you use. The GitHub Pages site and the Pi each
 At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), open your app. The Client ID from the old RoundSpotify project is already filled in; you can change it under *Settings → Service keys*.
 
 1. **Redirect URIs:** add exactly the address shown on the app's Spotify screen, then *Save*:
-   - GitHub Pages: `https://royborkin.github.io/RoundRemote/`
+   - GitHub Pages: `https://royborkin.github.io/RoundSpotify/`. This replaces the old `…/RoundSpotify/spotifyround.html` address.
    - Raspberry Pi: `http://127.0.0.1:8765/`. Spotify only accepts a loopback IP here, not `localhost`.
 2. **User Management:** add the Spotify account you'll sign in with. Development-mode apps allow up to 5 users, and the app owner needs **Premium**.
 3. In Round Remote, tap **Spotify → Sign in with Spotify**.
@@ -240,7 +255,7 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it:
 On Raspberry Pi OS (Bookworm, desktop), with the round display connected:
 
 ```bash
-git clone https://github.com/RoyBorkin/RoundRemote.git ~/RoundRemote
+git clone https://github.com/RoyBorkin/RoundSpotify.git ~/RoundRemote
 cd ~/RoundRemote
 bash pi/setup.sh                 # add --with-roon for Roon, --no-airplay to skip AirPlay
 cp bridge/config.example.json bridge/config.json   # then edit it: keys in "app"
@@ -367,5 +382,6 @@ js/screens/                     home ring, player, panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, airplay, mock)
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
+screenshots/                    images used in this README
 start-bridge.bat / .sh          run the bridge on a Windows / Mac / Linux computer
 ```

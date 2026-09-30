@@ -155,6 +155,7 @@ export class PlexProvider extends Provider {
       track: {
         id: m.ratingKey, title: m.title, artist: m.originalTitle || m.grandparentTitle || '', album: m.parentTitle || '',
         durationMs: m.duration || 0, art: this._thumb(m.parentThumb || m.thumb || m.grandparentThumb), key: m.key,
+        year: m.parentYear || m.year || null,
       },
       isPlaying: m.Player?.state === 'playing' || m.Player?.state === 'buffering',
       progressMs: m.viewOffset || 0,

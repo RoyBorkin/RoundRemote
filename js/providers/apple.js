@@ -82,6 +82,7 @@ export class AppleProvider extends Provider {
         id: it.id, title: it.title || it.attributes?.name, artist: it.artistName || it.attributes?.artistName || '',
         album: it.albumName || it.attributes?.albumName || '', art: art(it.artwork || it.attributes?.artwork),
         durationMs: (m.currentPlaybackDuration || 0) * 1000 || it.playbackDuration || it.attributes?.durationInMillis || 0,
+        year: parseInt((it.releaseDate?.toISOString?.() || it.attributes?.releaseDate || '').slice(0, 4), 10) || null,
       },
       isPlaying: !!m.isPlaying,
       progressMs: (m.currentPlaybackTime || 0) * 1000,

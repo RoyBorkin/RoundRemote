@@ -17,7 +17,7 @@ export const DEFAULTS = Object.freeze({
   lyricsOffsetMs: 0,
   vinylSecondsPerTurn: 1.8,    // record speed = spin + scratch: seconds of music per turn (1.8 = real 33⅓ rpm)
   vinylLabelSize: 46,          // centre artwork size, % of the record (0 = none, 100 = full screen)
-  infoFullArt: 'clear',        // Info view artwork when controls hide: clear | milky
+  infoFullArt: 'clear',        // Classic view when controls hide: clear | milky (artwork) | card-black | card-blur (song info)
   uiSize: 'L',                 // control size: XS | S | M | L | XL
   autoHideChrome: true,
   liteMode: false,             // fewer blur effects for slower GPUs (Pi 3/Zero)
@@ -26,6 +26,15 @@ export const DEFAULTS = Object.freeze({
   kbdLang: 'en',               // on-screen keyboard language: en | he
   onlySignedIn: false,         // home: hide services that aren't signed in / reachable
   showDemo: true,              // home: show the Demo service tile
+  typoRandomOff: [],           // Kinetic Type variants left out of Random (new variants are in by default)
+  showDevicePill: true,        // player: the "Service · Device" line near the top
+  infoAutoHide: true,          // Classic view: hide the controls by themselves (with Auto-hide controls on)
+  infoShowArt: true,           // Classic view: the round artwork in the middle
+  vinylShowTitle: true,        // Vinyl view: song / artist / album text around the label
+  videoShowArt: true,          // Video view: the round artwork over the video
+  videoMode: 'video',          // Video view: video | slides (photo slideshow)
+  videoKinds: null,            // Video view: kinds of video to use — clip, abstract, live, fan, cover, lyric (null = clip + live)
+  factSeconds: 12,             // Fun Facts: seconds per fact
   toneVariant: 'ferro',        // Tone Visual style
   toneSource: 'sim',           // Tone Visual sound: sim (follows playback) | mic (live microphone)
   vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls

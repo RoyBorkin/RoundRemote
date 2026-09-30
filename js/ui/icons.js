@@ -34,6 +34,7 @@ const P = {
   playlist: 'M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z',
   note: 'M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z',
   tone: 'M2 11h2v2H2zm4-4h2v10H6zm4-4h2v18h-2zm4 6h2v6h-2zm4-3h2v12h-2zm4 4h2v4h-2z',
+  bulb: 'M9 21h6v-1.5H9V21zm3-19a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6A5 5 0 1 1 14.85 13.1z',
   video: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
   fullscreen: 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
 };

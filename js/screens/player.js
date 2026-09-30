@@ -14,9 +14,11 @@ import { createVinylView } from '../views/vinyl.js';
 import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
 import { createVideoView } from '../views/video.js';
 import { createToneView } from '../views/tone.js';
-import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles, openToneStyles } from './panels.js';
+import { createFactsView } from '../views/facts.js';
+import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
 
-const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone'];
+const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone', 'facts'];
+const VIEW_NAMES = { info: 'Classic', vinyl: 'Vinyl', lyrics: 'Lyrics', video: 'Video', tone: 'Tone Visual', facts: 'Fun Facts' };
 const RING_R = 47.4, C = 2 * Math.PI * RING_R;
 
 export function PlayerScreen() {
@@ -47,14 +49,14 @@ export function PlayerScreen() {
   const pill = h('button.device-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
   const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume()), -118, 38.5);
-  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : view === 'tone' ? openToneStyles() : openMore(view))), 118, 38.5);
+  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : view === 'tone' ? openToneStyles() : view === 'facts' ? openFactsOptions() : openMore(view))), 118, 38.5);
   const btnPrev = iconBtn('prev', 'Previous', () => player.prev(), 'ctl');
   const btnPlay = iconBtn('play', 'Play', () => player.toggle(), 'ctl play');
   const btnNext = iconBtn('next', 'Next', () => player.next(), 'ctl');
   const controls = h('div.controls', btnPrev, btnPlay, btnNext);
   const tCur = h('span.t-cur', '0:00'), tDur = h('span.t-dur', '0:00');
   const viewBtns = VIEWS.map((v) => {
-    const b = iconBtn(v === 'info' ? 'info' : v, `${v === 'tone' ? 'Tone Visual' : `${v[0].toUpperCase()}${v.slice(1)}`} view`, () => setView(v), 'vbtn');
+    const b = iconBtn(v === 'facts' ? 'bulb' : v, `${VIEW_NAMES[v]} view`, () => setView(v), 'vbtn');
     b.dataset.v = v; return b;
   });
   const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
@@ -86,14 +88,15 @@ export function PlayerScreen() {
       : v === 'lyrics' ? createLyricsView({ player })
       : v === 'video' ? createVideoView({ player })
       : v === 'tone' ? createToneView({ player })
+      : v === 'facts' ? createFactsView({ player })
       : createInfoView();
     stage.appendChild(current.el);
     current.update(player.state);
     el.dataset.view = v;
     viewBtns.forEach((b) => b.classList.toggle('on', b.dataset.v === v));
-    btnSide.innerHTML = icon(v === 'lyrics' ? 'text' : v === 'tone' ? 'tone' : 'more');
+    btnSide.innerHTML = icon(v === 'lyrics' ? 'text' : v === 'tone' ? 'tone' : v === 'facts' ? 'bulb' : 'more');
     placeYt();
-    btnSide.setAttribute('aria-label', v === 'lyrics' ? 'Lyrics style' : v === 'tone' ? 'Tone Visual style' : 'More');
+    btnSide.setAttribute('aria-label', v === 'lyrics' ? 'Lyrics style' : v === 'tone' ? 'Tone Visual style' : v === 'facts' ? 'Fun Facts options' : 'More');
     showChrome();
   }
 
@@ -111,7 +114,8 @@ export function PlayerScreen() {
   function showChrome() {
     el.classList.remove('chrome-hidden');
     clearTimeout(hideT);
-    if (store.get('autoHideChrome')) hideT = setTimeout(() => { if (!topPanel()) el.classList.add('chrome-hidden'); }, 6000);
+    const auto = store.get('autoHideChrome') && !(view === 'info' && store.get('infoAutoHide') === false);
+    if (auto) hideT = setTimeout(() => { if (!topPanel()) el.classList.add('chrome-hidden'); }, 6000);
   }
 
   // ---------- ring seeking ----------
@@ -216,13 +220,20 @@ export function PlayerScreen() {
   }
 
   const applyArtMode = () => {
-    el.classList.toggle('art-milky', store.get('infoFullArt') === 'milky');
+    const full = store.get('infoFullArt');
+    el.classList.toggle('art-milky', full === 'milky');
+    el.classList.toggle('info-card-mode', full === 'card-black' || full === 'card-blur');
+    el.classList.toggle('card-blur', full === 'card-blur');
+    el.classList.toggle('info-noart', store.get('infoShowArt') === false);
     el.classList.toggle('arm-autohide', store.get('vinylArmHide') !== false);
+    el.classList.toggle('vinyl-notitle', store.get('vinylShowTitle') === false);
+    el.classList.toggle('video-noart', store.get('videoShowArt') === false);
+    el.classList.toggle('no-pill', store.get('showDevicePill') === false);
   };
   applyArtMode();
   const offs = [
-    store.on('change:infoFullArt', applyArtMode),
-    store.on('change:vinylArmHide', applyArtMode),
+    ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'showDevicePill'].map((k) => store.on(`change:${k}`, applyArtMode)),
+    store.on('change:infoAutoHide', () => showChrome()),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),
   ];

@@ -135,43 +135,112 @@ export async function playlistVideoIds(pl) {
 }
 
 // ---------------------------------------------------------------- music-video finder
-const MV_KEY = 'rr.mv.cache';
+const MV_KEY = 'rr.mv2.cache'; // v2: smarter picks (the v1 cache could hold static "audio" uploads)
 function mvCache() { try { return JSON.parse(localStorage.getItem(MV_KEY) || '{}'); } catch { return {}; } }
 function mvSave(c) {
   const keys = Object.keys(c);
-  if (keys.length > 300) for (const k of keys.slice(0, keys.length - 300)) delete c[k];
+  if (keys.length > 300) keys.slice(0, keys.length - 300).forEach((k) => delete c[k]);
   try { localStorage.setItem(MV_KEY, JSON.stringify(c)); } catch {}
 }
 const pending = new Map();
+const isoDur = (d = '') => { const m = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) : 0; };
+// Kinds of video the user can ask for (Settings → Video → Video types). Each YouTube result is
+// sorted into one kind from its title and channel; only the kinds the user picked are used.
+export const VIDEO_KINDS = [
+  { id: 'clip', name: 'Official clip', query: 'official music video' },
+  { id: 'abstract', name: 'Abstract', query: 'official visualizer' },
+  { id: 'live', name: 'Live', query: 'live performance' },
+  { id: 'fan', name: 'Fan made', query: 'fan made music video' },
+  { id: 'cover', name: 'Album cover', query: 'official audio' },
+  { id: 'lyric', name: 'Lyric video', query: 'official lyric video' },
+];
+const K = {
+  cover: /official audio|\(audio\)|\[audio\]|\baudio\b|album stream|provided to youtube|art track|full album/i,
+  lyric: /lyric|lyrics|letra|paroles/i,
+  abstract: /visuali[sz]er|abstract|animated video|official animation|\banimated\b|loop video|canvas/i,
+  live: /\blive\b|concert|performance|session|tiny desk|unplugged|mtv|jimmy|fallon|kimmel|snl|glastonbury|coachella|festival|acoustic version/i,
+  fan: /fan ?made|fan video|fanmade|\bamv\b|\bfmv\b|unofficial( music)? video|tribute|\bedit\b/i,
+  clip: /official (music )?video|official mv|\bm\/?v\b|music video|official film|official clip|video oficial|clip officiel/i,
+};
+// never wanted, whatever the kind: other people's versions and gimmick uploads
+const JUNK = /\bcover\b|karaoke|instrumental|\b8d\b|slowed|sped up|reverb|nightcore|bass boosted|1 hour|10 hours|\bhour loop|reaction|tutorial|how to play|lesson|mashup|remix|shorts?\b|#shorts|ringtone/i;
+function kindOf(title, channel, artistNorm) {
+  if (/ - topic$/i.test(channel)) return 'cover';                       // auto-generated: the album cover
+  if (K.lyric.test(title)) return 'lyric';
+  if (K.cover.test(title)) return 'cover';
+  if (K.abstract.test(title)) return 'abstract';
+  if (K.fan.test(title)) return 'fan';
+  if (K.live.test(title)) return 'live';
+  if (K.clip.test(title)) return 'clip';
+  const own = /vevo/i.test(channel) || normalizeText(channel).replace(/\s/g, '').includes(artistNorm.replace(/\s/g, ''));
+  return own ? 'clip' : 'fan';
+}
+const seeded = (arr, seed) => {
+  const a = arr.slice(); let x = 0;
+  for (const ch of seed) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  for (let i = a.length - 1; i > 0; i--) { x = (x * 1103515245 + 12345) >>> 0; const j = x % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
 
-/** Find the official music video for a track (cached). Returns a YouTube video id or null. */
-export async function findMusicVideo(track) {
+/**
+ * Finds a video for the track of one of the kinds the user picked (see VIDEO_KINDS).
+ * With several kinds picked, each song tries them in its own (repeatable) order, so a playlist
+ * mixes official clips, live shows, visualizers… Covers by other artists, karaoke, remixes, loops,
+ * shorts and anything far longer or shorter than the song are always skipped.
+ */
+export async function findMusicVideo(track, { kinds = ['clip', 'live'] } = {}) {
   if (!track?.title) return null;
-  const key = `${normalizeText(track.artist)}|${normalizeText(track.title)}`;
+  const want = normalizeText(track.title);
+  const artist = (track.artist || '').split(/,|&| feat\.? | ft\.? /i)[0].trim();
+  const artistNorm = normalizeText(artist);
+  const picked = VIDEO_KINDS.map((k) => k.id).filter((id) => kinds.includes(id));
+  if (!picked.length) picked.push('clip');
+  const key = `${picked.join(',')}|${artistNorm}|${want}`;
   const cache = mvCache();
   if (key in cache) return cache[key];
   if (!canSearch()) return null;
   if (pending.has(key)) return pending.get(key);
   const p = (async () => {
-    const artist = (track.artist || '').split(/,|&| feat\.? | ft\.? /i)[0].trim();
-    const d = await data('search', {
-      part: 'snippet', type: 'video', maxResults: 6, videoEmbeddable: 'true', videoSyndicated: 'true', videoCategoryId: 10,
-      q: `${artist} ${track.title} official music video`,
-    });
-    const want = normalizeText(track.title);
-    const items = d?.items || [];
-    const score = (it) => {
-      const t = normalizeText(decode(it.snippet.title));
-      let s = 0;
-      if (t.includes(want)) s += 5;
-      if (/official (music )?video|\bmv\b/i.test(it.snippet.title)) s += 3;
-      if (/vevo/i.test(it.snippet.channelTitle)) s += 2;
-      if (normalizeText(it.snippet.channelTitle).includes(normalizeText(artist))) s += 2;
-      if (/lyric|audio|cover|live|reaction|karaoke|8d|slowed|sped/i.test(it.snippet.title)) s -= 4;
-      return s;
-    };
-    const best = items.map((it) => ({ it, s: score(it) })).sort((a, b) => b.s - a.s)[0];
-    const id = best && best.s >= 3 ? best.it.id.videoId : null;
+    const wantsRemix = /remix|mix\b/i.test(track.title);
+    const songSec = (track.durationMs || 0) / 1000;
+    const tried = new Map(); // videoId → { it, kind, score }
+    for (const kindId of seeded(picked, `${artistNorm}|${want}`)) {
+      const kind = VIDEO_KINDS.find((k) => k.id === kindId);
+      const d = await data('search', { part: 'snippet', type: 'video', maxResults: 12, videoEmbeddable: 'true', videoSyndicated: 'true', q: `${artist} ${track.title} ${kind.query}` });
+      const items = (d?.items || []).filter((it) => it.id?.videoId && !tried.has(it.id.videoId));
+      if (items.length) {
+        let details = {};
+        try {
+          const v = await data('videos', { part: 'contentDetails,statistics', id: items.map((it) => it.id.videoId).join(',') });
+          for (const it of v?.items || []) details[it.id] = { sec: isoDur(it.contentDetails?.duration), views: +it.statistics?.viewCount || 0 };
+        } catch {}
+        for (const it of items) {
+          const title = decode(it.snippet.title), ch = decode(it.snippet.channelTitle || '');
+          const det = details[it.id.videoId] || {};
+          const k = kindOf(title, ch, artistNorm);
+          let sc = 0;
+          if (normalizeText(title).includes(want) || (k === 'cover' && / - topic$/i.test(ch))) sc += 5; else sc -= 6;
+          if (JUNK.test(title) && !(wantsRemix && /remix/i.test(title))) sc -= 20;
+          if (/vevo/i.test(ch)) sc += 3;
+          if (normalizeText(ch).includes(artistNorm)) sc += 2;
+          if (det.sec) {
+            if (det.sec < 60 || det.sec > 15 * 60) sc -= 12;
+            else if (songSec && Math.abs(det.sec - songSec) < Math.max(40, songSec * (k === 'live' ? 0.6 : 0.35))) sc += 2;
+          }
+          if (det.views) sc += Math.min(3, Math.max(0, Math.log10(det.views) - 4));
+          tried.set(it.id.videoId, { it, kind: k, score: sc });
+        }
+      }
+      // best video of the kind we're on; accept it if it's a good match
+      const best = [...tried.values()].filter((c) => c.kind === kindId).sort((a, b) => b.score - a.score)[0];
+      if (best && best.score >= 5) {
+        const c = mvCache(); c[key] = best.it.id.videoId; mvSave(c);
+        return best.it.id.videoId;
+      }
+    }
+    // nothing great for the first choices: take the best of any picked kind we saw
+    const any = [...tried.values()].filter((c) => picked.includes(c.kind)).sort((a, b) => b.score - a.score)[0];
+    const id = any && any.score >= 4 ? any.it.id.videoId : null;
     const c = mvCache(); c[key] = id; mvSave(c);
     return id;
   })().finally(() => pending.delete(key));

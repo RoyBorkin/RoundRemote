@@ -1,7 +1,7 @@
 // Round Remote service worker — makes the app installable and load offline.
 // Strategy: network-first for the app's own files (so updates show up immediately when
 // online), falling back to the cache when offline. Music-service APIs are never cached.
-const VERSION = 'rr-2.8.0';
+const VERSION = 'rr-2.10.0';
 const SHELL = [
     "./",
     "index.html",
@@ -16,7 +16,10 @@ const SHELL = [
     "js/views/video.js",
     "js/views/lyrics-kinetic2.js",
     "js/views/lyrics-kinetic3.js",
+    "js/views/lyrics-crt.js",
     "js/views/tone.js",
+    "js/views/facts.js",
+    "js/core/songinfo.js",
     "js/views/tone-visuals.js",
     "js/core/sound.js",
     "js/providers/youtube.js",

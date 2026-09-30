@@ -1,4 +1,4 @@
-// View 3: synced lyrics with five selectable styles (Kinetic Type has thirteen variants).
+// View 3: synced lyrics with six selectable styles (Kinetic Type has thirteen variants).
 //   basic    – classic centred list that glides to the active line
 //   animated – (Kinetic Type variant) karaoke: words fill in as they're sung, lines rise & blur between
 //   typing   – typewriter / terminal, each line typed out in time
@@ -14,6 +14,7 @@ import { clamp } from '../core/util.js';
 import { fluidStyle, typoStyle } from './lyrics-extra.js';
 import { bwStyle, handStyle } from './lyrics-kinetic2.js';
 import { popStyle, pastelStyle, comicStyle, neonStyle } from './lyrics-kinetic3.js';
+import { crtStyle } from './lyrics-crt.js';
 import { dirOf, songDir } from '../lyrics/bidi.js';
 
 export const LYRIC_STYLES = [
@@ -22,6 +23,7 @@ export const LYRIC_STYLES = [
   { id: 'roll', name: 'Roll' },
   { id: 'fluid', name: 'Fluid' },
   { id: 'typo', name: 'Kinetic Type' },
+  { id: 'crt', name: 'CRT TV' },
 ];
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -311,7 +313,7 @@ function loadHebrewFonts() {
 }
 
 const STYLES = {
-  basic: basicStyle, typing: typingStyle, roll: rollStyle, fluid: fluidStyle,
+  basic: basicStyle, typing: typingStyle, roll: rollStyle, fluid: fluidStyle, crt: crtStyle,
   typo: (b, l, a) => {
     const v = store.get('typoVariant');
     return v === 'random' ? randomStyle(b, l, a) : (VARIANT_FNS[v] || VARIANT_FNS.stack)(b, l, a);

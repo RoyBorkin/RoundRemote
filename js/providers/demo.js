@@ -5,7 +5,7 @@ import { parseLrc } from '../lyrics/lrc.js';
 
 const SONGS = [
   {
-    id: 'd1', title: 'Neon Orbit', artist: 'Luma Vale', album: 'Night Transit', dur: 192000, hue: [280, 330],
+    id: 'd1', title: 'Neon Orbit', artist: 'Luma Vale', album: 'Night Transit', year: 2021, dur: 192000, hue: [280, 330],
     lyrics: [
       [9, 'City lights are spinning slow tonight'], [15, 'Every window hums a different song'],
       [21, 'I keep circling back to where you are'], [27, 'Like a satellite that knows the way along'],
@@ -23,7 +23,7 @@ const SONGS = [
     ],
   },
   {
-    id: 'd2', title: 'Paper Lanterns', artist: 'The Quiet Tides', album: 'Harbor Lights', dur: 178000, hue: [25, 50],
+    id: 'd2', title: 'Paper Lanterns', artist: 'The Quiet Tides', album: 'Harbor Lights', year: 2019, dur: 178000, hue: [25, 50],
     lyrics: [
       [7, 'We folded wishes out of paper'], [13, 'Wrote our names along the seams'],
       [19, 'Let them rise above the harbor'], [25, 'Carried off by summer dreams'],
@@ -41,7 +41,7 @@ const SONGS = [
     ],
   },
   {
-    id: 'd3', title: 'Circuit Heart', artist: 'KAIRO', album: 'Signal / Noise', dur: 210000, hue: [180, 210],
+    id: 'd3', title: 'Circuit Heart', artist: 'KAIRO', album: 'Signal / Noise', year: 2023, dur: 210000, hue: [180, 210],
     lyrics: [
       [12, 'Wired up and wide awake'], [16, 'Static running through my veins'],
       [20, 'Every pulse a little louder'], [24, 'Every beat a brand new frame'],
@@ -57,7 +57,7 @@ const SONGS = [
     ],
   },
   {
-    id: 'd4', title: 'Slow Motion Summer', artist: 'Juniper & June', album: 'Sundial', dur: 185000, hue: [95, 150],
+    id: 'd4', title: 'Slow Motion Summer', artist: 'Juniper & June', album: 'Sundial', year: 2018, dur: 185000, hue: [95, 150],
     lyrics: [
       [8, 'Lemonade and faded T-shirts'], [14, 'Bicycles along the shore'],
       [20, 'Afternoons that last forever'], [26, 'We could never ask for more'],
@@ -73,9 +73,9 @@ const SONGS = [
       [158, 'In a slow motion summer'], [164, 'I could live in every day'],
     ],
   },
-  { id: 'd5', title: 'Northbound', artist: 'Atlas Fields', album: 'Open Roads', dur: 224000, hue: [210, 250], lyrics: null },
+  { id: 'd5', title: 'Northbound', artist: 'Atlas Fields', album: 'Open Roads', year: 2020, dur: 224000, hue: [210, 250], lyrics: null },
   {
-    id: 'd6', title: 'Glass Garden', artist: 'Mira Sol', album: 'Greenhouse', dur: 199000, hue: [150, 185],
+    id: 'd6', title: 'Glass Garden', artist: 'Mira Sol', album: 'Greenhouse', year: 2022, dur: 199000, hue: [150, 185],
     lyrics: [
       [10, 'Rain on the roof of a glass garden'], [17, 'Ferns reaching up for the light'],
       [24, 'I planted a word in the quiet'], [31, 'And it blossomed overnight'],
@@ -91,7 +91,7 @@ const SONGS = [
   },
   {
     // Hebrew, to show right-to-left lyrics (one line mixes in an English word on purpose)
-    id: 'd7', title: 'אור על המים', artist: 'נועה ים', album: 'גלים', dur: 188000, hue: [195, 235],
+    id: 'd7', title: 'אור על המים', artist: 'נועה ים', album: 'גלים', year: 2024, dur: 188000, hue: [195, 235],
     lyrics: [
       [8, 'אורות העיר מסתובבים לאט'], [14, 'כל חלון מזמזם שיר אחר'],
       [20, 'אני חוזר תמיד אלייך'], [26, 'כמו לוויין שמכיר את הדרך'],
@@ -108,6 +108,32 @@ const SONGS = [
     ],
   },
 ];
+
+// Fun Facts for the Demo's fictional songs (real songs get theirs from Wikipedia and MusicBrainz).
+const FACTS = {
+  d1: ['Luma Vale wrote “Neon Orbit” on a night bus that circled the city twice because she fell asleep.',
+    'The synth line in the chorus was recorded on a toy keyboard found in a thrift shop for five dollars.',
+    '“Night Transit” was recorded almost entirely between midnight and 4 a.m.',
+    'The ticking sound in the second verse is a real taxi meter.'],
+  d2: ['The Quiet Tides recorded “Paper Lanterns” in a boathouse, and you can hear the water in the quiet parts.',
+    'Every member of the band folded a paper lantern for the album cover photo shoot.',
+    '“Harbor Lights” was the band’s first album to be pressed on vinyl.'],
+  d3: ['KAIRO built the drum sounds on “Circuit Heart” from recordings of an old dial-up modem.',
+    '“Plug me in, turn me up” was the first line written — the rest of the song grew around it.',
+    '“Signal / Noise” hides a message in Morse code at the end of its last track.'],
+  d4: ['Juniper & June recorded “Slow Motion Summer” in a single afternoon, with the windows open.',
+    'The bicycle bell in the intro belongs to June’s grandmother.',
+    '“Sundial” was mixed outdoors on a porch, which is why it sounds so warm.'],
+  d5: ['“Northbound” is an instrumental written for a 1,000-kilometre road trip.',
+    'Atlas Fields recorded the guitar in the back of a moving van.'],
+  d6: ['Mira Sol wrote “Glass Garden” in a greenhouse during a rainstorm.',
+    'The rain at the start of the song was recorded on the greenhouse roof.',
+    '“Greenhouse” took three years to finish — about as long as it takes a fern to grow up.'],
+  d7: ['נועה ים כתבה את ״אור על המים״ על החוף בתל אביב, בשקיעה.',
+    'הצליל שנשמע בפתיחה הוא הקלטה אמיתית של גלים.',
+    'השורה ״רק עוד summer אחד איתך״ נכתבה בכוונה בשתי שפות.',
+    '״גלים״ הוא אלבום הבכורה של נועה ים.'],
+};
 
 const PLAYLISTS = [
   { id: 'p1', name: 'Late Night Drive', ids: ['d1', 'd3', 'd5', 'd6'] },
@@ -156,7 +182,7 @@ function makeArt(song) {
 }
 
 function toTrack(s) {
-  return { id: s.id, title: s.title, artist: s.artist, album: s.album, art: makeArt(s), durationMs: s.dur, uri: `demo:${s.id}` };
+  return { id: s.id, title: s.title, artist: s.artist, album: s.album, year: s.year, art: makeArt(s), durationMs: s.dur, uri: `demo:${s.id}` };
 }
 
 export class DemoProvider extends Provider {
@@ -238,6 +264,12 @@ export class DemoProvider extends Provider {
   async getVideo(track) {
     const s = SONGS.find((x) => x.id === track.id);
     return s ? { type: 'generated', hue: s.hue } : null;
+  }
+  async getFacts(track) {
+    const f = FACTS[track.id];
+    if (!f) return null;
+    const he = track.id === 'd7';
+    return f.map((text) => ({ text, source: he ? 'דמו' : 'Demo', about: track.title, dir: he ? 'rtl' : 'ltr' }));
   }
   async getLyrics(track) {
     const s = SONGS.find((x) => x.id === track.id);

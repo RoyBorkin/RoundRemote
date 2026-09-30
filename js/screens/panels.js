@@ -9,6 +9,8 @@ import { angleFromCenter, clamp, debounce, throttle } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { sound } from '../core/sound.js';
+import { VIDEO_KINDS } from '../core/youtube.js';
+import { videoKinds } from '../views/video.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -262,16 +264,43 @@ export const vinylArtFmt = (v) => (v <= 0 ? 'No artwork' : v >= 100 ? 'Full scre
 export const vinylArtSlider = () => slider('Centre artwork', () => store.get('vinylLabelSize'), (v) => store.set('vinylLabelSize', v),
   { min: 0, max: 100, step: 1, fmt: vinylArtFmt, ends: ['None', 'Full'] });
 export const armToggle = () => toggle('Hide the arm with the controls', () => store.get('vinylArmHide') !== false, (v) => store.set('vinylArmHide', v));
-export const infoArtChips = () => h('div.opt', h('div.opt-label', 'Full-screen art when controls hide'),
-  chips([{ id: 'clear', name: 'Original clear' }, { id: 'milky', name: 'Milky blur' }], store.get('infoFullArt'), (v) => store.set('infoFullArt', v)));
+export const INFO_HIDDEN = [
+  { id: 'clear', name: 'Artwork · clear' }, { id: 'milky', name: 'Artwork · milky blur' },
+  { id: 'card-black', name: 'Song info · black' }, { id: 'card-blur', name: 'Song info · blurred art' },
+];
+export const infoArtChips = () => h('div.opt', h('div.opt-label', 'When the controls hide, show'),
+  chips(INFO_HIDDEN, store.get('infoFullArt'), (v) => store.set('infoFullArt', v)));
+const flag = (key, label) => toggle(label, () => store.get(key) !== false, (v) => store.set(key, v));
+export const infoAutoHideToggle = () => flag('infoAutoHide', 'Hide the controls by themselves');
+export const infoArtToggle = () => flag('infoShowArt', 'Show the artwork in the middle');
+export const vinylTitleToggle = () => flag('vinylShowTitle', 'Show the title around the label');
+export const videoArtToggle = () => flag('videoShowArt', 'Show the artwork');
+export const devicePillToggle = () => flag('showDevicePill', 'Show the service & device line');
+export const VIDEO_MODES = [{ id: 'video', name: 'Music video' }, { id: 'slides', name: 'Photo slideshow' }];
+export const videoOpts = () => [
+  h('div.opt', h('div.opt-label', 'Background'), chips(VIDEO_MODES, store.get('videoMode'), (v) => store.set('videoMode', v))),
+  h('div.opt', h('div.opt-label', 'Video types (pick one or more)'), multiChips(VIDEO_KINDS, videoKinds, (v) => store.set('videoKinds', v))),
+  videoArtToggle(),
+];
+export const FACT_SECONDS = [6, 8, 12, 20, 30, 60].map((n) => ({ id: n, name: `${n} s` }));
+export const factChips = () => h('div.opt', h('div.opt-label', 'Next fact every'), chips(FACT_SECONDS, +store.get('factSeconds') || 12, (v) => store.set('factSeconds', v)));
+export function openFactsOptions() {
+  openPanel({
+    title: 'Fun Facts', className: 'opts-panel',
+    build(body) {
+      body.append(factChips(), h('div.opt-hint', 'Facts about the song, album and artist from Wikipedia and MusicBrainz. Tap a fact to skip to the next one.'));
+    },
+  });
+}
 
 export function openMore(view = 'info') {
   openPanel({
-    title: view === 'vinyl' ? 'Vinyl' : 'Playback', className: 'opts-panel',
+    title: view === 'vinyl' ? 'Vinyl' : view === 'info' ? 'Classic' : view === 'video' ? 'Video' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
-      if (view === 'vinyl') body.append(vinylArtSlider(), armToggle());
-      if (view === 'info') body.append(infoArtChips());
+      if (view === 'vinyl') body.append(vinylArtSlider(), armToggle(), vinylTitleToggle());
+      if (view === 'info') body.append(infoArtChips(), infoArtToggle(), infoAutoHideToggle());
+      if (view === 'video') body.append(...videoOpts());
       const toggles = h('div.toggles');
       if (c.shuffle) {
         const b = h(`button.tog${s.shuffle ? '.on' : ''}`, { type: 'button', html: `${icon('shuffle')}<span>Shuffle</span>` });

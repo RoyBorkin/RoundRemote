@@ -22,15 +22,20 @@ Sign in to each service once. After that, one round screen lets you:
 - pick playlists and devices
 - search
 
-The current song can be shown **five ways**:
+The current song can be shown **six ways**:
 
-1. **Info (classic):** round artwork, title, artist and album. The accent colour is taken from the artwork. When the controls hide, the artwork fills the whole screen, either *original clear* or *milky blur* (your choice).
+1. **Info (classic):** round artwork, title, artist and album. The accent colour is taken from the artwork. When the controls hide, you choose what fills the screen:
+   - the artwork, *clear* or as a *milky blur*, or
+   - a **song info card** with the song, artist, album, year and time left, on *black* or on the *blurred artwork*.
+
+   You can also hide the round artwork in the middle, and turn off the controls hiding by themselves in Classic view only.
 2. **Vinyl:** the whole screen becomes a record.
    - Spin it with your finger to scrub back or forward; a flick keeps it coasting.
    - The tone arm follows the song and hides with the controls. To keep it visible, turn off *Hide the arm with the controls* in the ⋯ panel or in Settings.
    - **Record speed** (45 / 33⅓ / 16 / 8 / 4 rpm) sets both the spin and how far one turn scratches, so the record always moves with the music.
    - A slider sets the centre artwork size, from none to full screen.
-3. **Lyrics:** synced lyrics in five styles:
+   - The song title around the label can be turned off.
+3. **Lyrics:** synced lyrics in six styles:
    - **Basic**, **Typing** (typewriter) and **Roll** (3D drum).
    - **Fluid**, in the spirit of Lyricify / BetterLyrics: a flowing album-art colour field, lines that glide in a staggered cascade, and words that fill with a soft glow and lift as they're sung. Long notes glow letter by letter.
    - **Kinetic Type**, lyric-video typography with thirteen variants:
@@ -47,11 +52,16 @@ The current song can be shown **five ways**:
      - **Animated:** karaoke fill.
      - **Moving Words**.
      - **Random:** a different variant for every line. It goes through all of them in a shuffled order before any repeats. Choose which variants it uses in *Settings → Lyrics → Random includes*.
+   - **CRT TV:** the lyrics on an old tube television: scanlines, RGB fringing and phosphor glow, live static, a rolling hum bar and flicker. Each new line changes channel (the picture collapses to a bright line and springs back), a tracking tear slides across now and then, and a VHS on-screen display (channel, ▶ PLAY, tape counter, SP) shows while the controls are hidden.
    - **Hebrew and other right-to-left lyrics** are detected line by line and shown right to left in every style: word order, typing, the karaoke fill, staircases and Mosaic all run from the right, and a line that mixes in an English word still reads correctly. Hebrew letters use Rubik, Karantina, Frank Ruhl Libre and Amatic SC. The Demo has a Hebrew song to try it: **אור על המים** (playlist *בעברית · Hebrew*).
 4. **Video:** like the classic view, but the background is a video:
    - **YouTube / YouTube Music:** the song's own video.
    - **Every other service:** the song's official music video, found on YouTube, played muted and kept in sync with the song. This needs the free YouTube API key (see below).
    - **Demo:** a generated colour loop.
+   - **Video types:** pick one or more of *Official clip*, *Abstract* (visualizers and animated videos), *Live*, *Fan made*, *Album cover* (the song with its cover art) and *Lyric video*. Every YouTube result is sorted into one of these from its title and channel, and only the types you picked are used. With several picked, each song tries them in its own order, so a playlist gets a mix. Covers by other artists, karaoke, remixes, slowed/sped-up versions, loops, shorts and videos much longer or shorter than the song are always skipped.
+   - **No suggestion screens:** the last 20 seconds of a video (where YouTube puts its end screens) are never played; it loops before them. The video fades out while the song is paused, so YouTube's "More videos" panel never shows.
+   - **Photo slideshow** (instead of a video): photos of the artist and album from Wikipedia, Wikimedia Commons and Deezer, crossfading with a slow zoom.
+   - The round artwork on top can be hidden.
 5. **Tone Visual:** abstract shapes and colours that move with the music, in eight styles:
    - **Ferrofluid:** black magnetic liquid in a glowing lamp. Spikes rise with the bass; the fluid pulls together when it's loud and breaks into droplets when it's quiet.
    - **Liquid Sphere:** a 3D sphere whose surface bulges and ripples with the music.
@@ -67,8 +77,9 @@ The current song can be shown **five ways**:
    - **Microphone (live):** listens to the room and reacts to the real sound. On the Pi, plug in a USB microphone; the kiosk script allows it automatically. In a browser, allow microphone access when asked.
 
    Liquid Sphere and Aurora use WebGL. With *Reduce effects* on, every style draws at a lower resolution with fewer particles for the Pi 3.
+6. **Fun Facts:** facts about the song, the album and the artist, one at a time over the blurred artwork: from Wikipedia (in Hebrew for Hebrew songs) and MusicBrainz (release date, how many releases, where the artist is from, when they started, genres). Choose how long each fact stays (6–60 s) in the Fun Facts panel or in Settings; tap a fact to skip to the next one. The timer rests while the music is paused.
 
-In every view the controls hide by themselves after a few seconds; tap the screen to bring them back. The ring around the edge is the seek bar: drag it around the circle.
+In every view the controls hide by themselves after a few seconds; tap the screen to bring them back. The *Service · Device* line near the top can be turned off in Settings. The lyrics source label was removed. The ring around the edge is the seek bar: drag it around the circle.
 
 ---
 
@@ -351,7 +362,7 @@ sudo reboot
 - <kbd>←</kbd>/<kbd>→</kbd> ±10 s
 - <kbd>↑</kbd>/<kbd>↓</kbd> volume
 - <kbd>N</kbd>/<kbd>P</kbd> next/previous
-- <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd> Info / Vinyl / Lyrics / Video / Tone Visual
+- <kbd>1</kbd> … <kbd>6</kbd> Info / Vinyl / Lyrics / Video / Tone Visual / Fun Facts
 - <kbd>L</kbd> next lyric style
 - <kbd>V</kbd> volume
 - <kbd>/</kbd> search
@@ -367,10 +378,14 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
 | Show the Demo service | Hide the Demo tile from Home |
 | Control size | XS, S, M, **L** (default), XL |
-| Start in view | Info, Vinyl, Lyrics, Video or Tone Visual |
+| Start in view | Info, Vinyl, Lyrics, Video, Tone Visual or Fun Facts |
+| Show the service & device line | The *Spotify · Living Room* line near the top |
 | Auto-hide controls | Hide the controls after a few seconds |
 | Colours from artwork | Accent colour follows the album art |
-| Full-screen art when controls hide | Info view: original clear or milky blur |
+| Classic: when the controls hide, show | Artwork (clear or milky blur) or song info (on black or on blurred art) |
+| Classic: show the artwork / hide the controls by themselves | Round artwork in the middle; Classic-only auto-hide |
+| Video: background / video types / show the artwork | Music video or photo slideshow; any mix of official clip, abstract, live, fan made, album cover and lyric video |
+| Fun Facts: next fact every | 6, 8, 12, 20, 30 or 60 seconds |
 | Reduce effects | Fewer blur effects for slower GPUs |
 | Open last service on start | Go straight to the last service |
 | Dim screen when idle | Dims when nothing is playing (never / 2 / 10 / 30 min) |
@@ -379,7 +394,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
 | Random includes | Which Kinetic Type variants the Random variant picks from (tap to include or leave out; at least one stays on; *Include all* resets) |
 | Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
-| Centre artwork / Hide the arm with the controls / Record speed | See the Vinyl view |
+| Centre artwork / Hide the arm with the controls / Show the title / Record speed | See the Vinyl view |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
 | Accounts | Sign in or out of each service |
@@ -424,9 +439,9 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ```
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
-js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual)
+js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year)
 js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js)
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, airplay, mock)

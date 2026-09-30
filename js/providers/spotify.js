@@ -186,6 +186,7 @@ export class SpotifyProvider extends Provider {
         artist: isEp ? (it.show?.name || '') : (it.artists || []).map((a) => a.name).join(', '),
         album: isEp ? (it.show?.publisher || '') : (it.album?.name || ''),
         art: images[0]?.url || '', durationMs: it.duration_ms, albumUri: it.album?.uri,
+        year: parseInt((it.album?.release_date || it.release_date || '').slice(0, 4), 10) || null,
       },
       isPlaying: !!d.is_playing,
       progressMs: d.progress_ms || 0,

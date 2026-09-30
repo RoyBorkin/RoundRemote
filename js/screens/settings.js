@@ -9,7 +9,7 @@ import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 import { TONE_VARIANTS } from '../views/tone-visuals.js';
-import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips } from './panels.js';
+import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, vinylTitleToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
 import { sound } from '../core/sound.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
@@ -29,15 +29,26 @@ export function SettingsScreen() {
     toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
     toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
     opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
-    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }], store.get('view'), (v) => store.set('view', v))),
+    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
+    devicePillToggle(),
     toggle('Colours from artwork', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
-    infoArtChips(),
     toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
     opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
     opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
+
+    section('Classic'),
+    infoArtChips(),
+    infoArtToggle(),
+    infoAutoHideToggle(),
+
+    section('Vinyl'),
+    vinylArtSlider(),
+    armToggle(),
+    vinylTitleToggle(),
+    opt('Record speed (spin + scratch)', chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
 
     section('Lyrics'),
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
@@ -56,15 +67,16 @@ export function SettingsScreen() {
     })(),
     stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
 
+    section('Video'),
+    ...videoOpts(),
+
     section('Tone Visual'),
     opt('Style', chips(TONE_VARIANTS, store.get('toneVariant'), (v) => store.set('toneVariant', v))),
     opt('Sound', chips(TONE_SOURCES, store.get('toneSource'), (v) => sound().useMic(v === 'mic'))),
     h('div.opt-hint', TONE_SOURCE_HINT),
 
-    section('Vinyl'),
-    vinylArtSlider(),
-    armToggle(),
-    opt('Record speed (spin + scratch)', chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
+    section('Fun Facts'),
+    factChips(),
 
     section('Connection'),
     field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),

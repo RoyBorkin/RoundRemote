@@ -129,7 +129,7 @@ export class JellyfinProvider extends Provider {
     this.publish({
       track: {
         id: it.Id, title: it.Name, artist: (it.Artists || []).join(', ') || it.AlbumArtist || '',
-        album: it.Album || '', durationMs: (it.RunTimeTicks || 0) / T,
+        album: it.Album || '', durationMs: (it.RunTimeTicks || 0) / T, year: it.ProductionYear || null,
         art: await this.img(it.AlbumId || it.Id, it.AlbumPrimaryImageTag || it.ImageTags?.Primary),
       },
       isPlaying: !ps.IsPaused, progressMs: (ps.PositionTicks || 0) / T,

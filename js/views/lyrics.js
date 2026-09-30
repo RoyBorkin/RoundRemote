@@ -246,11 +246,20 @@ const VARIANT_FNS = {
   moving: kineticStyle,
 };
 
-/** Random: every new line gets a different Kinetic Type variant, cross-fading between them. */
+/** Random: every new line gets a different Kinetic Type variant, cross-fading between them.
+ *  Uses a shuffled "bag" of every variant, so all of them come up before any repeats. */
 function randomStyle(box, lyr, api) {
   const L = lyr.lines;
-  const pool = Object.keys(VARIANT_FNS);
-  let cur = -99, active = null, last = null;
+  const pool = TYPO_VARIANTS.map((x) => x.id).filter((id) => VARIANT_FNS[id]);
+  let cur = -99, active = null, last = null, bag = [];
+  function draw() {
+    if (!bag.length) {
+      bag = pool.slice();
+      for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      if (bag.length > 1 && bag[bag.length - 1] === last) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+    }
+    return bag.pop();
+  }
   function make(v) {
     const sub = h('div.kt-sub');
     box.appendChild(sub);
@@ -261,12 +270,12 @@ function randomStyle(box, lyr, api) {
       const i = lineAt(L, ms);
       if (i !== cur) {
         cur = i;
-        const choices = pool.filter((v) => v !== last);
-        const v = choices[Math.floor(Math.random() * choices.length)];
+        const v = draw();
         if (active) {
           const old = active;
           old.sub.classList.add('fade-out');
-          setTimeout(() => { old.r.destroy(); old.sub.remove(); }, 700);
+          old.r.destroy(); // lets full-screen backgrounds (Black & White, Hand-drawn) fade with it
+          setTimeout(() => old.sub.remove(), 700);
         }
         active = make(v); last = v;
       }

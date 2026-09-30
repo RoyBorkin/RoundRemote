@@ -13,9 +13,10 @@ import { createInfoView } from '../views/info.js';
 import { createVinylView } from '../views/vinyl.js';
 import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
 import { createVideoView } from '../views/video.js';
-import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles } from './panels.js';
+import { createToneView } from '../views/tone.js';
+import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles, openToneStyles } from './panels.js';
 
-const VIEWS = ['info', 'vinyl', 'lyrics', 'video'];
+const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone'];
 const RING_R = 47.4, C = 2 * Math.PI * RING_R;
 
 export function PlayerScreen() {
@@ -46,14 +47,14 @@ export function PlayerScreen() {
   const pill = h('button.device-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
   const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume()), -118, 38.5);
-  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : openMore(view))), 118, 38.5);
+  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : view === 'tone' ? openToneStyles() : openMore(view))), 118, 38.5);
   const btnPrev = iconBtn('prev', 'Previous', () => player.prev(), 'ctl');
   const btnPlay = iconBtn('play', 'Play', () => player.toggle(), 'ctl play');
   const btnNext = iconBtn('next', 'Next', () => player.next(), 'ctl');
   const controls = h('div.controls', btnPrev, btnPlay, btnNext);
   const tCur = h('span.t-cur', '0:00'), tDur = h('span.t-dur', '0:00');
   const viewBtns = VIEWS.map((v) => {
-    const b = iconBtn(v === 'info' ? 'info' : v, `${v[0].toUpperCase()}${v.slice(1)} view`, () => setView(v), 'vbtn');
+    const b = iconBtn(v === 'info' ? 'info' : v, `${v === 'tone' ? 'Tone Visual' : `${v[0].toUpperCase()}${v.slice(1)}`} view`, () => setView(v), 'vbtn');
     b.dataset.v = v; return b;
   });
   const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
@@ -84,14 +85,15 @@ export function PlayerScreen() {
     current = v === 'vinyl' ? createVinylView({ player, onPreview: preview })
       : v === 'lyrics' ? createLyricsView({ player })
       : v === 'video' ? createVideoView({ player })
+      : v === 'tone' ? createToneView({ player })
       : createInfoView();
     stage.appendChild(current.el);
     current.update(player.state);
     el.dataset.view = v;
     viewBtns.forEach((b) => b.classList.toggle('on', b.dataset.v === v));
-    btnSide.innerHTML = icon(v === 'lyrics' ? 'text' : 'more');
+    btnSide.innerHTML = icon(v === 'lyrics' ? 'text' : v === 'tone' ? 'tone' : 'more');
     placeYt();
-    btnSide.setAttribute('aria-label', v === 'lyrics' ? 'Lyrics style' : 'More');
+    btnSide.setAttribute('aria-label', v === 'lyrics' ? 'Lyrics style' : v === 'tone' ? 'Tone Visual style' : 'More');
     showChrome();
   }
 

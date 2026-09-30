@@ -26,6 +26,8 @@ export const DEFAULTS = Object.freeze({
   kbdLang: 'en',               // on-screen keyboard language: en | he
   onlySignedIn: false,         // home: hide services that aren't signed in / reachable
   showDemo: true,              // home: show the Demo service tile
+  toneVariant: 'ferro',        // Tone Visual style
+  toneSource: 'sim',           // Tone Visual sound: sim (follows playback) | mic (live microphone)
   vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,

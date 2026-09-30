@@ -17,5 +17,6 @@ exec "$BROWSER" \
   --overscroll-history-navigation=0 --disable-pinch \
   --touch-events=enabled --enable-features=OverlayScrollbar \
   --autoplay-policy=no-user-gesture-required \
+  --use-fake-ui-for-media-stream \
   --check-for-update-interval=31536000 \
   --ozone-platform-hint=auto

@@ -22,7 +22,7 @@ Sign in to each service once. After that, one round screen lets you:
 - pick playlists and devices
 - search
 
-The current song can be shown **four ways**:
+The current song can be shown **five ways**:
 
 1. **Info (classic):** round artwork, title, artist and album. The accent colour is taken from the artwork. When the controls hide, the artwork fills the whole screen, either *original clear* or *milky blur* (your choice).
 2. **Vinyl:** the whole screen becomes a record.
@@ -42,11 +42,26 @@ The current song can be shown **four ways**:
      - **Hand-drawn:** flat mint / indigo / pink palettes that change with a paint-splash wipe; small hand-lettered words over one big brush word that writes itself on, staircases and little planets; everything jitters like frame-by-frame animation.
      - **Animated:** karaoke fill.
      - **Moving Words**.
-     - **Random:** a different variant for every line.
+     - **Random:** a different variant for every line. It goes through all of them in a shuffled order before any repeats.
 4. **Video:** like the classic view, but the background is a video:
    - **YouTube / YouTube Music:** the song's own video.
    - **Every other service:** the song's official music video, found on YouTube, played muted and kept in sync with the song. This needs the free YouTube API key (see below).
    - **Demo:** a generated colour loop.
+5. **Tone Visual:** abstract shapes and colours that move with the music, in eight styles:
+   - **Ferrofluid:** black magnetic liquid in a glowing lamp. Spikes rise with the bass; the fluid pulls together when it's loud and breaks into droplets when it's quiet.
+   - **Liquid Sphere:** a 3D sphere whose surface bulges and ripples with the music.
+   - **Spectrum Bars:** thin grey frequency bars on black with a faint reflection.
+   - **Dot Ripple:** a 3D disc of dots; every beat sends a ripple out from the centre.
+   - **Cymatics:** sand on a vibrating plate gathers on the still lines and draws Chladni figures that change with the sound.
+   - **Halo:** spectrum bars in a ring around the album art, with ripples and sparks on the beat.
+   - **Aurora:** flowing colour smoke mixed from the album art's own colours.
+   - **Oscilloscope:** a glowing green phosphor trace.
+
+   **Where the sound comes from.** This is a remote: the music plays on your speaker, TV or phone, so the app never receives the audio itself. Pick the source in the Tone Visual panel (the button on the right) or in Settings:
+   - **Simulated** (default): follows the song's playback — a beat at a tempo picked for each song, bass, melody and louder/quieter sections. It pauses, seeks and changes songs with the music, but it doesn't hear it.
+   - **Microphone (live):** listens to the room and reacts to the real sound. On the Pi, plug in a USB microphone; the kiosk script allows it automatically. In a browser, allow microphone access when asked.
+
+   Liquid Sphere and Aurora use WebGL. With *Reduce effects* on, every style draws at a lower resolution with fewer particles for the Pi 3.
 
 In every view the controls hide by themselves after a few seconds; tap the screen to bring them back. The ring around the edge is the seek bar: drag it around the circle.
 
@@ -331,7 +346,7 @@ sudo reboot
 - <kbd>←</kbd>/<kbd>→</kbd> ±10 s
 - <kbd>↑</kbd>/<kbd>↓</kbd> volume
 - <kbd>N</kbd>/<kbd>P</kbd> next/previous
-- <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> Info / Vinyl / Lyrics / Video
+- <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd> Info / Vinyl / Lyrics / Video / Tone Visual
 - <kbd>L</kbd> next lyric style
 - <kbd>V</kbd> volume
 - <kbd>/</kbd> search
@@ -347,7 +362,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
 | Show the Demo service | Hide the Demo tile from Home |
 | Control size | XS, S, M, **L** (default), XL |
-| Start in view | Info, Vinyl, Lyrics or Video |
+| Start in view | Info, Vinyl, Lyrics, Video or Tone Visual |
 | Auto-hide controls | Hide the controls after a few seconds |
 | Colours from artwork | Accent colour follows the album art |
 | Full-screen art when controls hide | Info view: original clear or milky blur |
@@ -357,6 +372,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | On-screen keyboard | Auto (touch screens), on or off |
 | Keyboard language | English or עברית (Hebrew). You can also switch with the **עב / EN** key on the keyboard; the last choice is remembered |
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
+| Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
 | Centre artwork / Hide the arm with the controls / Record speed | See the Vinyl view |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
@@ -402,9 +418,9 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ```
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
-js/core/                        settings/tokens, player controller, router, colours, YouTube helper
+js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual)
 js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js), video
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js), video, tone (+ tone-visuals.js)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, airplay, mock)

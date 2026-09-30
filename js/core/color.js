@@ -50,3 +50,37 @@ export function accentFromImage(url) {
     img.src = url;
   });
 }
+
+// A small palette (up to 4 lively colours, as [r,g,b]) from album artwork, for visualisers.
+const pcache = new Map();
+export function paletteFromImage(url) {
+  if (!url) return Promise.resolve(null);
+  if (pcache.has(url)) return Promise.resolve(pcache.get(url));
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const done = (v) => { pcache.set(url, v); resolve(v); };
+    img.onerror = () => done(null);
+    img.onload = () => {
+      try {
+        const N = 24;
+        const c = document.createElement('canvas'); c.width = c.height = N;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        g.drawImage(img, 0, 0, N, N);
+        const d = g.getImageData(0, 0, N, N).data;
+        const buckets = new Array(12).fill(0).map(() => ({ w: 0, r: 0, g: 0, b: 0 }));
+        for (let i = 0; i < d.length; i += 4) {
+          const [h, s, l] = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+          const w = 0.15 + s * (1 - Math.abs(l - 0.5) * 1.4);
+          if (w <= 0.05) continue;
+          const bk = buckets[Math.floor(h / 30) % 12];
+          bk.w += w; bk.r += d[i] * w; bk.g += d[i + 1] * w; bk.b += d[i + 2] * w;
+        }
+        const top = buckets.filter((b) => b.w > 1).sort((a, b) => b.w - a.w).slice(0, 4)
+          .map((b) => [b.r / b.w, b.g / b.w, b.b / b.w].map(Math.round));
+        done(top.length ? top : null);
+      } catch { done(null); }
+    };
+    img.src = url;
+  });
+}

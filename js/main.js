@@ -78,7 +78,7 @@ window.addEventListener('keydown', (e) => {
     ArrowDown: () => player.caps.volume && player.setVolume((player.state.volume ?? 50) - 5),
     n: () => player.next(), MediaTrackNext: () => player.next(),
     p: () => player.prev(), MediaTrackPrevious: () => player.prev(),
-    1: () => playerScreen?.setView('info'), 2: () => playerScreen?.setView('vinyl'), 3: () => playerScreen?.setView('lyrics'), 4: () => playerScreen?.setView('video'),
+    1: () => playerScreen?.setView('info'), 2: () => playerScreen?.setView('vinyl'), 3: () => playerScreen?.setView('lyrics'), 4: () => playerScreen?.setView('video'), 5: () => playerScreen?.setView('tone'),
     l: () => playerScreen?.cycleLyricStyle(), v: () => openVolume(), '/': () => openSearch(), b: () => openLibrary(),
   };
   const fn = map[k] || map[k.toLowerCase?.()];

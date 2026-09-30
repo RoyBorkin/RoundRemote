@@ -8,6 +8,9 @@ import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
+import { TONE_VARIANTS } from '../views/tone-visuals.js';
+import { TONE_SOURCES, TONE_SOURCE_HINT } from './panels.js';
+import { sound } from '../core/sound.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
 
@@ -26,7 +29,7 @@ export function SettingsScreen() {
     toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
     toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
     opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
-    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }], store.get('view'), (v) => store.set('view', v))),
+    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
     toggle('Colours from artwork', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
     infoArtChips(),
@@ -40,6 +43,11 @@ export function SettingsScreen() {
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
     opt('Kinetic type variant', chips(TYPO_VARIANTS, store.get('typoVariant'), (v) => store.set('typoVariant', v))),
     stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
+
+    section('Tone Visual'),
+    opt('Style', chips(TONE_VARIANTS, store.get('toneVariant'), (v) => store.set('toneVariant', v))),
+    opt('Sound', chips(TONE_SOURCES, store.get('toneSource'), (v) => sound().useMic(v === 'mic'))),
+    h('div.opt-hint', TONE_SOURCE_HINT),
 
     section('Vinyl'),
     vinylArtSlider(),

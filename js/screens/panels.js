@@ -7,6 +7,8 @@ import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, clamp, debounce, throttle } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
+import { TONE_VARIANTS } from '../views/tone-visuals.js';
+import { sound } from '../core/sound.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -207,6 +209,22 @@ export function openLyricStyles() {
         stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)),
           { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
         h('div.opt-hint', 'Lyrics from LRCLIB (or your server).'),
+      );
+    },
+  });
+}
+
+export const TONE_SOURCES = [{ id: 'sim', name: 'Simulated' }, { id: 'mic', name: 'Microphone (live)' }];
+export const TONE_SOURCE_HINT = 'This is a remote, so the music plays on another device and the app can’t hear it directly. '
+  + 'Simulated follows the song’s playback (beat, pauses, seeking). Microphone listens to the room for real live visuals — e.g. a USB mic on the Pi.';
+export function openToneStyles() {
+  openPanel({
+    title: 'Tone Visual', className: 'opts-panel',
+    build(body) {
+      body.append(
+        h('div.opt', h('div.opt-label', 'Style'), chips(TONE_VARIANTS, store.get('toneVariant'), (id) => store.set('toneVariant', id))),
+        h('div.opt', h('div.opt-label', 'Sound'), chips(TONE_SOURCES, store.get('toneSource'), (id) => sound().useMic(id === 'mic'))),
+        h('div.opt-hint', TONE_SOURCE_HINT),
       );
     },
   });

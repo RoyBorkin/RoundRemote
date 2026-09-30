@@ -717,6 +717,26 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 .km-w.f-cond  { font-family: Oswald, 'Arial Narrow', 'Roboto Condensed', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: .005em; line-height: .9; }
 .km-w.f-light { font-family: Oswald, 'Arial Narrow', sans-serif; font-weight: 300; text-transform: uppercase; letter-spacing: .14em; line-height: .95; }
 .km-w.f-box   { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: -.02em; line-height: 1; padding: .02em .12em .06em; background: var(--accent); color: #0b0b0f; }
+/* View 5 · Tone Visual */
+.view-tone { overflow: hidden; border-radius: 50%; background: #000; }
+.tv-host { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+.tv-layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.tv-lamp { position: absolute; inset: 0; background: radial-gradient(circle at 50% 44%, #ffffff 0%, #f4f6f7 38%, #dde1e4 70%, #b5bbc1 92%, #8d9399 100%); }
+.tv-goo { mix-blend-mode: multiply; background: #fff; }
+.tv-src { position: absolute; left: 50%; top: 29.5%; transform: translateX(-50%); font-size: 1.9cqmin; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.55);
+  padding: .4cqmin 1.4cqmin; border-radius: 99px; background: rgba(0,0,0,.35); white-space: nowrap; transition: opacity .4s; pointer-events: none; }
+.tv-src.warn { color: #ffcf7a; }
+.chrome-hidden .tv-src { opacity: 0; }
+.tv-host[data-v="ferro"] ~ .tv-src { color: rgba(0,0,0,.55); background: rgba(255,255,255,.5); }
+.player[data-view="tone"] .bg-art, .player[data-view="tone"] .bg-shade { opacity: 0 !important; }
+.player[data-view="tone"] .mini-meta {
+  display: block; position: absolute; left: 50%; top: 25.6%; transform: translate(-50%, -50%); width: 46%; text-align: center;
+  font-size: calc(2.3cqmin * var(--ui, 1)); font-weight: 600; color: rgba(255,255,255,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 0 1cqmin rgba(0,0,0,.9);
+}
+.player[data-view="tone"] .ibtn:not(.ctl):not(.vbtn) { background-color: rgba(0,0,0,.45); }
+.player[data-view="tone"] .view-switch { padding: .5cqmin 1cqmin; border-radius: 99px; background: rgba(0,0,0,.5); }
+
 /* Kinetic Type · Black & White */
 .kbw-field { position: absolute; inset: 0; background: #000; transition: opacity .6s; }
 .kbw-field.gone { opacity: 0; }

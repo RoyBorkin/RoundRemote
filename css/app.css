@@ -570,28 +570,9 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 }
 .clock small { font-size: .32em; font-weight: 600; letter-spacing: 0; margin-left: .25em; color: var(--muted); }
 
-/* ================= hide-UI (zen) mode ================= */
-.vsep { width: 1px; height: 3.2cqmin; background: var(--line); margin: 0 .8cqmin; align-self: center; }
-.player .chrome, .player .ring, .player .mini-meta, .player .ly-src, .player .bg-shade { transition: opacity .5s var(--ease); }
-.player.zen .chrome, .player.zen .ring, .player.zen .mini-meta, .player.zen .ly-src { opacity: 0 !important; pointer-events: none !important; }
-.player.zen .chrome > * { pointer-events: none !important; }
-.zen-hint {
-  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); z-index: 40;
-  padding: 1.2cqmin 3cqmin; border-radius: 99px; font-size: 2.3cqmin; font-weight: 600; color: var(--muted);
-  background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .5s;
-}
-.zen-hint.show { opacity: 1; }
-/* info: only the album cover, filling the round screen */
-.player.zen[data-view="info"] .info-art { width: 100%; height: 100%; top: 50%; transform: translate(-50%, -50%) !important; box-shadow: none; transition: width .7s var(--ease), height .7s var(--ease), top .7s var(--ease), transform .7s; }
-.player.zen[data-view="info"] .info-meta, .player.zen[data-view="info"] .info-glow, .player.zen[data-view="info"] .cta { opacity: 0; pointer-events: none; }
-.info-meta, .info-glow { transition: opacity .5s; }
-.info-art { transition: transform .6s var(--spring), width .7s var(--ease), height .7s var(--ease), top .7s var(--ease); }
-/* vinyl: only the spinning record */
+/* smooth transitions for auto-hidden controls */
+.player .chrome, .player .ring, .player .mini-meta, .player .ly-src { transition: opacity .5s var(--ease); }
 .tonearm { transition: filter .4s, opacity .6s; }
-.player.zen .tonearm { opacity: 0; }
-/* lyrics: only the lyrics, using the whole circle */
-.player.zen .ly-stage { top: 9%; bottom: 9%; left: 8%; right: 8%; }
-.player.zen .view-lyrics .ly-stage { pointer-events: none; }
 .opt[hidden] { display: none; }
 
 /* ================= lyrics 6 — FLUID (Lyricify / Apple Music style) ================= */

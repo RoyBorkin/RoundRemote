@@ -55,16 +55,14 @@ export function PlayerScreen() {
     const b = iconBtn(v === 'info' ? 'info' : v, `${v[0].toUpperCase()}${v.slice(1)} view`, () => setView(v), 'vbtn');
     b.dataset.v = v; return b;
   });
-  const btnZen = iconBtn('fullscreen', 'Hide controls', () => setZen(true), 'vbtn zen-btn');
-  const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns, h('span.vsep'), btnZen), tDur);
-  const zenHint = h('div.zen-hint', 'Tap to show controls');
+  const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
   const miniMeta = h('div.mini-meta');
   const cta = h('div.cta');
   const chrome = h('div.chrome', btnHome, btnLib, btnSearch, btnDev, pill, btnVol, btnSide, cta, controls, viewSwitch);
 
   const bubble = h('div.scrub-bubble', h('div.sb-time'), h('div.sb-rem'));
   const stage = h('div.stage');
-  const el = h('div.player', bgA, bgB, h('div.bg-shade'), stage, miniMeta, chrome, ring, bubble, zenHint);
+  const el = h('div.player', bgA, bgB, h('div.bg-shade'), stage, miniMeta, chrome, ring, bubble);
 
   // ---------- views ----------
   let view = store.get('view');
@@ -94,33 +92,17 @@ export function PlayerScreen() {
     showChrome();
   }
 
-  // ---------- hide-UI ("zen") mode: only the artwork / record / lyrics ----------
-  let zen = false, zenHintT = null;
-  function setZen(on) {
-    zen = !!on;
-    store.set('zen', zen);
-    el.classList.toggle('zen', zen);
-    clearTimeout(hideT);
-    clearTimeout(zenHintT);
-    if (zen) {
-      zenHint.classList.add('show');
-      zenHintT = setTimeout(() => zenHint.classList.remove('show'), 1800);
-    } else { zenHint.classList.remove('show'); showChrome(); }
-  }
-
   // ---------- chrome auto-hide ----------
   let hideT = null;
   function showChrome() {
-    if (zen) return;
     el.classList.remove('chrome-hidden');
     clearTimeout(hideT);
     if (store.get('autoHideChrome') && view !== 'info') hideT = setTimeout(() => { if (!topPanel()) el.classList.add('chrome-hidden'); }, 6000);
   }
 
   // ---------- ring seeking ----------
-  let ringDrag = null, wasHidden = false, zenTap = null;
+  let ringDrag = null, wasHidden = false;
   el.addEventListener('pointerdown', (e) => {
-    if (zen) { zenTap = { x: e.clientX, y: e.clientY, t: performance.now() }; return; }
     wasHidden = el.classList.contains('chrome-hidden');
     showChrome();
     if (!player.caps.seek || !player.state.track) return;
@@ -150,33 +132,19 @@ export function PlayerScreen() {
     if (ms != null) player.seek(ms);
   };
   el.addEventListener('pointerup', endRing);
-  // In zen mode a quick tap (not a record scratch) brings the controls back.
-  el.addEventListener('pointerup', (e) => {
-    if (!zen || !zenTap) return;
-    const moved = Math.hypot(e.clientX - zenTap.x, e.clientY - zenTap.y), dt = performance.now() - zenTap.t;
-    zenTap = null;
-    if (moved < 12 && dt < 450) setZen(false);
-  });
   el.addEventListener('pointercancel', endRing);
 
   // ---------- swipe between views / tap to toggle chrome ----------
   let sw = null;
   stage.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, t: performance.now(), hidden: wasHidden }; });
-  let lastTap = 0;
   stage.addEventListener('pointerup', (e) => {
-    if (!sw || zen) { sw = null; return; }
+    if (!sw) return;
     const dx = e.clientX - sw.x, dy = e.clientY - sw.y, dt = performance.now() - sw.t;
     const wasHidden = sw.hidden; sw = null;
     if (!current?.isInteractive && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
       const i = VIEWS.indexOf(view);
       setView(VIEWS[(i + (dx < 0 ? 1 : VIEWS.length - 1)) % VIEWS.length]);
       return;
-    }
-    // double-tap the middle → hide the UI
-    if (Math.hypot(dx, dy) < 10) {
-      const now = performance.now();
-      if (now - lastTap < 320) { lastTap = 0; setZen(true); return; }
-      lastTap = now;
     }
     if (Math.hypot(dx, dy) < 10 && view !== 'info' && !wasHidden && store.get('autoHideChrome')) {
       clearTimeout(hideT); el.classList.add('chrome-hidden');
@@ -251,7 +219,6 @@ export function PlayerScreen() {
   }
 
   setView(view);
-  if (store.get('zen')) setZen(true);
   render(player.state);
   frame();
   if (!player.state.track && prov?.state?.track) render(prov.state);
@@ -259,7 +226,7 @@ export function PlayerScreen() {
   return {
     el,
     destroy() { cancelAnimationFrame(raf); clearTimeout(hideT); offs.forEach((f) => f()); current?.destroy(); },
-    setView, showChrome, toggleZen: () => setZen(!zen),
+    setView, showChrome,
     cycleLyricStyle() {
       const i = LYRIC_STYLES.findIndex((x) => x.id === store.get('lyricsStyle'));
       const n = LYRIC_STYLES[(i + 1) % LYRIC_STYLES.length];

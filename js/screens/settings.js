@@ -34,7 +34,6 @@ export function SettingsScreen() {
     section('Lyrics'),
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
     opt('Kinetic type variant', chips(TYPO_VARIANTS, store.get('typoVariant'), (v) => store.set('typoVariant', v))),
-    toggle('Hide controls (only art / record / lyrics)', () => store.get('zen'), (v) => store.set('zen', v)),
     stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
 
     section('Vinyl'),

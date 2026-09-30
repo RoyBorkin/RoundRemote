@@ -13,7 +13,7 @@ Sign in to each service once. Then you can control volume, seek, skip back and f
 
    Tap a line to jump to it, and adjust the timing offset if the lyrics drift.
 
-**Hide controls:** the ⛶ button (or a double-tap on the middle, or the <kbd>H</kbd> key) hides everything except the artwork, which fills the circle in Info, the spinning record in Vinyl (you can still scratch it), or the lyrics in Lyrics. Tap once to bring the controls back.
+In Vinyl and Lyrics the controls hide automatically after a few seconds; tap the screen to bring them back.
 
 The progress ring around the edge of the screen is the seek bar: drag it around the circle.
 
@@ -98,11 +98,10 @@ Run `bash pi/setup.sh --with-roon` (or `cd bridge && npm run roon`), then in Roo
 | Info / Lyrics | Swipe left/right to change view |
 | Vinyl / Lyrics | Controls auto-hide; tap to bring them back |
 | Lyrics | Tap a line to jump there; **Aa** button → style, Kinetic Type variant, timing offset |
-| Any view | ⛶ or double-tap → hide controls; tap to show them again |
 | Volume | Round dial; drag, use −/+, or the mouse wheel |
 
 **Keyboard / rotary encoder** (map a rotary encoder to keys with e.g. `gpio-keys`):
-<kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> ±10 s · <kbd>↑</kbd>/<kbd>↓</kbd> volume · <kbd>N</kbd>/<kbd>P</kbd> next/previous · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> views · <kbd>L</kbd> cycle lyric style · <kbd>H</kbd> hide/show controls · <kbd>V</kbd> volume · <kbd>/</kbd> search · <kbd>B</kbd> playlists · <kbd>Esc</kbd> back.
+<kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> ±10 s · <kbd>↑</kbd>/<kbd>↓</kbd> volume · <kbd>N</kbd>/<kbd>P</kbd> next/previous · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> views · <kbd>L</kbd> cycle lyric style · <kbd>V</kbd> volume · <kbd>/</kbd> search · <kbd>B</kbd> playlists · <kbd>Esc</kbd> back.
 
 `?service=demo` (or any service id) in the URL opens that service directly.
 

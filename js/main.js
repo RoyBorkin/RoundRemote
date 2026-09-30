@@ -61,7 +61,7 @@ window.addEventListener('keydown', (e) => {
     n: () => player.next(), MediaTrackNext: () => player.next(),
     p: () => player.prev(), MediaTrackPrevious: () => player.prev(),
     1: () => playerScreen?.setView('info'), 2: () => playerScreen?.setView('vinyl'), 3: () => playerScreen?.setView('lyrics'),
-    l: () => playerScreen?.cycleLyricStyle(), v: () => openVolume(), '/': () => openSearch(), b: () => openLibrary(),
+    l: () => playerScreen?.cycleLyricStyle(), h: () => playerScreen?.toggleZen(), f: () => playerScreen?.toggleZen(), v: () => openVolume(), '/': () => openSearch(), b: () => openLibrary(),
   };
   const fn = map[k] || map[k.toLowerCase?.()];
   if (fn) { e.preventDefault(); fn(); playerScreen?.showChrome(); }

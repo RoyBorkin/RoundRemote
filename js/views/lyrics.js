@@ -1,13 +1,18 @@
-// View 3: synced lyrics with five selectable styles.
+// View 3: synced lyrics with seven selectable styles.
 //   basic    – classic centred list that glides to the active line
 //   animated – karaoke: words fill in as they're sung, lines rise & blur between
 //   typing   – typewriter / terminal, each line typed out in time
 //   roll     – 3D drum that rolls line by line
 //   kinetic  – modern moving words: each word flies in, drifts, and scatters
+//   fluid    – Lyricify / Apple-Music-like flowing lyrics (see lyrics-extra.js)
+//   typo     – kinetic typography, 3 variants: stack / camera / slam (see lyrics-extra.js)
 import { h, clear } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { getLyrics, lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
+import { fluidStyle, typoStyle, TYPO_VARIANTS } from './lyrics-extra.js';
+
+export { TYPO_VARIANTS };
 
 export const LYRIC_STYLES = [
   { id: 'basic', name: 'Basic' },
@@ -15,6 +20,8 @@ export const LYRIC_STYLES = [
   { id: 'typing', name: 'Typing' },
   { id: 'roll', name: 'Roll' },
   { id: 'kinetic', name: 'Moving Words' },
+  { id: 'fluid', name: 'Fluid' },
+  { id: 'typo', name: 'Kinetic Type' },
 ];
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -218,21 +225,30 @@ function kineticStyle(box, lyr, api) {
   };
 }
 
-const STYLES = { basic: basicStyle, animated: animatedStyle, typing: typingStyle, roll: rollStyle, kinetic: kineticStyle };
+const STYLES = {
+  basic: basicStyle, animated: animatedStyle, typing: typingStyle, roll: rollStyle, kinetic: kineticStyle,
+  fluid: fluidStyle, typo: (b, l, a) => typoStyle(b, l, a, store.get('typoVariant')),
+};
 
 export function createLyricsView({ player }) {
   const stage = h('div.ly-stage');
   const status = h('div.ly-status');
   const src = h('div.ly-src');
-  const el = h('div.view.view-lyrics', stage, status, src);
-  let lyr = null, renderer = null, loadingKey = null, style = store.get('lyricsStyle');
+  const bg = h('div.ly-bg');
+  const el = h('div.view.view-lyrics', bg, stage, status, src);
+  let lyr = null, renderer = null, loadingKey = null, style = store.get('lyricsStyle'), curTrack = null;
 
-  const api = { seek: (t) => { if (player.caps.seek && lyr?.synced) player.seek(Math.max(0, t - store.get('lyricsOffsetMs') - 150)); } };
+  const api = {
+    bg,
+    get track() { return curTrack; },
+    seek: (t) => { if (player.caps.seek && lyr?.synced) player.seek(Math.max(0, t - store.get('lyricsOffsetMs') - 150)); },
+  };
 
   function mount() {
     renderer?.destroy(); renderer = null;
-    clear(stage);
+    clear(stage); clear(bg);
     stage.className = `ly-stage style-${style}`;
+    el.dataset.style = style;
     if (!lyr || !lyr.lines.length) return;
     renderer = (STYLES[style] || basicStyle)(stage, lyr, api);
   }
@@ -244,7 +260,7 @@ export function createLyricsView({ player }) {
   async function load(track) {
     const key = track ? `${track.id}|${track.title}` : null;
     if (key === loadingKey) return;
-    loadingKey = key; lyr = null; mount(); src.textContent = '';
+    loadingKey = key; lyr = null; curTrack = track || null; mount(); src.textContent = '';
     if (!track) { setStatus('Nothing playing'); return; }
     setStatus([h('div.spin'), h('div', 'Finding lyrics…')], 'loading');
     const res = await getLyrics(track, player.provider).catch(() => null);
@@ -260,11 +276,12 @@ export function createLyricsView({ player }) {
     mount();
   }
   const offStyle = store.on('change:lyricsStyle', (v) => { style = v; mount(); });
+  const offVariant = store.on('change:typoVariant', () => { if (style === 'typo') mount(); });
 
   return {
     el,
     update(s) { load(s.track); },
     tick(pos) { renderer?.tick(pos + (store.get('lyricsOffsetMs') || 0)); },
-    destroy() { offStyle(); renderer?.destroy(); },
+    destroy() { offStyle(); offVariant(); renderer?.destroy(); },
   };
 }

@@ -12,7 +12,9 @@ export const DEFAULTS = Object.freeze({
   lastService: null,
   autoResume: true,            // jump straight to the last service on launch
   view: 'info',                // info | vinyl | lyrics
-  lyricsStyle: 'basic',        // basic | animated | typing | roll | kinetic
+  lyricsStyle: 'basic',        // basic | animated | typing | roll | kinetic | fluid | typo
+  typoVariant: 'stack',        // kinetic typography variant: stack | camera | slam
+  zen: false,                  // hide-UI mode: only the artwork / record / lyrics
   lyricsOffsetMs: 0,
   vinylSecondsPerTurn: 12,     // scratch sensitivity; 1.8 = real 33⅓ rpm
   vinylRealSpeed: true,        // spin at 33⅓ rpm while playing

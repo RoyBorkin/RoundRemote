@@ -6,7 +6,14 @@ Sign in to each service once. Then you can control volume, seek, skip back and f
 
 1. **Info**: round artwork, title, artist and album, with the accent colour taken from the artwork.
 2. **Vinyl**: the whole screen becomes a record. Spin it with your finger to scrub backwards or forwards; a flick keeps it coasting. The tone arm follows the song's progress, and the record spins at a real 33⅓ rpm.
-3. **Lyrics**: synced lyrics in five styles: **Basic**, **Animated** (karaoke fill), **Typing** (typewriter), **Roll** (3D drum) and **Moving Words** (kinetic typography). Tap a line to jump to it, and adjust the timing offset if the lyrics drift.
+3. **Lyrics**: synced lyrics in seven styles:
+   - **Basic**, **Animated** (karaoke fill), **Typing** (typewriter), **Roll** (3D drum) and **Moving Words**.
+   - **Fluid**, in the spirit of Lyricify / BetterLyrics: a flowing album-art colour field, lines that glide in a staggered cascade, words that fill with a soft glow and lift as they're sung, and long notes that glow letter by letter.
+   - **Kinetic Type**, lyric-video typography with three variants: **Stack** (words fitted to the full width and stacked like a poster, spinning away on each new line), **Camera** (a virtual camera pans, zooms and turns 90° from phrase to phrase) and **Slam** (one huge word at a time, with varied entrances, pulse rings and a shake on big words).
+
+   Tap a line to jump to it, and adjust the timing offset if the lyrics drift.
+
+**Hide controls:** the ⛶ button (or a double-tap on the middle, or the <kbd>H</kbd> key) hides everything except the artwork, which fills the circle in Info, the spinning record in Vinyl (you can still scratch it), or the lyrics in Lyrics. Tap once to bring the controls back.
 
 The progress ring around the edge of the screen is the seek bar: drag it around the circle.
 
@@ -90,11 +97,12 @@ Run `bash pi/setup.sh --with-roon` (or `cd bridge && npm run roon`), then in Roo
 | Vinyl | Spin the record to scrub; flick for momentum |
 | Info / Lyrics | Swipe left/right to change view |
 | Vinyl / Lyrics | Controls auto-hide; tap to bring them back |
-| Lyrics | Tap a line to jump there; **Aa** button → style + timing offset |
+| Lyrics | Tap a line to jump there; **Aa** button → style, Kinetic Type variant, timing offset |
+| Any view | ⛶ or double-tap → hide controls; tap to show them again |
 | Volume | Round dial; drag, use −/+, or the mouse wheel |
 
 **Keyboard / rotary encoder** (map a rotary encoder to keys with e.g. `gpio-keys`):
-<kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> ±10 s · <kbd>↑</kbd>/<kbd>↓</kbd> volume · <kbd>N</kbd>/<kbd>P</kbd> next/previous · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> views · <kbd>L</kbd> cycle lyric style · <kbd>V</kbd> volume · <kbd>/</kbd> search · <kbd>B</kbd> playlists · <kbd>Esc</kbd> back.
+<kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> ±10 s · <kbd>↑</kbd>/<kbd>↓</kbd> volume · <kbd>N</kbd>/<kbd>P</kbd> next/previous · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> views · <kbd>L</kbd> cycle lyric style · <kbd>H</kbd> hide/show controls · <kbd>V</kbd> volume · <kbd>/</kbd> search · <kbd>B</kbd> playlists · <kbd>Esc</kbd> back.
 
 `?service=demo` (or any service id) in the URL opens that service directly.
 
@@ -107,7 +115,7 @@ index.html, css/app.css         round UI (everything sized in cqmin → scales t
 js/main.js                      boot, OAuth redirects, shortcuts, idle dimming
 js/core/                        store (settings/tokens), player controller, router, colours
 js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (5 styles)
+js/views/                       info, vinyl, lyrics (7 styles; fluid + kinetic type in lyrics-extra.js)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, airplay, mock)

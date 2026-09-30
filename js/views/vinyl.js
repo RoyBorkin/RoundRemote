@@ -14,7 +14,7 @@ function armDegForRadius(r) {
   const c = clamp((D * D + ARM_LEN * ARM_LEN - r * r) / (2 * D * ARM_LEN), -1, 1);
   return BASE_DEG - (Math.acos(c) * 180) / Math.PI;
 }
-const ARM_OUTER = armDegForRadius(43.5), ARM_INNER = armDegForRadius(19.5), ARM_REST = ARM_OUTER - 8;
+const ARM_OUTER = armDegForRadius(43.5), ARM_INNER = armDegForRadius(25.5), ARM_REST = ARM_OUTER - 8;
 
 export function createVinylView({ player, onPreview }) {
   const label = h('div.vinyl-label');

@@ -6,7 +6,7 @@ import { createKeyboard, wantsKeyboard } from '../ui/keyboard.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, clamp, debounce, throttle } from '../core/util.js';
-import { LYRIC_STYLES } from '../views/lyrics.js';
+import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -199,8 +199,11 @@ export function openLyricStyles() {
   openPanel({
     title: 'Lyrics', className: 'opts-panel',
     build(body) {
+      const variants = h('div.opt', h('div.opt-label', 'Kinetic type variant'), chips(TYPO_VARIANTS, store.get('typoVariant'), (id) => store.set('typoVariant', id)));
+      variants.hidden = store.get('lyricsStyle') !== 'typo';
       body.append(
-        h('div.opt', h('div.opt-label', 'Style'), chips(LYRIC_STYLES, store.get('lyricsStyle'), (id) => store.set('lyricsStyle', id))),
+        h('div.opt', h('div.opt-label', 'Style'), chips(LYRIC_STYLES, store.get('lyricsStyle'), (id) => { store.set('lyricsStyle', id); variants.hidden = id !== 'typo'; })),
+        variants,
         stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)),
           { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
         h('div.opt-hint', 'Lyrics from LRCLIB (or your server). Tap a line to jump there.'),

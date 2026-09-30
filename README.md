@@ -42,7 +42,7 @@ The current song can be shown **five ways**:
      - **Hand-drawn:** flat mint / indigo / pink palettes that change with a paint-splash wipe; small hand-lettered words over one big brush word that writes itself on, staircases and little planets; everything jitters like frame-by-frame animation.
      - **Animated:** karaoke fill.
      - **Moving Words**.
-     - **Random:** a different variant for every line. It goes through all of them in a shuffled order before any repeats.
+     - **Random:** a different variant for every line. It goes through all of them in a shuffled order before any repeats. Choose which variants it uses in *Settings → Lyrics → Random includes*.
 4. **Video:** like the classic view, but the background is a video:
    - **YouTube / YouTube Music:** the song's own video.
    - **Every other service:** the song's official music video, found on YouTube, played muted and kept in sync with the song. This needs the free YouTube API key (see below).
@@ -372,6 +372,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | On-screen keyboard | Auto (touch screens), on or off |
 | Keyboard language | English or עברית (Hebrew). You can also switch with the **עב / EN** key on the keyboard; the last choice is remembered |
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
+| Random includes | Which Kinetic Type variants the Random variant picks from (tap to include or leave out; at least one stays on; *Include all* resets) |
 | Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
 | Centre artwork / Hide the arm with the controls / Record speed | See the Vinyl view |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |

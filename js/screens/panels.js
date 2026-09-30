@@ -190,6 +190,30 @@ export function chips(options, current, onPick) {
   return row;
 }
 
+/** Multi-select chips: tap to include / leave out. Keeps at least one selected. */
+export function multiChips(options, getOn, setOn, { min = 1 } = {}) {
+  const row = h('div.chips.multi');
+  const render = () => {
+    clear(row);
+    const on = getOn();
+    for (const o of options) {
+      const sel = on.includes(o.id);
+      row.append(h(`button.chip${sel ? '.on' : ''}`, {
+        type: 'button', role: 'checkbox', 'aria-checked': String(sel),
+        onclick: (e) => {
+          e.stopPropagation();
+          const cur = getOn();
+          if (sel && cur.length <= min) { toast('Keep at least one'); return; }
+          setOn(sel ? cur.filter((x) => x !== o.id) : [...cur, o.id]);
+          render();
+        },
+      }, o.name));
+    }
+  };
+  render();
+  return row;
+}
+
 export function stepper(label, get, set, { step, fmt }) {
   const val = h('span.step-val', fmt(get()));
   const upd = (d) => { set(get() + d); val.textContent = fmt(get()); };

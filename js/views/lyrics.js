@@ -250,7 +250,10 @@ const VARIANT_FNS = {
  *  Uses a shuffled "bag" of every variant, so all of them come up before any repeats. */
 function randomStyle(box, lyr, api) {
   const L = lyr.lines;
-  const pool = TYPO_VARIANTS.map((x) => x.id).filter((id) => VARIANT_FNS[id]);
+  const off = new Set(store.get('typoRandomOff') || []);
+  const all = TYPO_VARIANTS.map((x) => x.id).filter((id) => VARIANT_FNS[id]);
+  const chosen = all.filter((id) => !off.has(id));
+  const pool = chosen.length ? chosen : all; // Settings → “Random includes”
   let cur = -99, active = null, last = null, bag = [];
   function draw() {
     if (!bag.length) {
@@ -340,11 +343,12 @@ export function createLyricsView({ player }) {
   }
   const offStyle = store.on('change:lyricsStyle', (v) => { style = v; mount(); });
   const offVariant = store.on('change:typoVariant', () => { if (style === 'typo') mount(); });
+  const offRandom = store.on('change:typoRandomOff', () => { if (style === 'typo' && store.get('typoVariant') === 'random') mount(); });
 
   return {
     el,
     update(s) { load(s.track); },
     tick(pos) { renderer?.tick(pos + (store.get('lyricsOffsetMs') || 0)); },
-    destroy() { offStyle(); offVariant(); renderer?.destroy(); },
+    destroy() { offStyle(); offVariant(); offRandom(); renderer?.destroy(); },
   };
 }

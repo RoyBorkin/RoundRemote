@@ -503,6 +503,9 @@ input { font: inherit; color: inherit; }
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.3cqmin; }
 .chip { padding: 1.5cqmin 3cqmin; border-radius: 99px; font-size: 2.7cqmin; font-weight: 600; background: var(--glass); border: 1px solid var(--line); transition: background .2s, color .2s; }
 .chip.on { background: var(--accent); color: #050505; border-color: transparent; }
+.chips.multi .chip.on::before { content: '✓ '; }
+.chips.multi .chip:not(.on) { color: var(--dim); }
+.pill.small { font-size: 2.4cqmin; padding: 1.1cqmin 2.6cqmin; margin-top: 1.2cqmin; }
 .stepper { display: flex; align-items: center; gap: 2.4cqmin; }
 .step-val { font-family: var(--mono); font-size: 3.2cqmin; min-width: 14cqmin; text-align: center; }
 .toggles { display: flex; justify-content: center; gap: 2.4cqmin; }

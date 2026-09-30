@@ -9,7 +9,7 @@ import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 import { TONE_VARIANTS } from '../views/tone-visuals.js';
-import { TONE_SOURCES, TONE_SOURCE_HINT } from './panels.js';
+import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips } from './panels.js';
 import { sound } from '../core/sound.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
@@ -42,6 +42,18 @@ export function SettingsScreen() {
     section('Lyrics'),
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
     opt('Kinetic type variant', chips(TYPO_VARIANTS, store.get('typoVariant'), (v) => store.set('typoVariant', v))),
+    (() => {
+      // Which variants Random may pick (stored as the ones left out, so new variants are in by default)
+      const opts = TYPO_VARIANTS.filter((x) => x.id !== 'random');
+      const ids = opts.map((x) => x.id);
+      const getOn = () => { const off = store.get('typoRandomOff') || []; return ids.filter((id) => !off.includes(id)); };
+      const setOn = (on) => store.set('typoRandomOff', ids.filter((id) => !on.includes(id)));
+      let row = multiChips(opts, getOn, setOn);
+      const all = h('button.pill.small', { type: 'button' }, 'Include all');
+      const box = h('div.opt', h('div.opt-label', 'Random includes'), row, h('div.center', all));
+      all.onclick = (e) => { e.stopPropagation(); store.set('typoRandomOff', []); const r = multiChips(opts, getOn, setOn); row.replaceWith(r); row = r; };
+      return box;
+    })(),
     stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
 
     section('Tone Visual'),

@@ -219,6 +219,7 @@ export const VINYL_SPEEDS = [
 export const vinylArtFmt = (v) => (v <= 0 ? 'No artwork' : v >= 100 ? 'Full screen' : `${Math.round(v)}%`);
 export const vinylArtSlider = () => slider('Centre artwork', () => store.get('vinylLabelSize'), (v) => store.set('vinylLabelSize', v),
   { min: 0, max: 100, step: 1, fmt: vinylArtFmt, ends: ['None', 'Full'] });
+export const armToggle = () => toggle('Hide the arm with the controls', () => store.get('vinylArmHide') !== false, (v) => store.set('vinylArmHide', v));
 export const infoArtChips = () => h('div.opt', h('div.opt-label', 'Full-screen art when controls hide'),
   chips([{ id: 'clear', name: 'Original clear' }, { id: 'milky', name: 'Milky blur' }], store.get('infoFullArt'), (v) => store.set('infoFullArt', v)));
 
@@ -227,7 +228,7 @@ export function openMore(view = 'info') {
     title: view === 'vinyl' ? 'Vinyl' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
-      if (view === 'vinyl') body.append(vinylArtSlider());
+      if (view === 'vinyl') body.append(vinylArtSlider(), armToggle());
       if (view === 'info') body.append(infoArtChips());
       const toggles = h('div.toggles');
       if (c.shuffle) {

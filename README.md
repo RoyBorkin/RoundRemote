@@ -13,7 +13,7 @@ The current song can be shown **four ways**:
 1. **Info (classic):** round artwork, title, artist and album. The accent colour is taken from the artwork. When the controls hide, the artwork fills the whole screen, either *original clear* or *milky blur* (your choice).
 2. **Vinyl:** the whole screen becomes a record.
    - Spin it with your finger to scrub back or forward; a flick keeps it coasting.
-   - The tone arm follows the song and hides with the controls.
+   - The tone arm follows the song and hides with the controls. To keep it visible, turn off *Hide the arm with the controls* in the ⋯ panel or in Settings.
    - **Record speed** (45 / 33⅓ / 16 / 8 / 4 rpm) sets both the spin and how far one turn scratches, so the record always moves with the music.
    - A slider sets the centre artwork size, from none to full screen.
 3. **Lyrics:** synced lyrics in five styles:
@@ -67,7 +67,12 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 | **Qobuz** | Qobuz Connect is closed to third parties. Same approach as Tidal. | Needs the bridge |
 | **Demo** | Fictional songs with original lyrics. Try everything without an account. | ✅ |
 
-On the home screen, services that still need the bridge show a small **BRIDGE** tag, and a green dot means you're signed in. The icons come from the free [Simple Icons](https://simpleicons.org) set. When offline before the first load, the tiles show initials instead.
+On the home screen:
+- a green dot means you're signed in;
+- services that still need the bridge show a small **BRIDGE** tag;
+- *Settings → Show only signed-in services* hides everything you haven't set up.
+
+The platform logos come from the free [Simple Icons](https://simpleicons.org) set (jsDelivr, with unpkg as a backup). They're downloaded once and then kept in the browser, so the Pi shows them offline too. Qobuz isn't in that set, so its tile keeps its letters. Tiles show letters until a logo has been downloaded once.
 
 ---
 
@@ -274,10 +279,11 @@ sudo reboot
 | Bottom row | Previous · Play/Pause · Next; below them the four view buttons (Info, Vinyl, Lyrics, Video) |
 | Top buttons | Services (home) · Playlists · Search · Devices |
 | Left button | Volume dial (drag around, −/+, or mouse wheel) |
-| Right button | **⋯** in Info/Vinyl/Video: shuffle, repeat, skip ±15 s, full-screen art style (Info), centre artwork size and record speed (Vinyl). **Aa** in Lyrics: style, Kinetic Type variant, timing offset |
+| Right button | **⋯** in Info/Vinyl/Video: shuffle, repeat, skip ±15 s, full-screen art style (Info), centre artwork size, arm hiding and record speed (Vinyl). **Aa** in Lyrics: style, Kinetic Type variant, timing offset |
 | Info / Lyrics / Video | Swipe left or right to change view |
 | Vinyl | Spin the record to scrub; flick for momentum |
 | Any view | The controls hide after a few seconds; tap to show them. Tapping lyrics doesn't skip |
+| On-screen keyboard | **עב / EN** switches between English and Hebrew; **123** shows numbers and symbols |
 
 **Keyboard / rotary encoder** (a rotary encoder can be mapped to keys, e.g. with `gpio-keys`):
 - <kbd>Space</kbd> play/pause
@@ -297,6 +303,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 
 | Setting | What it does |
 |---|---|
+| Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
 | Control size | XS, S, M, **L** (default), XL |
 | Start in view | Info, Vinyl, Lyrics or Video |
 | Auto-hide controls | Hide the controls after a few seconds |
@@ -306,8 +313,9 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Open last service on start | Go straight to the last service |
 | Dim screen when idle | Dims when nothing is playing (never / 2 / 10 / 30 min) |
 | On-screen keyboard | Auto (touch screens), on or off |
+| Keyboard language | English or עברית (Hebrew). You can also switch with the **עב / EN** key on the keyboard; the last choice is remembered |
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
-| Centre artwork / Record speed | See the Vinyl view |
+| Centre artwork / Hide the arm with the controls / Record speed | See the Vinyl view |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
 | Accounts | Sign in or out of each service |
@@ -330,7 +338,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 | YouTube: "Add a YouTube API key" | See [YouTube](#youtube-and-youtube-music). |
 | YouTube: "quota used up" | The free daily quota resets at midnight Pacific time. |
 | Video view shows only the blurred artwork | No embeddable music video was found for that song, or no API key is set. |
-| Icons show initials | The icon library couldn't load (offline). They appear once you're online. |
+| Icons show initials | The logos haven't been downloaded yet (first run while offline, or a blocker stopping jsDelivr/unpkg). They appear once they've loaded; after that they work offline. |
 | The site still shows an old version | Reload once or twice; the offline cache updates itself in the background. |
 
 ---

@@ -1,4 +1,5 @@
 // Compact on-screen keyboard shaped to fit the lower half of a round display.
+// English and Hebrew layouts (🌐 key switches; the last choice is remembered).
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { store } from '../core/store.js';
@@ -9,15 +10,23 @@ const LAYOUTS = {
     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
     ['⇧', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '⌫'],
-    ['123', ' ', '↵'],
+    ['123', '🌐', ' ', '↵'],
+  ],
+  // Standard Israeli (SI-1452) letter positions
+  he: [
+    ['ק', 'ר', 'א', 'ט', 'ו', 'ן', 'ם', 'פ'],
+    ['ש', 'ד', 'ג', 'כ', 'ע', 'י', 'ח', 'ל', 'ך', 'ף'],
+    ['ז', 'ס', 'ב', 'ה', 'נ', 'מ', 'צ', 'ת', 'ץ', '⌫'],
+    ['123', '🌐', ' ', '↵'],
   ],
   num: [
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
     ['-', '/', ':', ';', '(', ')', '&', '@', '\''],
     ['_', '.', ',', '?', '!', '"', '#', '=', '⌫'],
-    ['ABC', ' ', '↵'],
+    ['ABC', '🌐', ' ', '↵'],
   ],
 };
+const LANG_LABEL = { en: 'עב', he: 'EN' };
 
 export function wantsKeyboard() {
   const k = store.get('keyboard');
@@ -29,7 +38,9 @@ export function wantsKeyboard() {
  * @param {{onEnter?:Function}} opts
  */
 export function createKeyboard(input, { onEnter } = {}) {
-  let layout = 'abc', shift = false, enterIcon = 'search';
+  let lang = store.get('kbdLang') === 'he' ? 'he' : 'en';
+  let layout = lang === 'he' ? 'he' : 'abc', shift = false, enterIcon = 'search';
+  input.dir = 'auto';
   const el = h('div.kbd', { role: 'group', 'aria-label': 'On-screen keyboard' });
   const fire = () => input.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -39,7 +50,13 @@ export function createKeyboard(input, { onEnter } = {}) {
     if (k === '↵') { onEnter?.(input.value); return; }
     if (k === '⇧') { shift = !shift; render(); return; }
     if (k === '123') { layout = 'num'; render(); return; }
-    if (k === 'ABC') { layout = 'abc'; render(); return; }
+    if (k === 'ABC') { layout = lang === 'he' ? 'he' : 'abc'; render(); return; }
+    if (k === '🌐') {
+      lang = lang === 'he' ? 'en' : 'he'; store.set('kbdLang', lang);
+      shift = false;
+      if (layout !== 'num') layout = lang === 'he' ? 'he' : 'abc';
+      render(); return;
+    }
     input.value += shift ? k.toUpperCase() : k;
     if (shift) { shift = false; render(); }
     fire();
@@ -57,12 +74,14 @@ export function createKeyboard(input, { onEnter } = {}) {
         let label = k, cls = 'key';
         if (k === ' ') { label = 'space'; cls += ' space'; }
         if (k === '↵') cls += ' enter';
-        if (['⇧', '123', 'ABC', '⌫'].includes(k)) cls += ' mod';
+        if (['⇧', '123', 'ABC', '⌫', '🌐'].includes(k)) cls += ' mod';
+        if (k === '🌐') { cls += ' lang'; label = LANG_LABEL[lang]; }
+        if (k === 'ABC') label = lang === 'he' ? 'אבג' : 'ABC';
         if (k === '⇧' && shift) cls += ' on';
-        const b = h('button', { type: 'button', class: cls, 'aria-label': k === ' ' ? 'space' : k });
+        const b = h('button', { type: 'button', class: cls, 'aria-label': k === ' ' ? 'space' : k === '🌐' ? (lang === 'he' ? 'Switch to English' : 'Switch to Hebrew') : k });
         if (k === '⌫') b.innerHTML = icon('backspace');
         else if (k === '↵') b.innerHTML = icon(enterIcon);
-        else b.textContent = shift && k.length === 1 ? k.toUpperCase() : label;
+        else b.textContent = shift && k.length === 1 && lang !== 'he' ? k.toUpperCase() : label;
         b.addEventListener('pointerdown', (e) => {
           e.preventDefault(); e.stopPropagation();
           b.classList.add('down');

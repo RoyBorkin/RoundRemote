@@ -23,6 +23,9 @@ export const DEFAULTS = Object.freeze({
   liteMode: false,             // fewer blur effects for slower GPUs (Pi 3/Zero)
   artAccent: true,
   keyboard: 'auto',            // on-screen keyboard: auto | on | off
+  kbdLang: 'en',               // on-screen keyboard language: en | he
+  onlySignedIn: false,         // home: hide services that aren't signed in / reachable
+  vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)

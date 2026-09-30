@@ -9,25 +9,41 @@ import { store } from '../core/store.js';
 
 export function HomeScreen() {
   const ring = h('div.svc-ring');
-  const n = SERVICES.length;
+  const hint = h('div.home-hint');
   const items = SERVICES.map((svc, i) => {
-    const a = (i / n) * Math.PI * 2;
     const btn = h('button.svc', {
       type: 'button', 'aria-label': svc.name, '--c': svc.color,
-      style: { left: `${50 + 37.5 * Math.sin(a)}%`, top: `${50 - 37.5 * Math.cos(a)}%`, animationDelay: `${i * 35}ms` },
+      style: { animationDelay: `${i * 35}ms` },
       onclick: () => openService(svc.id),
     }, badge(svc), h('span.svc-name', svc.short || svc.name), h('span.svc-dot'), h('span.svc-tag', 'bridge'));
     if (svc.id === store.get('lastService')) btn.classList.add('last');
     ring.appendChild(btn);
-    return { svc, btn };
+    return { svc, btn, ready: false };
   });
+
+  // Spread the visible services evenly around the ring.
+  function layout() {
+    const only = store.get('onlySignedIn');
+    let shown = items.filter((it) => !only || (it.ready && it.svc.kind !== 'local'));
+    hint.textContent = '';
+    if (!shown.length) {
+      shown = items.filter((it) => it.svc.kind === 'local');
+      hint.textContent = 'No services signed in yet — Settings → “Show only signed-in services”';
+    }
+    items.forEach((it) => { it.btn.hidden = !shown.includes(it); });
+    shown.forEach((it, i) => {
+      const a = (i / shown.length) * Math.PI * 2;
+      it.btn.style.left = `${50 + 37.5 * Math.sin(a)}%`;
+      it.btn.style.top = `${50 - 37.5 * Math.cos(a)}%`;
+    });
+  }
 
   const clock = h('div.clock');
   const date = h('div.date');
   const now = h('button.now-mini', { type: 'button', onclick: () => go('player') });
   const settings = iconBtn('settings', 'Settings', () => go('settings'), 'home-settings');
   const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, now, settings);
-  const el = h('div.home', h('div.home-glow'), ring, center);
+  const el = h('div.home', h('div.home-glow'), ring, center, hint);
 
   function tickClock() {
     const d = new Date();
@@ -52,24 +68,28 @@ export function HomeScreen() {
   renderNow();
   const offNow = player.on('track', renderNow);
 
-  // Status dots
+  // Status dots (green = signed in / reachable) and the "only signed-in" filter.
   (async () => {
-    for (const { svc, btn } of items) {
-      const p = provider(svc.id);
-      if (svc.kind !== 'bridge') btn.classList.toggle('ready', !p.setupHint() && p.isAuthed());
+    for (const it of items) {
+      const p = provider(it.svc.id);
+      if (it.svc.kind !== 'bridge') { it.ready = !p.setupHint() && p.isAuthed(); it.btn.classList.toggle('ready', it.ready); }
     }
+    layout();
     const info = await bridgeInfo({ passive: true });
-    for (const { svc, btn } of items) {
-      if (svc.kind !== 'bridge') continue;
+    for (const it of items) {
+      if (it.svc.kind !== 'bridge') continue;
       const ad = info?.adapters || {};
-      const ok = svc.id === 'tidal' || svc.id === 'qobuz'
+      const ok = it.svc.id === 'tidal' || it.svc.id === 'qobuz'
         ? Object.values(ad).some((a) => a.enabled && a.id !== 'mock')
-        : ad[svc.id]?.enabled;
-      btn.classList.toggle('ready', !!ok);
-      if (info && !ok) btn.classList.add('off');
-      if (!info) btn.classList.add('needs-bridge');
+        : ad[it.svc.id]?.enabled;
+      it.ready = !!ok;
+      it.btn.classList.toggle('ready', it.ready);
+      if (info && !ok) it.btn.classList.add('off');
+      if (!info) it.btn.classList.add('needs-bridge');
     }
+    layout();
   })();
+  const offFilter = store.on('change:onlySignedIn', layout);
 
-  return { el, destroy() { clearInterval(clockT); offNow(); } };
+  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); } };
 }

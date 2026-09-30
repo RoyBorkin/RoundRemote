@@ -213,10 +213,14 @@ export function PlayerScreen() {
     current?.update(s);
   }
 
-  const applyArtMode = () => el.classList.toggle('art-milky', store.get('infoFullArt') === 'milky');
+  const applyArtMode = () => {
+    el.classList.toggle('art-milky', store.get('infoFullArt') === 'milky');
+    el.classList.toggle('arm-autohide', store.get('vinylArmHide') !== false);
+  };
   applyArtMode();
   const offs = [
     store.on('change:infoFullArt', applyArtMode),
+    store.on('change:vinylArmHide', applyArtMode),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),
   ];

@@ -3,7 +3,7 @@
 import { h, iconBtn, onCircle, badge } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
 import { curve, toast } from '../ui/overlay.js';
-import { chips, stepper, toggle, vinylArtSlider, infoArtChips, VINYL_SPEEDS } from './panels.js';
+import { chips, stepper, toggle, vinylArtSlider, infoArtChips, armToggle, VINYL_SPEEDS } from './panels.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
@@ -23,6 +23,7 @@ export function SettingsScreen() {
 
   list.append(
     section('Display'),
+    toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
     opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
     opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
@@ -32,6 +33,7 @@ export function SettingsScreen() {
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
     opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
+    opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
 
     section('Lyrics'),
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
@@ -40,6 +42,7 @@ export function SettingsScreen() {
 
     section('Vinyl'),
     vinylArtSlider(),
+    armToggle(),
     opt('Record speed (spin + scratch)', chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
 
     section('Connection'),
@@ -73,6 +76,7 @@ export function SettingsScreen() {
       };
       return h('div.center', b);
     })(),
+    h('div.credit', 'Made by Roy Borkin'),
     h('div.spacer'),
   );
   curve(list);

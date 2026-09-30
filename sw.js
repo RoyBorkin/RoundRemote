@@ -1,7 +1,7 @@
 // Round Remote service worker — makes the app installable and load offline.
 // Strategy: network-first for the app's own files (so updates show up immediately when
 // online), falling back to the cache when offline. Music-service APIs are never cached.
-const VERSION = 'rr-2.2.0';
+const VERSION = 'rr-2.3.0';
 const SHELL = [
     "./",
     "index.html",
@@ -45,7 +45,7 @@ const SHELL = [
     "icons/apple-touch-icon.png"
   ];
 // Fonts and the platform icons (Simple Icons on jsDelivr) never change: cache-first.
-const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'];
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net', 'unpkg.com'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => Promise.allSettled(SHELL.map((u) => c.add(u)))).then(() => self.skipWaiting()));
@@ -70,7 +70,8 @@ self.addEventListener('fetch', (e) => {
       const hit = await c.match(req);
       if (hit) return hit;
       const res = await fetch(req);
-      if (res.ok || res.type === 'opaque') c.put(req, res.clone());
+      // Opaque (no-cors) responses are only safe to cache for Google Fonts' stylesheet requests.
+      if (res.ok || (res.type === 'opaque' && url.hostname.startsWith('fonts.'))) c.put(req, res.clone());
       return res;
     }));
     return;

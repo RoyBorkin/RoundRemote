@@ -78,27 +78,52 @@ export function onLongPress(el, fn, ms = 550) {
 }
 
 /** Service monogram badge. */
-const ICON_CDN = 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/';
-const iconOk = new Map(); // slug -> Promise<boolean>
-function probeIcon(slug) {
-  if (!iconOk.has(slug)) {
-    iconOk.set(slug, new Promise((res) => {
-      const img = new Image();
-      img.onload = () => res(true); img.onerror = () => res(false);
-      img.src = ICON_CDN + slug + '.svg';
-    }));
+// Platform logos come from Simple Icons (CC0, simpleicons.org). Each SVG is fetched once,
+// its path is kept in localStorage (so the Pi shows logos offline after the first run), and
+// it's drawn inline in the service's brand colour. If it can't be loaded, the initials show.
+const ICON_SOURCES = [
+  (slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`,
+  (slug) => `https://unpkg.com/simple-icons@latest/icons/${slug}.svg`,
+];
+const ICON_STORE = 'rr.icons.v1';
+const iconJobs = new Map();
+function iconCache() { try { return JSON.parse(localStorage.getItem(ICON_STORE) || '{}'); } catch { return {}; } }
+function loadIconPath(slug) {
+  const cached = iconCache()[slug];
+  if (cached) return Promise.resolve(cached);
+  if (!iconJobs.has(slug)) {
+    iconJobs.set(slug, (async () => {
+      for (const src of ICON_SOURCES) {
+        try {
+          const r = await fetch(src(slug), { mode: 'cors' });
+          if (!r.ok) continue;
+          const svg = await r.text();
+          const d = [...svg.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]).join(' ');
+          if (!d) continue;
+          const c = iconCache(); c[slug] = d;
+          try { localStorage.setItem(ICON_STORE, JSON.stringify(c)); } catch {}
+          return d;
+        } catch {}
+      }
+      iconJobs.delete(slug); // allow a retry later (e.g. when back online)
+      return null;
+    })());
   }
-  return iconOk.get(slug);
+  return iconJobs.get(slug);
 }
 
-/** Service badge: the platform's icon (Simple Icons) in its brand colour; initials if offline. */
+/** Service badge: the platform's logo in its brand colour (initials until/unless it loads). */
 export function badge(svc, size = '') {
   const el = h(`div.badge${size ? '.' + size : ''}`, { '--c': svc.color, 'aria-hidden': 'true' }, h('span.badge-mono', svc.mono));
   if (svc.glyph) { el.classList.add('has-icon'); el.append(h('i.badge-glyph', { html: icon(svc.glyph) })); }
   else if (svc.icon) {
-    const i = h('i.badge-ic', { '--src': `url("${ICON_CDN}${svc.icon}.svg")` });
-    el.append(i);
-    probeIcon(svc.icon).then((ok) => el.classList.toggle('has-icon', ok));
+    const put = (d) => {
+      if (!d) return;
+      el.append(h('i.badge-ic', { html: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>` }));
+      el.classList.add('has-icon');
+    };
+    const cached = iconCache()[svc.icon];
+    if (cached) put(cached); else loadIconPath(svc.icon).then(put);
   }
   return el;
 }

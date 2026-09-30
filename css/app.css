@@ -469,7 +469,9 @@ input { font: inherit; color: inherit; }
 .key.down { background: var(--accent); color: #000; transform: scale(1.08); }
 .key.mod { background: rgba(255,255,255,.05); font-size: 2.4cqmin; width: 9.4cqmin; }
 .key.mod.on { background: var(--fg); color: #000; }
-.key.space { width: 34cqmin; font-size: 2.4cqmin; color: var(--muted); }
+.key.space { width: 27cqmin; font-size: 2.4cqmin; color: var(--muted); }
+.key.lang { font-size: 2.6cqmin; font-weight: 700; color: var(--accent); }
+.kbd .key { font-family: var(--font), 'Arial Hebrew', 'Noto Sans Hebrew', sans-serif; }
 .key.enter { width: 11cqmin; background: var(--accent); color: #000; }
 .r0 .key { width: 7cqmin; }
 
@@ -694,7 +696,7 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 .view-vinyl.no-label .vinyl-label, .view-vinyl.no-label .vinyl-label-text,
 .view-vinyl.big-label .vinyl-label-text, .view-vinyl.small-label .vinyl-label-text { display: none; }
 .view-vinyl.big-label .vinyl-label { box-shadow: none; }
-.player[data-view="vinyl"].chrome-hidden .tonearm { opacity: 0; }
+.player.arm-autohide[data-view="vinyl"].chrome-hidden .tonearm { opacity: 0; }
 
 /* ================= info: full-screen artwork when the controls hide ================= */
 .info-art { transition: transform .6s var(--spring), width .8s var(--ease), height .8s var(--ease), top .8s var(--ease), filter .8s, box-shadow .6s; }
@@ -741,11 +743,8 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 /* ================= platform icons in badges ================= */
 .badge { position: relative; }
 .badge .badge-ic, .badge .badge-glyph { display: none; }
-.badge .badge-ic {
-  width: 56%; height: 56%; background: var(--c);
-  -webkit-mask: var(--src) center / contain no-repeat; mask: var(--src) center / contain no-repeat;
-  filter: drop-shadow(0 0 1cqmin color-mix(in srgb, var(--c) 40%, transparent));
-}
+.badge .badge-ic { width: 54%; height: 54%; color: var(--c); filter: drop-shadow(0 0 1cqmin color-mix(in srgb, var(--c) 40%, transparent)); }
+.badge .badge-ic svg { width: 100%; height: 100%; fill: currentColor; display: block; }
 .badge .badge-glyph { font-size: 6cqmin; color: var(--c); }
 .badge.lg .badge-glyph { font-size: 8cqmin; }
 .badge.sm .badge-glyph { font-size: 3.8cqmin; }
@@ -792,3 +791,14 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 #app[data-ytpos="info"] #yt-host { --w: 32%; top: 41.5%; z-index: 5; }
 #app[data-ytpos="vinyl"] #yt-host { --w: max(18%, calc(var(--lbl, 46) * 1%)); top: 50%; z-index: 5; }
 #app[data-ytpos="lyrics"] #yt-host { --w: 12%; top: 11.5%; z-index: 5; }
+
+.svc { transition: left .5s var(--ease), top .5s var(--ease); }
+.svc[hidden] { display: none; }
+.home-hint { position: absolute; left: 50%; top: 71%; transform: translateX(-50%); width: 46%; text-align: center; font-size: 2.1cqmin; color: var(--muted); }
+/* Hebrew / mixed-direction text shows in the right order everywhere */
+.info-title span, .info-artist, .info-album, .row-title, .row-sub, .mini-meta, .now-text b, .now-text small,
+.lyb-line, .lya-line, .lya-next, .lyt-old, .lyt-text, .lyr-line, .flu-line, .kt-row, .kt-cblock, .ks-word, .ks-strip, .lyk-group { unicode-bidi: plaintext; }
+.flu-line { text-align: start; }
+.search-input, .edit-input, .field-input { unicode-bidi: plaintext; }
+
+.credit { margin-top: 3cqmin; text-align: center; font-size: 2.6cqmin; font-weight: 600; letter-spacing: .04em; color: var(--muted); }

@@ -23,7 +23,8 @@ export function HomeScreen() {
   });
 
   // Spread the visible services evenly around the ring.
-  const mode = () => (store.get('homeMode') === 'media' ? 'media' : 'music');
+  const MODES = ['music', 'media', 'home'];
+  const mode = () => (MODES.includes(store.get('homeMode')) ? store.get('homeMode') : 'music');
   function layout() {
     const only = store.get('onlySignedIn');
     const demo = store.get('showDemo');
@@ -50,14 +51,14 @@ export function HomeScreen() {
   const clock = h('div.clock');
   const date = h('div.date');
   const now = h('button.now-mini', { type: 'button', onclick: () => go('player') });
-  const settings = iconBtn('settings', 'Settings', () => go('settings'), 'home-settings');
-  // Music ⇄ Movies & shows
-  const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Movies & TV']].map(([m, ic, label]) => h('button.hm-btn', {
+  // The four main categories: Music · Media (movies & TV) · Home (smart home) · Settings
+  const setMode = (m) => { if (mode() !== m) { store.set('homeMode', m); ring.classList.remove('swap'); void ring.offsetWidth; ring.classList.add('swap'); } };
+  const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Media'], ['home', 'house', 'Home'], ['settings', 'settings', 'Settings']].map(([m, ic, label]) => h('button.hm-btn', {
     type: 'button', dataset: { mode: m }, 'aria-label': label, html: `${icon(ic)}<span>${label}</span>`,
-    onclick: (e) => { e.stopPropagation(); if (mode() !== m) { store.set('homeMode', m); ring.classList.remove('swap'); void ring.offsetWidth; ring.classList.add('swap'); } },
+    onclick: (e) => { e.stopPropagation(); if (m === 'settings') go('settings'); else setMode(m); },
   }));
   const modeSwitch = h('div.home-mode', modeBtns);
-  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now, settings);
+  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now);
   const el = h('div.home', h('div.home-glow'), ring, center, hint);
 
   function tickClock() {
@@ -114,7 +115,7 @@ export function HomeScreen() {
   el.addEventListener('pointerup', (e) => {
     if (!sx) return;
     const dx = e.clientX - sx.x, dy = e.clientY - sx.y, dt = performance.now() - sx.t; sx = null;
-    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) modeBtns[mode() === 'music' ? 1 : 0].click();
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) setMode(MODES[(MODES.indexOf(mode()) + (dx < 0 ? 1 : MODES.length - 1)) % MODES.length]);
   });
 
   return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); offMode(); } };

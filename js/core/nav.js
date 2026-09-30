@@ -9,6 +9,13 @@ export async function openService(id, { forceSetup = false } = {}) {
   const p = provider(id);
   if (!p) return;
   if (forceSetup || p.setupHint() || !p.isAuthed()) { go('connect', { id }); return; }
+  const svcMeta = getService(id);
+  if (svcMeta.section === 'home') {   // smart home: its own screen, the music/video player keeps playing
+    store.set('lastService', id); store.set('homeMode', 'home');
+    document.getElementById('app').style.setProperty('--accent', svcMeta.color);
+    go('smarthome', { id });
+    return;
+  }
   store.set('lastService', id);
   document.getElementById('app').style.setProperty('--accent', getService(id).color);
   document.getElementById('app').style.setProperty('--brand', getService(id).color);

@@ -53,6 +53,8 @@ export function ConnectScreen({ id }) {
     const kind = svc.kind;
     if (id === 'demo') { body.append(h('div.actions', btn('Start demo', () => openService(id), 'primary'))); return; }
     if (['androidtv', 'appletv'].includes(adapterOf(svc)) && svc.id !== 'cast') return renderTvPairing();
+    if (kind === 'hass') return renderHass();
+    if (id === 'googlehome') return renderGoogleHome();
     if (kind === 'bridge') return renderBridge();
     if (kind === 'youtube') return renderYouTube();
     if (id === 'spotify') return renderSpotify();
@@ -314,6 +316,66 @@ export function ConnectScreen({ id }) {
     if (a?.enabled) search();
   }
 
+
+  // ---------- Home Assistant: address + long-lived access token ----------
+  function renderHass() {
+    let url = store.get('haUrl') || '', token = '';
+    const u = field({ label: 'Home Assistant address', value: url, placeholder: 'http://homeassistant.local:8123', onChange: (v) => { url = v; } });
+    const t = field({ label: 'Long-lived access token', value: '', secret: true, placeholder: p.isAuthed() ? '(saved — paste a new one to replace it)' : 'from your HA profile page', onChange: (v) => { token = v; } });
+    body.append(
+      h('div.note', 'In Home Assistant open your profile (bottom left) → Security → Long-lived access tokens → Create token, and paste it here.'),
+      u, t, status,
+      h('div.actions', btn(p.isAuthed() ? 'Save & test' : 'Connect', async () => {
+        url = (u.querySelector('input').value || url).trim().replace(/\/$/, '');
+        token = (t.querySelector('input').value || token).trim();
+        if (url && !/^https?:\/\//.test(url)) url = `http://${url}`;
+        if (!url) { setStatus('Enter the address of Home Assistant', 'error'); return; }
+        const oldAuth = store.auth('homeassistant');
+        store.set('haUrl', url);
+        if (token) p.saveToken(token); else if (oldAuth?.token) p.saveToken(oldAuth.token);
+        else { setStatus('Paste a long-lived access token', 'error'); return; }
+        setStatus('Connecting…');
+        try { const r = await p.test(); setStatus(`Connected to ${r.name} · ${r.count} entities${r.mode === 'rest' ? ' (through the bridge)' : ''}`, 'ok'); setTimeout(() => openService(id), 700); }
+        catch (e) { setStatus(e.userMessage || e.message, 'error'); }
+      }, 'primary'), p.isAuthed() ? btn('Open', () => openService(id)) : null,
+      p.isAuthed() ? btn('Forget token', () => { p.signOut(); render(); toast('Home Assistant token removed'); }) : null),
+      h('div.note.dim', 'Tip: on the GitHub Pages app, an http:// Home Assistant is reached through the bridge; an https:// address (for example Nabu Casa) connects directly.'),
+    );
+  }
+
+  // ---------- Google Home: Google Assistant sign-in on the bridge ----------
+  async function renderGoogleHome() {
+    body.append(status);
+    setStatus('Looking for the bridge…');
+    const info = await bridgeInfo();
+    if (!info) { clear(body); body.append(...header()); return renderBridge(); }
+    const a = info.adapters?.googlehome;
+    let st = null;
+    try { st = await bridgeFetch('/api/adapters/googlehome/status'); } catch (e) { setStatus(`Google Home is ${a?.status || 'not available'} in the bridge.`, 'warn'); }
+    const base = await bridgeBase();
+    if (st?.signedIn) {
+      setStatus(`Signed in to Google Assistant${st.account ? ` as ${st.account}` : ''}`, 'ok');
+      body.append(h('div.actions', btn('Open', () => openService(id), 'primary'),
+        btn('Test', async () => { setStatus('Asking…'); try { const r = await p.ask('what time is it'); setStatus(r.text || 'OK', 'ok'); } catch (e) { setStatus(err(e), 'error'); } }),
+        btn('Sign out', async () => { await p.signOut().catch(() => {}); render(); })));
+    } else if (st) {
+      setStatus(st.hasClient ? 'One step left: sign in with Google.' : 'Google Home needs a (free) Google Cloud OAuth client — see the steps below.', 'warn');
+      let cid = '', secret = '';
+      body.append(
+        h('div.note', '1. In console.cloud.google.com create a project, enable the “Google Assistant API”, set up the OAuth consent screen (add yourself as a test user) and create an OAuth client ID of type “Desktop app”.'),
+        field({ label: 'Client ID', value: st.clientId || '', placeholder: '….apps.googleusercontent.com', onChange: (v) => { cid = v; } }),
+        field({ label: 'Client secret', value: '', secret: true, placeholder: st.hasClient ? '(saved)' : 'GOCSPX-…', onChange: (v) => { secret = v; } }),
+        h('div.actions', btn('Save client', async () => {
+          cid = cid || body.querySelectorAll('input')[0]?.value || ''; secret = secret || body.querySelectorAll('input')[1]?.value || '';
+          try { await bridgeFetch('/api/adapters/googlehome/setup', { method: 'POST', json: { clientId: cid.trim(), clientSecret: secret.trim() } }); toast('Saved'); render(); } catch (e) { setStatus(err(e), 'error'); }
+        })),
+        h('div.note', `2. On the computer running the bridge, open ${base.replace(/\/\/[^:/]+/, '//localhost')}/api/adapters/googlehome/signin in a browser and sign in with your Google account (the one your Google Home uses).`),
+        st.hasClient ? h('div.actions', btn('Sign in with Google', () => window.open(`${base}/api/adapters/googlehome/signin`, '_blank'), 'primary'), btn('Check again', () => render())) : null,
+        h('div.note.dim', 'Or copy a credentials.json made with google-oauthlib-tool into the bridge folder as googlehome.json. Your speakers and displays work without signing in (Speakers tab).'),
+        h('div.actions', btn('Open anyway', () => openService(id))),
+      );
+    }
+  }
 
   async function renderBridge() {
     const adapter = ['tidal', 'qobuz'].includes(id) ? null : adapterOf(svc);

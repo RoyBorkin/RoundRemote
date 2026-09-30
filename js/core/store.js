@@ -40,7 +40,9 @@ export const DEFAULTS = Object.freeze({
   toneVariant: 'ferro',        // Tone Visual style
   toneSource: 'sim',           // Tone Visual sound: sim (follows playback) | mic (live microphone)
   vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls
-  homeMode: 'music',           // home: music | media (movies & shows)
+  homeMode: 'music',           // home: music | media (movies & shows) | home (smart home)
+  profileName: '',             // name used when saving a settings profile
+  profileApplied: '',          // last ?profile= applied (name|savedAt), so it's applied again only when re-saved
   // Movies & shows (the media services)
   mediaBg: 'blur',             // background: poster | backdrop | blur | black | slides
   mediaSlideSec: 10,           // slideshow: seconds per picture
@@ -48,7 +50,8 @@ export const DEFAULTS = Object.freeze({
   mediaSkipFwd: 30,            // skip forward, seconds
   mediaPrevNext: true,         // previous / next episode buttons
   mediaSkip: true,             // skip back / forward buttons
-  mediaInfo: true,             // function buttons under the controls…
+  mediaEpisodes: true,         // function buttons under the controls: seasons & episodes list…
+  mediaInfo: true,
   mediaCast: true,
   mediaFacts: true,
   mediaSuggest: true,
@@ -63,6 +66,13 @@ export const DEFAULTS = Object.freeze({
   mediaHideWatched: false,     // library: hide what you've already watched
   mediaNoSpoilers: false,      // library: hide summaries and stills of episodes you haven't seen
   mediaResume: 'resume',       // play from the library: resume | start | ask
+  // Home (smart home)
+  haUrl: '',                   // Home Assistant address, e.g. http://homeassistant.local:8123
+  haFavorites: [],             // entity ids on the Favourites tab (empty = suggestions)
+  haTab: 'fav',                // fav | rooms | scenes
+  ghCommands: null,            // Google Home command tiles [{ label, cmd, icon }] (null = the default set)
+  ghSpeak: true,               // play Google Assistant's spoken answers on this display
+  ghLanguage: '',              // Assistant language ('' = the browser's)
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)
@@ -109,6 +119,8 @@ class Store extends Emitter {
     this._save();
   }
   reset() { this.s = { ...DEFAULTS, zone: {} }; this._save(); this.emit('change', '*'); }
+  /** Replace every setting at once (loading a settings profile). */
+  replaceAll(obj) { this.s = { ...DEFAULTS, ...obj, zone: { ...(obj.zone || {}) } }; this._save(); this.emit('change', '*'); }
   _save() { safeSet(SETTINGS_KEY, JSON.stringify(this.s)); }
 
   // ---- auth blobs (tokens etc.) per service ----

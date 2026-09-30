@@ -9,6 +9,8 @@ import { setOverlayRoot, toast, topPanel, closeAllPanels } from './ui/overlay.js
 import { HomeScreen } from './screens/home.js';
 import { PlayerScreen } from './screens/player.js';
 import { MediaScreen } from './screens/media.js';
+import { SmartHomeScreen } from './screens/smarthome.js';
+import { applyProfile, loadBridgeProfile } from './core/profiles.js';
 import { ConnectScreen } from './screens/connect.js';
 import { SettingsScreen } from './screens/settings.js';
 import { openVolume, openLibrary, openSearch } from './screens/panels.js';
@@ -22,6 +24,7 @@ register('home', () => { closeAllPanels(); return HomeScreen(); });
 register('player', () => { playerScreen = PlayerScreen(); return playerScreen; });
 let mediaScreen = null;
 register('media', () => { mediaScreen = MediaScreen(); return mediaScreen; });
+register('smarthome', (p) => { closeAllPanels(); return SmartHomeScreen(p); });
 register('connect', (p) => { closeAllPanels(); return ConnectScreen(p); });
 register('settings', () => { closeAllPanels(); return SettingsScreen(); });
 
@@ -73,6 +76,7 @@ window.addEventListener('keydown', (e) => {
   const inPlayer = currentScreen() === 'player';
   const inMedia = currentScreen() === 'media';
   const k = e.key;
+  if (currentScreen() === 'smarthome') { if (k === 'Escape') { if (topPanel()) topPanel().close(); else go('home'); } return; }
   if (inMedia) {
     if (k === 'Escape') { if (topPanel()) topPanel().close(); else go('home'); return; }
     const skip = (key) => (store.get(key) || 10) * 1000;
@@ -109,8 +113,17 @@ async function boot() {
   const info = await Promise.race([bridgeInfo({ passive: true }), new Promise((r) => setTimeout(() => r(null), 2500))]);
   if (info?.config) store.applyRemoteDefaults(info.config);
 
-  // OAuth / PIN redirects.
   const params = new URLSearchParams(location.search);
+  // ?profile=NAME: take the settings profile saved on the bridge (again whenever it's re-saved there)
+  if (params.has('profile')) {
+    const name = params.get('profile');
+    try {
+      const p = await loadBridgeProfile(name);
+      const stamp = `${name}|${p.savedAt || ''}`;
+      if (store.get('profileApplied') !== stamp) { applyProfile(p); store.set('profileApplied', stamp); toast(`Settings profile “${name}” loaded`); }
+    } catch (e) { toast(`Couldn’t load profile “${name}”: ${e.userMessage || e.message}`, { kind: 'error', ms: 4000 }); }
+  }
+  // OAuth / PIN redirects.
   if (params.has('code') || params.has('error') || params.has('plexpin')) {
     history.replaceState({}, document.title, location.pathname);
     for (const svc of SERVICES) {

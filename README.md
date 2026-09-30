@@ -90,7 +90,7 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 1. [Services](#services)
 2. [Put it on GitHub Pages](#1-put-it-on-github-pages)
 3. [Set up each service](#2-set-up-each-service)
-4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Tidal, Qobuz)](#3-the-bridge)
+4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Google Home, Tidal, Qobuz)](#3-the-bridge)
 5. [Raspberry Pi kiosk](#4-raspberry-pi-kiosk)
 6. [Using the app](#5-using-the-app)
 7. [Troubleshooting](#6-troubleshooting)
@@ -118,9 +118,15 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 | **Computer** | Music and video apps on the computer running the bridge: Apple Music (Cider, Sidra, the Windows app, iTunes), Spotify desktop, YouTube / YouTube Music in Chrome, Edge or Firefox, VLC, TIDAL desktop… Uses the system's own media controls (Windows media sessions, or MPRIS on Linux / the Pi) plus Cider's API. | Needs the bridge |
 | **Demo** | Fictional songs with original lyrics. Try everything without an account. | ✅ |
 
-### Movies & TV
+The home screen has four categories under the clock:
+- **Music**;
+- **Media** (movies & TV);
+- **Home** (smart home);
+- **Settings**.
 
-Tap **Movies & TV** under the clock on the home screen (or swipe sideways) to switch from music to video services. **Music** switches back.
+Tap one, or swipe sideways to move between Music, Media and Home. Each shows its own services around the ring.
+
+### Media (movies & TV)
 
 | Service | What you get | Works from GitHub Pages? |
 |---|---|---|
@@ -129,6 +135,13 @@ Tap **Movies & TV** under the clock on the home screen (or swipe sideways) to sw
 | **Chromecast** | Whatever is cast to a Chromecast or Google TV from any app: movie or show, season and episode, progress, skip, volume, stop. | Needs the bridge |
 | **AirPlay · Apple TV** | The Apple TV and whatever is playing on it — from any app or AirPlayed to it: title, series, season, episode, progress, skip, volume, a D-pad remote and your apps. Uses [pyatv](https://pyatv.dev); pair once with the code on the TV. | Needs the bridge |
 | **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. | Needs the bridge |
+
+### Home (smart home)
+
+| Service | What you get | Works from GitHub Pages? |
+|---|---|---|
+| **Home Assistant** | Your whole Home Assistant, live:<br>• **Favourites** (you pick them), **Rooms** (your HA areas) and **Scenes** (scenes, scripts, automations, buttons).<br>• Round controls: brightness and colours for lights, a temperature dial and modes for climate, position for blinds, speed for fans, locks, speakers (volume, play/pause, what's playing), cameras (live snapshots), vacuums, alarms, and big readings for sensors. | ✅ with an https address; an http address works through the bridge |
+| **Google Home** | Your own command tiles for Google Assistant ("Turn off the kitchen lights", "Good night", "Set the thermostat to 22"), **Ask Google** anything, and **Broadcast** a message to your speakers. Answers show on screen and can be spoken. The **Speakers** tab has volume, play/pause and stop for your Google / Nest speakers and displays. | Needs the bridge (and a one-time Google sign-in for commands) |
 
 On the home screen:
 - a green dot means you're signed in;
@@ -310,19 +323,19 @@ The bridge also controls media apps on the computer it runs on, with nothing to 
 
 They show up on the **Computer** tile. Apple Music apps also appear under the **Apple Music** tile, and browsers playing YouTube under **YouTube / YouTube Music → Devices**.
 
-### Google TV remote (Movies & TV → Google TV)
+### Google TV remote (Media → Google TV)
 
 Controls the TV itself, like the Google TV app on a phone. Works with anything running Google TV or Android TV: Chromecast with Google TV, Google TV Streamer, Sony / TCL / Hisense / Philips TVs, Nvidia Shield…
 
 1. The bridge needs the `androidtv-remote` add-on. `start-bridge.bat` / `start-bridge.sh` install it automatically; otherwise run `npm run androidtv` in the `bridge` folder and restart the bridge.
-2. Turn the TV on, then tap **Google TV** (on the Movies & TV side). TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
+2. Turn the TV on, then tap **Google TV** (in Media). TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
 3. The TV shows a 6-character code. Type it in and tap **Pair**. Pairing is kept in `bridge/androidtv.json`, so you only do it once.
 
 The screen is the remote: a round D-pad with OK around the middle, Back and Home on the sides, Power, Mute and **Apps** (YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex, Twitch) at the top, and volume and play/pause at the bottom. Hold an arrow or a volume key to repeat it. Tap the TV's name at the top to pick another TV.
 
 The protocol reports which app is open, but not the song or video. For what's playing in YouTube on that TV, also link it under **YouTube → YouTube on your TV** (above).
 
-### Apple TV (Movies & TV → AirPlay · Apple TV)
+### Apple TV (Media → AirPlay · Apple TV)
 
 Uses [pyatv](https://pyatv.dev), the library Home Assistant uses for Apple TV.
 
@@ -331,6 +344,36 @@ Uses [pyatv](https://pyatv.dev), the library Home Assistant uses for Apple TV.
 3. Tap **AirPlay · Apple TV**, then **Pair** next to your Apple TV (or type its IP address). Type the code the Apple TV shows. On tvOS 15 and newer it shows a second code (for AirPlay) — type that one too. pyatv keeps the keys in `~/.pyatv.conf`, and the bridge lists your TVs in `bridge/appletv.json`.
 
 You get the title, series, season and episode, the app, the artwork, the progress ring, skip, seek, previous / next, volume, stop, a **TV remote** button (D-pad, Menu = Back, Home, power) and your apps (the Apps list opens any app on the Apple TV).
+
+### Home Assistant (Home → Home Assistant)
+
+1. In Home Assistant, open your **profile** (bottom left) → **Security** → **Long-lived access tokens** → **Create token**, and copy it.
+2. Tap **Home Assistant**, type its address (for example `http://homeassistant.local:8123`, or your `https://…ui.nabu.casa` address), paste the token, and tap **Connect**.
+
+With an `https://` address the app connects straight to Home Assistant over its WebSocket API, so changes show instantly. From the GitHub Pages app, an `http://` address is reached through the bridge and refreshed every couple of seconds. On the Pi the app is served by the bridge over `http`, so it connects directly.
+
+Using it:
+- **Tap a circle** for the quick action: lights, switches and fans toggle; blinds open or close; scenes and scripts run; locks lock or unlock; speakers play or pause.
+- **Tap the name** (or hold the circle) for the full round control, with a ☆ to make it a favourite.
+- **✎** (top right) chooses your favourites, room by room. Until you choose, Favourites shows suggestions.
+- **Rooms** shows each HA area with how many things are on and the temperature, plus **All off**.
+
+### Google Home (Home → Google Home)
+
+Google doesn't offer a web API that lists and controls every Google Home device. Its Home APIs are for Android and iOS apps only. So Round Remote does what Home Assistant's *Google Assistant SDK* integration does: it sends your commands to **Google Assistant** as text, and the Assistant controls anything in your Google Home, runs routines and broadcasts.
+
+One-time setup (about 10 minutes, free):
+1. At [console.cloud.google.com](https://console.cloud.google.com) create a project and enable the **Google Assistant API**.
+2. Set up the **OAuth consent screen** (External, add your Google account as a test user). Then under **Credentials** create an **OAuth client ID** of type **Desktop app**.
+3. In the app: **Home → Google Home**, paste the Client ID and secret, and tap **Save client**.
+4. **On the computer running the bridge**, open `http://localhost:8765/api/adapters/googlehome/signin` and sign in with the Google account your Google Home uses. The bridge keeps the sign-in in `bridge/googlehome.json`. A `credentials.json` from `google-oauthlib-tool` works too: copy it there.
+
+Then:
+- Tap a tile to send its command. Hold a tile to edit or delete it; **+** adds one.
+- **Ask Google** takes anything you type.
+- **Broadcast** sends a message to every speaker.
+
+The **Speakers** tab needs no sign-in: it lists the Google / Nest speakers and displays the bridge finds (like the Cast tile).
 
 ### Roon
 
@@ -436,6 +479,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 - the progress ring around the edge (drag it to seek), with time passed, time left and when it ends ("Ends 22:41").
 
 The buttons are play/pause, skip back and forward (10 s and 30 s by default), and previous / next episode. For a show, previous / next play the neighbouring episode, even across seasons. Below them:
+- **Seasons & episodes** (for a show) — every season of the show; pick one to see its episodes, with the one playing marked. Tap an episode to play it;
 - **Info** — summary, tagline, genres, director, writers, studio, release date;
 - **Cast** — photos, names and roles;
 - **Fun facts** — from Wikipedia and your library's details. They change every few seconds; tap for the next one;
@@ -494,6 +538,8 @@ While you watch, the controls hide by themselves. The title and time left can st
 | Movies & TV: buttons | Turn on or off: previous / next episode, skip, info, cast, fun facts, suggestions from your library, more from the collection, audio & subtitles, stop |
 | Movies & TV: while watching | Auto-hide controls, "Ends at" time, title & time left, clock, fun facts while the controls are hidden |
 | Movies & TV: library | Play button resumes or starts over; hide what you've watched; no spoilers (blurs summaries and stills of episodes you haven't seen — tap to reveal) |
+| Movies & TV: buttons | Now also *Seasons & episodes list* |
+| Profiles | Save all of these settings as a **profile** — on the bridge or as a file — and load it on another round display. *Include sign-ins* also copies your service accounts (keep such a file private). A new display can start with a profile straight away: open the app with `?profile=NAME` at the end of its address, or set `ROUNDREMOTE_PROFILE="NAME"` for `pi/kiosk.sh`. It's applied again whenever you re-save that profile on the bridge. |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
 | Accounts | Sign in or out of each service |
@@ -527,6 +573,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 
 ## 7. Honest limits
 
+- **Google Home** has no public web API for listing or directly controlling your devices, so the Google Home tile works through Google Assistant commands. For device-by-device control, the same devices usually have a Home Assistant integration (or can be shared to Home Assistant over Matter).
 - **Movies & TV control depends on the app on the TV.**
   - Plex: the Plex app must allow remote control ("Advertise as player", on by default in Plex for Android/Google TV, Apple TV and Plex HTPC). The Plex web app in a browser can't be controlled.
   - Jellyfin: any client that shows up as remote-controllable.
@@ -548,12 +595,12 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ```
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
-js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts)
-js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library)
+js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts), profiles (settings profiles)
+js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; homeassistant.js / googlehome.js are the Home services
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library), ha-controls (Home Assistant tiles & round controls)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
-js/screens/                     home ring, player, media (Movies & TV) + media-panels, panels, connect, settings
-bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, airplay, cider, mpris, winmedia, mock)
+js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), panels, connect, settings
+bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, airplay, cider, mpris, winmedia, mock) + settings profiles
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
 screenshots/                    images used in this README

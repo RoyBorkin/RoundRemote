@@ -22,7 +22,7 @@ const DEFAULTS = {
   host: '0.0.0.0',
   allowedOrigins: ['https://royborkin.github.io'],
   // AirPlay needs shairport-sync (Linux/Pi); mpris = Linux media players (playerctl); winmedia = Windows media sessions
-  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, appletv: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', mock: false },
+  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, appletv: true, googlehome: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', mock: false },
   airplay: { metadataPipe: '/tmp/shairport-sync-metadata', bus: 'system', name: 'Round Display' },
   upnp: { pollMs: 2000, searchEverySec: 60 },
   apple: { teamId: '', keyId: '', privateKeyPath: '' },
@@ -39,7 +39,7 @@ function loadConfig() {
     catch (e) { log('bridge', `config.json is not valid JSON: ${e.message}`); }
   }
   const cfg = { ...DEFAULTS, ...user };
-  for (const k of ['adapters', 'airplay', 'upnp', 'apple', 'cider', 'mpris', 'winmedia', 'androidtv', 'appletv', 'app']) cfg[k] = { ...DEFAULTS[k], ...(user[k] || {}) };
+  for (const k of ['adapters', 'airplay', 'upnp', 'apple', 'cider', 'mpris', 'winmedia', 'androidtv', 'appletv', 'googlehome', 'app']) cfg[k] = { ...DEFAULTS[k], ...(user[k] || {}) };
   if (process.env.PORT) cfg.port = +process.env.PORT;
   if (process.env.RR_MOCK) cfg.adapters.mock = true;
   return cfg;
@@ -56,6 +56,7 @@ const ADAPTERS = {
   youtubetv: () => import('./adapters/youtubetv.js'),
   androidtv: () => import('./adapters/androidtv.js'),
   appletv: () => import('./adapters/appletv.js'),
+  googlehome: () => import('./adapters/googlehome.js'),
   cider: () => import('./adapters/cider.js'),
   mpris: () => import('./adapters/mpris.js'),
   winmedia: () => import('./adapters/winmedia.js'),
@@ -199,8 +200,16 @@ async function api(req, res, url) {
     const a = hub.adapters.get(act[1]);
     const fn = a?.actions?.[act[2]];
     if (!fn) return json(res, 404, { error: 'unknown adapter action' });
-    try { return json(res, 200, await fn(req.method === 'POST' ? await readJson(req) : Object.fromEntries(url.searchParams))); }
-    catch (e) { return json(res, 400, { error: e.message }); }
+    try {
+      const out = await fn(req.method === 'POST' ? await readJson(req) : Object.fromEntries(url.searchParams), { req, base: `http://${req.headers.host}` });
+      // actions can also answer with a redirect or a small page (OAuth sign-in in a browser tab)
+      if (out?.__redirect) { res.writeHead(302, { Location: out.__redirect }); return res.end(); }
+      if (out?.__html) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(out.__html); }
+      return json(res, 200, out);
+    } catch (e) {
+      if (req.method === 'GET' && /text\/html/.test(req.headers.accept || '')) { res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(`<p style="font:16px sans-serif">${String(e.message).replace(/</g, '&lt;')}</p>`); }
+      return json(res, 400, { error: e.message });
+    }
   }
   const img = p.match(/^\/api\/image\/(\w+)\/(.+)$/);
   if (img) {
@@ -218,7 +227,39 @@ async function api(req, res, url) {
     } catch (e) { return json(res, 500, { error: e.message }); }
   }
   if (p === '/api/proxy') return proxy(req, res, url);
+  if (p === '/api/profiles' || p.startsWith('/api/profiles/')) return profiles(req, res, decodeURIComponent(p.slice('/api/profiles/'.length)));
   return json(res, 404, { error: 'not found' });
+}
+
+// Settings profiles: save a device's settings here and load them on another round display.
+// Stored as bridge/profiles/<name>.json. GET /api/profiles (list) · GET|PUT|DELETE /api/profiles/<name>
+const PROFILES = path.join(__dirname, 'profiles');
+const profileFile = (name) => path.join(PROFILES, `${String(name).trim().replace(/[^\p{L}\p{N} _.-]/gu, '_').slice(0, 60) || 'profile'}.json`);
+async function profiles(req, res, name) {
+  try {
+    if (!name) {
+      if (!fs.existsSync(PROFILES)) return json(res, 200, []);
+      const list = fs.readdirSync(PROFILES).filter((f) => f.endsWith('.json')).map((f) => {
+        try {
+          const d = JSON.parse(fs.readFileSync(path.join(PROFILES, f), 'utf8'));
+          return { name: d.name || f.slice(0, -5), savedAt: d.savedAt || null, from: d.device || '', signIns: !!d.auth };
+        } catch { return null; }
+      }).filter(Boolean).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+      return json(res, 200, list);
+    }
+    const file = profileFile(name);
+    if (req.method === 'GET') return fs.existsSync(file) ? json(res, 200, JSON.parse(fs.readFileSync(file, 'utf8'))) : json(res, 404, { error: 'no such profile' });
+    if (req.method === 'DELETE') { if (fs.existsSync(file)) fs.unlinkSync(file); return json(res, 200, { ok: true }); }
+    if (req.method === 'PUT' || req.method === 'POST') {
+      const body = await readJson(req);
+      if (body?.app !== 'round-remote' || typeof body.settings !== 'object') return json(res, 400, { error: 'not a Round Remote profile' });
+      fs.mkdirSync(PROFILES, { recursive: true });
+      fs.writeFileSync(file, JSON.stringify({ ...body, name }, null, 2));
+      log('bridge', `saved settings profile "${name}"`);
+      return json(res, 200, { ok: true, name });
+    }
+    return json(res, 405, { error: 'method not allowed' });
+  } catch (e) { return json(res, 500, { error: e.message }); }
 }
 
 // LAN-only reverse proxy (for Jellyfin/Plex over plain http when the app runs on https).

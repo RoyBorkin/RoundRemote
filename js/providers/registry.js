@@ -8,10 +8,13 @@ import { BridgeProvider } from './bridge.js';
 import { YouTubeProvider } from './youtube.js';
 import { PlexMediaProvider } from './plex-media.js';
 import { JellyfinMediaProvider } from './jellyfin-media.js';
+import { HomeAssistantService } from './homeassistant.js';
+import { GoogleHomeService } from './googlehome.js';
 
 // section: 'media' = Movies & shows (the home screen's Media side); everything else is music.
 // signIn: shares the sign-in of another tile · bridgeAdapter: the bridge adapter behind a bridge tile (default: its id)
 // remote: the service is a TV remote (its screen is the D-pad)
+// kind: 'hass' (Home Assistant address + token)
 // kind: 'oauth' (sign in via redirect/code), 'bridge' (needs bridge/server.js), 'local' (no sign-in)
 // icon: Simple Icons slug (https://simpleicons.org, loaded from jsDelivr); falls back to `mono`.
 export const SERVICES = [
@@ -74,6 +77,14 @@ export const SERVICES = [
   { id: 'androidtv', section: 'media', remote: true, name: 'Google TV', short: 'Google TV', mono: 'TV', glyph: 'tv', color: '#4285f4', kind: 'bridge',
     blurb: 'A remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): D-pad, Back, Home, power, volume, play/pause and your apps. Pairs once with a code on the TV.',
     make: (m) => new BridgeProvider(m, { adapter: 'androidtv' }) },
+
+  // ---------------- Home (smart home) ----------------
+  { id: 'homeassistant', section: 'home', name: 'Home Assistant', short: 'Home Assistant', mono: 'HA', icon: 'homeassistant', color: '#18bcf2', kind: 'hass',
+    blurb: 'Your whole Home Assistant: favourites, rooms and scenes, with round controls for lights, climate, blinds, fans, locks, speakers, cameras and sensors.',
+    make: (m) => new HomeAssistantService(m) },
+  { id: 'googlehome', section: 'home', name: 'Google Home', mono: 'GH', icon: 'googlehome', color: '#4285f4', kind: 'bridge',
+    blurb: 'Tell Google Assistant what to do — your own command tiles, routines, broadcasts — and control your Google / Nest speakers and displays.',
+    make: (m) => new GoogleHomeService(m) },
 ];
 
 const instances = new Map();

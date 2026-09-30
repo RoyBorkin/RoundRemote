@@ -1,6 +1,6 @@
 // Settings: everything persists in this browser (localStorage). On the Pi you can also
 // pre-fill keys via bridge/config.json so nothing has to be typed on the round screen.
-import { h, iconBtn, onCircle, badge } from '../ui/dom.js';
+import { h, iconBtn, onCircle, badge, clear } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
 import { curve, toast } from '../ui/overlay.js';
 import { chips, stepper, toggle, vinylArtSlider, infoArtChips, armToggle, VINYL_SPEEDS } from './panels.js';
@@ -12,6 +12,7 @@ import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, vinylTitleToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
 import { sound } from '../core/sound.js';
 import { MEDIA_BGS } from './media-panels.js';
+import { buildProfile, applyProfile, isProfile, downloadProfile, pickProfileFile, listBridgeProfiles, loadBridgeProfile, saveBridgeProfile, deleteBridgeProfile } from '../core/profiles.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
 
@@ -86,7 +87,7 @@ export function SettingsScreen() {
     opt('Skip forward', chips([10, 15, 30, 60].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipFwd'), (v) => store.set('mediaSkipFwd', v))),
     h('div.opt-hint', 'Buttons on the Now playing screen'),
     ...[
-      ['mediaPrevNext', 'Previous / next episode'], ['mediaSkip', 'Skip back / forward'], ['mediaInfo', 'Movie / show / episode info'],
+      ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes list'], ['mediaSkip', 'Skip back / forward'], ['mediaInfo', 'Movie / show / episode info'],
       ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'Suggestions from your library'],
       ['mediaCollection', 'More from the collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop'],
     ].map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
@@ -120,6 +121,9 @@ export function SettingsScreen() {
         badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', p.isAuthed() ? 'Signed in' : 'Not signed in')));
     }),
 
+    section('Profiles'),
+    ...profilesSection(),
+
     section('About'),
     h('div.about', `Round Remote ${VERSION}`, h('br'), 'Lyrics by LRCLIB · made for 720×720 round displays'),
     (() => {
@@ -137,4 +141,56 @@ export function SettingsScreen() {
   );
   curve(list);
   return { el };
+}
+
+// ---------------------------------------------------------------- settings profiles
+function profilesSection() {
+  const err = (e) => e?.userMessage || e?.body?.error || e?.message || String(e);
+  let name = store.get('profileName') || 'My round remote';
+  let withSignIns = false;
+  const pill = (label, onClick, cls = '') => h(`button.pill.small${cls ? '.' + cls : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); onClick(e.currentTarget); } }, label);
+  const onBridge = h('div.prof-list');
+  // loading replaces every setting, so ask for a second tap
+  const confirmTap = (b, label, run) => {
+    if (b.dataset.armed) { run(); return; }
+    b.dataset.armed = '1'; const old = b.textContent; b.textContent = label;
+    setTimeout(() => { delete b.dataset.armed; b.textContent = old; }, 3000);
+  };
+  const apply = (p, from) => {
+    try { applyProfile(p); toast(`Loaded “${p.name || from}” — restarting`); setTimeout(() => location.reload(), 900); }
+    catch (e) { toast(err(e), { kind: 'error' }); }
+  };
+  const refresh = async () => {
+    clear(onBridge);
+    try {
+      const list = await listBridgeProfiles();
+      if (!list.length) { onBridge.append(h('div.opt-hint', 'No profiles on the bridge yet.')); return; }
+      for (const p of list) {
+        const when = p.savedAt ? new Date(p.savedAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        onBridge.append(h('div.prof-row',
+          h('div.prof-text', h('div.prof-name', p.name), h('div.prof-sub', [when, p.signIns ? 'with sign-ins' : ''].filter(Boolean).join(' · '))),
+          pill('Load', (b) => confirmTap(b, 'Tap to replace', async () => { try { apply(await loadBridgeProfile(p.name), p.name); } catch (e) { toast(err(e), { kind: 'error' }); } }), 'primary'),
+          pill('✕', (b) => confirmTap(b, 'Delete?', async () => { await deleteBridgeProfile(p.name).catch(() => {}); refresh(); }))));
+      }
+    } catch { onBridge.append(h('div.opt-hint', 'Start the bridge to keep profiles on it (or use files).')); }
+  };
+  refresh();
+  return [
+    h('div.opt-hint', 'Copy every setting to another round display: save a profile here, then load it there. A new display can also start with it: open the app with ?profile=NAME at the end of its address.'),
+    field({ label: 'Profile name', value: name, onChange: (v) => { name = v || name; store.set('profileName', name); } }),
+    toggle('Include sign-ins (service accounts)', () => withSignIns, (v) => { withSignIns = v; }),
+    h('div.opt-hint', 'Sign-ins carry your account tokens — keep such a file private. Anyone on your network can read profiles kept on the bridge.'),
+    h('div.chips',
+      pill('Save to bridge', async () => {
+        try { await saveBridgeProfile(name, buildProfile({ name, includeSignIns: withSignIns })); toast(`Saved “${name}” on the bridge`); refresh(); }
+        catch (e) { toast(err(e), { kind: 'error' }); }
+      }, 'primary'),
+      pill('Save as file', () => { downloadProfile(buildProfile({ name, includeSignIns: withSignIns })); toast('Profile file saved'); }),
+      pill('Load from file', async () => {
+        try { const p = await pickProfileFile(); if (!p) return; if (!isProfile(p)) throw new Error('That file isn’t a settings profile'); apply(p, 'file'); }
+        catch (e) { toast(err(e), { kind: 'error' }); }
+      })),
+    h('div.opt-label.prof-head', 'On the bridge'),
+    onBridge,
+  ];
 }

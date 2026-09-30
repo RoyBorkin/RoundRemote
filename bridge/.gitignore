@@ -5,3 +5,5 @@ roon-state.json
 youtube-tv.json
 androidtv.json
 appletv.json
+profiles/
+googlehome.json

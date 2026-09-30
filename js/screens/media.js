@@ -14,7 +14,7 @@ import { openDevices, openVolume, openTvRemote, buildTvRemote } from './panels.j
 import { createMediaLibrary, runtimeOf } from '../views/media-library.js';
 import { mediaFacts } from '../core/mediainfo.js';
 import {
-  currentDetails, openMediaInfo, openMediaCast, openMediaFacts, openMediaSuggestions, openMediaCollection, openMediaTracks, openMediaOptions,
+  currentDetails, openMediaEpisodes, openMediaInfo, openMediaCast, openMediaFacts, openMediaSuggestions, openMediaCollection, openMediaTracks, openMediaOptions,
 } from './media-panels.js';
 
 const RING_R = 47.4, C = 2 * Math.PI * RING_R;
@@ -97,6 +97,7 @@ export function MediaScreen() {
 
   const openDetailInLibrary = (entry) => { setTab('lib'); lib()?.openDetail(entry); };
   const FUNCS = [
+    { key: 'mediaEpisodes', icon: 'list', label: 'Seasons & episodes', ok: () => player.state.track?.media?.type === 'episode' && !!player.state.track?.media?.seriesId && !!prov.browse, run: openMediaEpisodes },
     { key: 'mediaInfo', icon: 'about', label: 'Info', ok: () => true, run: openMediaInfo },
     { key: 'mediaCast', icon: 'people', label: 'Cast', ok: () => !!prov.details && (!details || details.cast?.length > 0), run: openMediaCast },
     { key: 'mediaFacts', icon: 'bulb', label: 'Fun facts', ok: () => true, run: openMediaFacts },
@@ -162,7 +163,7 @@ export function MediaScreen() {
     wasHidden = el.classList.contains('chrome-hidden');
     showChrome();
     if (tab !== 'now' || !caps().seek || !player.state.track || !player.duration()) return;
-    if (distFromCenter(el, e.clientX, e.clientY) < 0.9) return;
+    if (distFromCenter(el, e.clientX, e.clientY) < 0.92 || e.target.closest?.('button')) return;
     e.stopPropagation();
     ringDrag = { id: e.pointerId };
     el.setPointerCapture(e.pointerId);
@@ -299,7 +300,7 @@ export function MediaScreen() {
     render(player.state);
   };
   const offs = [
-    ...['mediaHud', 'mediaClock', 'mediaIdleFacts', 'showDevicePill', 'mediaPrevNext', 'mediaSkip', 'mediaSkipBack', 'mediaSkipFwd',
+    ...['mediaEpisodes', 'mediaHud', 'mediaClock', 'mediaIdleFacts', 'showDevicePill', 'mediaPrevNext', 'mediaSkip', 'mediaSkipBack', 'mediaSkipFwd',
       'mediaInfo', 'mediaCast', 'mediaFacts', 'mediaSuggest', 'mediaCollection', 'mediaTracks', 'mediaStop', 'mediaEndsAt'].map((k) => store.on(`change:${k}`, applyOpts)),
     store.on('change:mediaBg', () => { bgKey = null; refreshBgIfChanged(); }),
     store.on('change:mediaSlideSec', () => { bgKey = null; refreshBgIfChanged(); }),

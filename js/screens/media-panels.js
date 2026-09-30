@@ -167,3 +167,54 @@ export function openMediaOptions({ onRemote } = {}) {
     },
   });
 }
+
+/** Seasons & episodes of the show that's playing: pick a season, tap an episode to play it. */
+export function openMediaEpisodes() {
+  const m = player.state.track?.media;
+  const p = player.provider;
+  if (!m?.seriesId || !p?.details) return toast('Not a TV show');
+  openPanel({
+    title: m.show || 'Episodes', className: 'list-panel.media-panel.media-episodes',
+    build(body, panel) {
+      const seasons = h('div.ep-seasons');
+      const list = h('div.list');
+      body.append(seasons, list);
+      curve(list);
+      list.append(spinner());
+      let current = null;
+      const showSeason = async (s) => {
+        current = s;
+        [...seasons.children].forEach((b) => b.classList.toggle('on', b.dataset.id === String(s.id)));
+        clear(list).append(spinner());
+        try {
+          const res = await p.browse({ kind: 'children', id: s.id, type: 'season', showId: m.seriesId, title: s.title });
+          if (current !== s) return;
+          clear(list);
+          if (!res.items.length) { list.append(emptyNote('No episodes')); return; }
+          let playingRow = null;
+          for (const e of res.items) {
+            const isNow = String(e.id) === String(m.itemId);
+            const row = mediaRow({ ...e, subtitle: `Episode ${e.index ?? '?'}${e.watched ? ' · watched' : ''}` }, async (x) => {
+              panel.close();
+              try { await p.playMedia(x, { fromStart: store.get('mediaResume') === 'start' || x.watched }); toast(`Playing S${x.parentIndex ?? s.index}E${x.index}`); setTimeout(() => p.refresh().catch(() => {}), 900); }
+              catch (err) { toast(errMsg(err), { kind: 'error' }); }
+            });
+            if (isNow) { row.classList.add('active'); row.append(h('span.kind', 'Now')); playingRow = row; }
+            list.append(row);
+          }
+          if (playingRow) setTimeout(() => playingRow.scrollIntoView({ block: 'center' }), 60);
+        } catch (err) { clear(list).append(emptyNote(errMsg(err))); }
+      };
+      p.details({ id: m.seriesId }).then((show) => {
+        const ss = (show.children || []).filter((c) => c.type === 'season');
+        if (!ss.length) { clear(list).append(emptyNote('No seasons found')); return; }
+        for (const s of ss) {
+          seasons.append(h('button.chip', { type: 'button', dataset: { id: String(s.id) }, onclick: (e) => { e.stopPropagation(); showSeason(s); } },
+            s.index != null ? `S${s.index}` : s.title));
+        }
+        showSeason(ss.find((s) => s.index === m.season) || ss[0]);
+        setTimeout(() => seasons.querySelector('.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 60);
+      }).catch((err) => { clear(list).append(emptyNote(errMsg(err))); });
+    },
+  });
+}

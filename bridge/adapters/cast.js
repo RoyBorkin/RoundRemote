@@ -30,7 +30,7 @@ export function create({ hub, setStatus }) {
       poster: imgs[0] || '', backdrop: imgs[1] || imgs[0] || '', app: d.app?.displayName || '',
     } : null;
     hub.upsert('cast', d.id, {
-      name: d.name,
+      name: d.name, model: d.model,
       sourceApp: d.app?.displayName || '',
       state: {
         track: hasMedia ? {
@@ -102,7 +102,7 @@ export function create({ hub, setStatus }) {
       const id = kv.id || inst;
       const host = a?.data || srv.data.target;
       if (devices.has(id)) { const d = devices.get(id); if (d.host !== host) { d.host = host; } continue; }
-      const d = { id, name: kv.fn || inst.split('._')[0], host, port: srv.data.port };
+      const d = { id, name: kv.fn || inst.split('._')[0], model: kv.md || '', host, port: srv.data.port };
       devices.set(id, d);
       setStatus(`${devices.size} device${devices.size === 1 ? '' : 's'}`);
       connect(d);

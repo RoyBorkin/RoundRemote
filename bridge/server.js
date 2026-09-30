@@ -21,7 +21,7 @@ const DEFAULTS = {
   port: 8765,
   host: '0.0.0.0',
   allowedOrigins: ['https://royborkin.github.io'],
-  adapters: { roon: true, upnp: true, cast: true, airplay: process.platform === 'linux', mock: false }, // AirPlay needs shairport-sync (Linux/Pi)
+  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, airplay: process.platform === 'linux', mock: false }, // AirPlay needs shairport-sync (Linux/Pi)
   airplay: { metadataPipe: '/tmp/shairport-sync-metadata', bus: 'system', name: 'Round Display' },
   upnp: { pollMs: 2000, searchEverySec: 60 },
   apple: { teamId: '', keyId: '', privateKeyPath: '' },
@@ -49,6 +49,7 @@ const ADAPTERS = {
   upnp: () => import('./adapters/upnp.js'),
   cast: () => import('./adapters/cast.js'),
   airplay: () => import('./adapters/airplay.js'),
+  youtubetv: () => import('./adapters/youtubetv.js'),
   mock: () => import('./adapters/mock.js'),
 };
 const adapterState = {};
@@ -182,6 +183,15 @@ async function api(req, res, url) {
       return json(res, 200, { ok: true });
     }
     return json(res, 404, { error: 'unknown action' });
+  }
+  // Adapter-specific actions, e.g. POST /api/adapters/youtubetv/pair {code}
+  const act = p.match(/^\/api\/adapters\/(\w+)\/(\w+)$/);
+  if (act) {
+    const a = hub.adapters.get(act[1]);
+    const fn = a?.actions?.[act[2]];
+    if (!fn) return json(res, 404, { error: 'unknown adapter action' });
+    try { return json(res, 200, await fn(req.method === 'POST' ? await readJson(req) : Object.fromEntries(url.searchParams))); }
+    catch (e) { return json(res, 400, { error: e.message }); }
   }
   const img = p.match(/^\/api\/image\/(\w+)\/(.+)$/);
   if (img) {

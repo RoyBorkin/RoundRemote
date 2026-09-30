@@ -1,16 +1,18 @@
-// View 3: synced lyrics with five selectable styles (Kinetic Type has six variants).
+// View 3: synced lyrics with five selectable styles (Kinetic Type has nine variants).
 //   basic    – classic centred list that glides to the active line
 //   animated – (Kinetic Type variant) karaoke: words fill in as they're sung, lines rise & blur between
 //   typing   – typewriter / terminal, each line typed out in time
 //   roll     – 3D drum that rolls line by line
 //   moving   – (Kinetic Type variant) modern moving words: each word flies in, drifts, and scatters
 //   fluid    – Lyricify / Apple-Music-like flowing lyrics (see lyrics-extra.js)
-//   typo     – kinetic typography, 3 variants: stack / camera / slam (see lyrics-extra.js)
+//   typo     – kinetic typography: stack / camera / slam / mosaic (lyrics-extra.js),
+//              black & white / hand-drawn (lyrics-kinetic2.js)
 import { h, clear } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { getLyrics, lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
 import { fluidStyle, typoStyle } from './lyrics-extra.js';
+import { bwStyle, handStyle } from './lyrics-kinetic2.js';
 
 export const LYRIC_STYLES = [
   { id: 'basic', name: 'Basic' },
@@ -226,6 +228,9 @@ export const TYPO_VARIANTS = [
   { id: 'stack', name: 'Stack' },
   { id: 'camera', name: 'Camera' },
   { id: 'slam', name: 'Slam' },
+  { id: 'mosaic', name: 'Mosaic' },
+  { id: 'bw', name: 'Black & White' },
+  { id: 'hand', name: 'Hand-drawn' },
   { id: 'animated', name: 'Animated' },
   { id: 'moving', name: 'Moving Words' },
   { id: 'random', name: 'Random' },
@@ -234,6 +239,9 @@ const VARIANT_FNS = {
   stack: (b, l, a) => typoStyle(b, l, a, 'stack'),
   camera: (b, l, a) => typoStyle(b, l, a, 'camera'),
   slam: (b, l, a) => typoStyle(b, l, a, 'slam'),
+  mosaic: (b, l, a) => typoStyle(b, l, a, 'mosaic'),
+  bw: bwStyle,
+  hand: handStyle,
   animated: animatedStyle,
   moving: kineticStyle,
 };

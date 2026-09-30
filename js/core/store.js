@@ -25,6 +25,7 @@ export const DEFAULTS = Object.freeze({
   keyboard: 'auto',            // on-screen keyboard: auto | on | off
   kbdLang: 'en',               // on-screen keyboard language: en | he
   onlySignedIn: false,         // home: hide services that aren't signed in / reachable
+  showDemo: true,              // home: show the Demo service tile
   vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,

@@ -107,7 +107,7 @@ async function boot() {
   if (deep && provider(deep)) { history.replaceState({}, document.title, location.pathname); return openService(deep); }
 
   const last = store.get('lastService');
-  if (store.get('autoResume') && last) {
+  if (store.get('autoResume') && last && (last !== 'demo' || store.get('showDemo'))) {
     const p = provider(last);
     if (p && !p.setupHint() && p.isAuthed()) return openService(last);
   }

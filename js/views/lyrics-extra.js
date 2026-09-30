@@ -10,6 +10,11 @@
 //                    pans, zooms and rotates 90° from block to block to follow the words
 //           slam   – one word (or a small lockup) at a time, huge, with varied entrances,
 //                    pulse rings and a shake on big words
+//           mosaic – classic After-Effects lyric-video lockups: every word is sized to
+//                    span the edge of the block built so far and snaps onto it (turned 90°
+//                    when it lands on a side), mixing typefaces, so each line interlocks
+//                    into one tight word-puzzle; the camera pulls back as it grows, then
+//                    whips through it into the next line
 import { h } from '../ui/dom.js';
 import { lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
@@ -124,6 +129,7 @@ export function fluidStyle(box, lyr, api) {
 export function typoStyle(box, lyr, api, variant = 'stack') {
   if (variant === 'camera') return typoCamera(box, lyr, api);
   if (variant === 'slam') return typoSlam(box, lyr, api);
+  if (variant === 'mosaic') return typoMosaic(box, lyr, api);
   return typoStack(box, lyr, api);
 }
 
@@ -340,3 +346,126 @@ function typoSlam(box, lyr, api) {
     destroy() {},
   };
 }
+
+// ------------------------------------------------------------------ variant: mosaic
+// Faces cycle so neighbouring words never share a look. Heavy sans, serif italic,
+// condensed caps, airy light caps, and an inverted "boxed" word now and then.
+const FACES = ['sans', 'serif', 'cond', 'sans', 'light', 'serif', 'cond', 'box'];
+let mosaicFontsAsked = false;
+function typoMosaic(box, lyr, api) {
+  const L = lyr.lines;
+  const root = h('div.kt.kt-mosaic');
+  box.appendChild(root);
+  if (!mosaicFontsAsked && document.fonts?.load) {
+    mosaicFontsAsked = true;
+    ['italic 700 50px "Playfair Display"', '600 50px Oswald', '300 50px Oswald'].forEach((f) => document.fonts.load(f).catch(() => {}));
+  }
+  let cur = -99, layer = null, flip = 0;
+
+  function newLayer(i) {
+    const W = box.clientWidth, H = box.clientHeight;
+    const canvas = h('div.km-canvas');
+    const el = h(`div.km-layer.in-${flip % 2 ? 'r' : 'l'}`, canvas);
+    root.appendChild(el);
+    const ln = i >= 0 ? L[i] : null;
+    const units = ln ? rowsOf(ln.words || []) : [];
+    const st = { el, canvas, ln, units, cells: [], bb: null, W, H, next: 0, face: Math.floor(Math.random() * FACES.length) };
+    if (!units.length) {
+      canvas.append(h('div.km-cell.km-dots', { style: { left: '0px', top: '0px' } }, dots()));
+      camera(st, { x0: 0, y0: 0, x1: 0, y1: 0 }, true);
+    }
+    return st;
+  }
+
+  // Measure a word at 100px in its face, then scale it to the span it has to cover.
+  function measure(st, text, face) {
+    const w = h(`span.km-w.f-${face}`, { style: { fontSize: '100px' } }, text);
+    const cell = h('div.km-cell.measure', w);
+    st.canvas.appendChild(cell);
+    const r = { w: w.offsetWidth || 1, h: w.offsetHeight || 1 };
+    cell.remove();
+    return r;
+  }
+
+  function place(st, k) {
+    const { ln, units, W } = st;
+    const text = units[k].map((j) => ln.words[j].text).join(' ');
+    const face = FACES[(st.face + k) % FACES.length];
+    const m = measure(st, text, face);
+    const gap = W * 0.012;
+    const bb = st.bb;
+    let side, rot = 0, size;
+    if (!bb) {
+      side = 'first';
+      size = clamp((100 * W * 0.55) / m.w, W * 0.07, W * 0.2);
+    } else {
+      const bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0, asp = bw / Math.max(1, bh);
+      const vertical = asp < 0.8 ? true : asp > 1.3 ? false : k % 2 === 1;
+      const alt = (k * 7 + st.face) % 10 < 3; // now and then build upward / leftward
+      side = vertical ? (alt ? 'left' : 'right') : (alt ? 'above' : 'below');
+      const span = vertical ? bh : bw;
+      // fit the word's length to the edge it lands on, but keep its thickness sane
+      size = (100 * span) / m.w;
+      size = Math.min(size, (100 * span * 0.55) / m.h, W * 0.3);
+      size = Math.max(size, W * 0.045);
+      if (vertical) rot = side === 'right' ? -90 : 90;
+    }
+    const len = (m.w * size) / 100, thick = (m.h * size) / 100;
+    const cw = rot ? thick : len, ch = rot ? len : thick;
+    let x, y;
+    if (side === 'first') { x = -cw / 2; y = -ch / 2; }
+    else if (side === 'below') { x = (bb.x0 + bb.x1 - cw) / 2; y = bb.y1 + gap; }
+    else if (side === 'above') { x = (bb.x0 + bb.x1 - cw) / 2; y = bb.y0 - gap - ch; }
+    else if (side === 'right') { x = bb.x1 + gap; y = (bb.y0 + bb.y1 - ch) / 2; }
+    else { x = bb.x0 - gap - cw; y = (bb.y0 + bb.y1 - ch) / 2; }
+
+    const accent = k % 3 === 2 && face !== 'box';
+    const cell = h(`div.km-cell.from-${side}${accent ? '.accent' : ''}`, {
+      style: { left: `${x.toFixed(1)}px`, top: `${y.toFixed(1)}px`, width: `${cw.toFixed(1)}px`, height: `${ch.toFixed(1)}px` },
+    }, h(`span.km-w.f-${face}`, { style: { fontSize: `${size.toFixed(1)}px`, transform: `translate(-50%, -50%) rotate(${rot}deg)` } }, text));
+    st.canvas.appendChild(cell);
+    st.cells.forEach((c) => c.classList.add('settled'));
+    st.cells.push(cell);
+    requestAnimationFrame(() => cell.classList.add('in'));
+    const r = { x0: x, y0: y, x1: x + cw, y1: y + ch };
+    st.bb = bb ? { x0: Math.min(bb.x0, r.x0), y0: Math.min(bb.y0, r.y0), x1: Math.max(bb.x1, r.x1), y1: Math.max(bb.y1, r.y1) } : r;
+    camera(st, r);
+  }
+
+  // Fit the whole puzzle inside the round screen, leaning a little toward the newest word.
+  function camera(st, focus, instant) {
+    const { W, H } = st, bb = st.bb || focus;
+    const bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0;
+    const diag = Math.hypot(bw, bh) || 1;
+    const s = clamp((Math.min(W, H) * 0.86) / diag, 0.2, 1.35);
+    const cx = (bb.x0 + bb.x1) / 2 * 0.82 + (focus.x0 + focus.x1) / 2 * 0.18;
+    const cy = (bb.y0 + bb.y1) / 2 * 0.82 + (focus.y0 + focus.y1) / 2 * 0.18;
+    if (instant) st.canvas.style.transition = 'none';
+    st.canvas.style.transform = `translate(${(W / 2).toFixed(1)}px, ${(H / 2).toFixed(1)}px) scale(${s.toFixed(3)}) translate(${(-cx).toFixed(1)}px, ${(-cy).toFixed(1)}px)`;
+    if (instant) { void st.canvas.offsetWidth; st.canvas.style.transition = ''; }
+  }
+
+  return {
+    tick(ms) {
+      let i = lineAt(L, ms);
+      if (isGap(L, i, ms)) i = -1 - Math.max(0, i);
+      if (i !== cur) {
+        cur = i;
+        if (layer) {
+          const old = layer.el;
+          old.classList.add(flip % 2 ? 'out-r' : 'out-l');
+          setTimeout(() => old.remove(), 900);
+        }
+        flip++;
+        layer = newLayer(i);
+      }
+      if (i < 0 || !layer?.units.length) return;
+      const ln = layer.ln;
+      while (layer.next < layer.units.length && ms >= ln.words[layer.units[layer.next][0]].t - 60) place(layer, layer.next++);
+    },
+    destroy() {},
+  };
+}
+
+// shared with the extra Kinetic Type variants in lyrics-kinetic2.js
+export { isGap, dots, clean, isSmall, textWidth, rowsOf, lineEnd, wordEnd };

@@ -24,10 +24,13 @@ export function HomeScreen() {
   // Spread the visible services evenly around the ring.
   function layout() {
     const only = store.get('onlySignedIn');
-    let shown = items.filter((it) => !only || (it.ready && it.svc.kind !== 'local'));
+    const demo = store.get('showDemo');
+    const avail = items.filter((it) => demo || it.svc.id !== 'demo');
+    let shown = avail.filter((it) => !only || (it.ready && it.svc.kind !== 'local'));
     hint.textContent = '';
     if (!shown.length) {
-      shown = items.filter((it) => it.svc.kind === 'local');
+      // Nothing signed in yet: show the Demo, or (with the Demo hidden) every service so you can sign in.
+      shown = demo ? avail.filter((it) => it.svc.kind === 'local') : avail;
       hint.textContent = 'No services signed in yet — Settings → “Show only signed-in services”';
     }
     items.forEach((it) => { it.btn.hidden = !shown.includes(it); });
@@ -90,6 +93,7 @@ export function HomeScreen() {
     layout();
   })();
   const offFilter = store.on('change:onlySignedIn', layout);
+  const offDemo = store.on('change:showDemo', layout);
 
-  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); } };
+  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); } };
 }

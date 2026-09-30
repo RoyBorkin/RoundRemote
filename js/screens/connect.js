@@ -3,7 +3,7 @@ import { h, badge, iconBtn, onCircle, clear } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
 import { toast } from '../ui/overlay.js';
 import { getService, provider } from '../providers/registry.js';
-import { bridgeInfo, bridgeBase } from '../providers/bridge.js';
+import { bridgeInfo, bridgeBase, bridgeFetch } from '../providers/bridge.js';
 import { redirectUri } from '../providers/spotify.js';
 import { googleSignIn, googleSignOut, googleSignedIn } from '../core/youtube.js';
 import { openService } from '../core/nav.js';
@@ -94,6 +94,39 @@ export function ConnectScreen({ id }) {
       try { await googleSignIn(); toast('Signed in with Google'); render(); } catch (e) { setStatus(err(e), 'error'); }
     }));
     body.append(actions, status);
+
+    // YouTube app on a TV (Google TV / Android TV / smart TV / console), via the bridge.
+    const tvStatus = h('div.status-line');
+    const tvList = h('div.stack');
+    const tvCode = field({ label: 'TV code', placeholder: '123 456 789 012' });
+    const bridgeErr = (e) => e?.body?.error || err(e);
+    const loadTvs = async () => {
+      clear(tvList);
+      try {
+        const tvs = await bridgeFetch('/api/adapters/youtubetv/list');
+        for (const t of tvs || []) {
+          tvList.append(h('div.actions', h('span.note', `📺 ${t.name}`),
+            btn('Control', () => { store.setZone(id, t.id); openService(id); }, 'primary'),
+            btn('Unlink', async () => { await bridgeFetch('/api/adapters/youtubetv/unpair', { method: 'POST', json: { id: t.id } }).catch(() => {}); if (store.getZone(id) === t.id) store.setZone(id, null); loadTvs(); })));
+        }
+      } catch (e) { tvStatus.className = 'status-line warn'; tvStatus.textContent = 'Start the bridge (start-bridge.bat) to link a TV.'; }
+    };
+    body.append(
+      h('div.section', 'YouTube on your TV'),
+      h('div.note', 'On the TV open YouTube → Settings → “Link with TV code”, then enter the code here. Needs the bridge running on a computer (start-bridge.bat) or the Pi.'),
+      tvCode,
+      h('div.actions', btn('Link TV', async () => {
+        tvStatus.className = 'status-line'; tvStatus.textContent = 'Linking…';
+        try {
+          const r = await bridgeFetch('/api/adapters/youtubetv/pair', { method: 'POST', json: { code: tvCode.querySelector('input').value } });
+          store.setZone(id, r.id);
+          tvStatus.className = 'status-line ok'; tvStatus.textContent = `Linked ${r.name}`;
+          toast(`Linked ${r.name}`); loadTvs();
+        } catch (e) { tvStatus.className = 'status-line error'; tvStatus.textContent = bridgeErr(e); }
+      })),
+      tvStatus, tvList,
+    );
+    loadTvs();
   }
 
   function renderApple() {
@@ -177,7 +210,7 @@ export function ConnectScreen({ id }) {
         h('div.note', 'This service talks to devices on your home network, which a web page can’t reach on its own. Run the small bridge on this computer (or the Pi):'),
         h('code.uri', 'Windows: double-click start-bridge.bat\nMac/Linux: ./start-bridge.sh'),
         h('div.note.dim', 'Needs Node.js. Chrome will ask to allow access to your local network — choose Allow.'),
-        h('div.actions', btn('Try again', async () => { await bridgeBase({ force: true }); render(); }), btn('Try the Demo', () => openService('demo'))),
+        h('div.actions', btn('Try again', async () => { await bridgeBase({ force: true }); render(); }), store.get('showDemo') ? btn('Try the Demo', () => openService('demo')) : null),
       );
     } else {
       const base = await bridgeBase();

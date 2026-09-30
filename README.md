@@ -33,10 +33,13 @@ The current song can be shown **four ways**:
 3. **Lyrics:** synced lyrics in five styles:
    - **Basic**, **Typing** (typewriter) and **Roll** (3D drum).
    - **Fluid**, in the spirit of Lyricify / BetterLyrics: a flowing album-art colour field, lines that glide in a staggered cascade, and words that fill with a soft glow and lift as they're sung. Long notes glow letter by letter.
-   - **Kinetic Type**, lyric-video typography with six variants:
+   - **Kinetic Type**, lyric-video typography with nine variants:
      - **Stack:** full-width words stacked like a poster.
      - **Camera:** the view pans, zooms and turns 90° between phrases.
      - **Slam:** one huge word at a time.
+     - **Mosaic:** each word snaps onto the edge of the block, some turned sideways, in mixed typefaces, building an interlocking word puzzle (classic After Effects lyric-video style).
+     - **Black & White:** heavy caps on black with a new scene for every line: giant words the camera flies through, words ticking along a rule, words around a planet or riding a wave, a block inside a ring, and black-on-white blocks with an hourglass wipe.
+     - **Hand-drawn:** flat mint / indigo / pink palettes that change with a paint-splash wipe; small hand-lettered words over one big brush word that writes itself on, staircases and little planets; everything jitters like frame-by-frame animation.
      - **Animated:** karaoke fill.
      - **Moving Words**.
      - **Random:** a different variant for every line.
@@ -69,13 +72,13 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 |---|---|---|
 | **Spotify** | Web API (sign in once). Controls any of your Spotify devices, and the page itself can be a Spotify speaker. | ✅ |
 | **Apple Music** | MusicKit JS. Plays *on this display*. Needs a developer token. | ✅ |
-| **YouTube Music** | YouTube player on this display; search and your playlists. | ✅ (free API key) |
-| **YouTube** | Same, for any YouTube video. | ✅ (free API key) |
+| **YouTube Music** | YouTube player on this display (search and your playlists), **or the YouTube app on your TV** once it's linked with a TV code. | ✅ (free API key); the TV needs the bridge |
+| **YouTube** | Same, for any YouTube video. | ✅ (free API key); the TV needs the bridge |
 | **Plex / Plexamp** | Sign in with a plex.tv code. Controls Plexamp (incl. headless) and Plex players through your server. | ✅ |
 | **Jellyfin** | Quick Connect or username/password. Controls any Jellyfin app session and uses server lyrics when available. | ✅ (see [Jellyfin](#jellyfin) for http servers) |
 | **Roon** | Official Roon extension API: zones, volume, playlists and search. | Needs the bridge |
 | **UPnP / DLNA** | Standard AV renderers: WiiM, Bluesound, Denon/Marantz, BubbleUPnP, Volumio, moOde… | Needs the bridge |
-| **Google Cast** | Chromecast, Nest and Cast speakers. Shows and controls whatever is casting. | Needs the bridge |
+| **Google Cast** | Chromecast, Nest and Cast speakers. Shows and controls whatever is *cast* to them (for apps opened directly on the TV, see [YouTube on your TV](#youtube-on-your-tv-google-tv-android-tv-smart-tvs-consoles)). | Needs the bridge |
 | **AirPlay 1/2** | The Pi becomes an AirPlay speaker (shairport-sync) and controls the phone or Mac that's streaming. | Linux/Pi bridge only |
 | **Tidal** | No public remote-control API. The tile follows TIDAL playing through Roon, Cast, UPnP or AirPlay. | Needs the bridge |
 | **Qobuz** | Qobuz Connect is closed to third parties. Same approach as Tidal. | Needs the bridge |
@@ -85,6 +88,7 @@ On the home screen:
 - a green dot means you're signed in;
 - services that still need the bridge show a small **BRIDGE** tag;
 - *Settings → Show only signed-in services* hides everything you haven't set up.
+- *Settings → Show the Demo service* hides or shows the Demo tile.
 
 The platform logos come from the free [Simple Icons](https://simpleicons.org) set (jsDelivr, with unpkg as a backup). They're downloaded once and then kept in the browser, so the Pi shows them offline too. Qobuz isn't in that set, so its tile keeps its letters. Tiles show letters until a logo has been downloaded once.
 
@@ -163,16 +167,25 @@ Both play through the official YouTube player on this display. The same free **A
 5. Paste the key into Round Remote → **YouTube** tile (or *Settings → YouTube Data API key*).
 
 **Optional: your playlists and liked videos (Google sign-in):**
-1. In the same project, go to *APIs & Services → OAuth consent screen*:
-   - Choose **External** and fill in the app name and your email.
-   - Under **Test users**, add your Google account.
-   - You can leave it in *Testing*.
-2. Go to *Credentials → Create credentials → OAuth client ID → Web application*.
-3. Under **Authorized JavaScript origins**, add:
+
+Google now calls the consent screen the **Google Auth Platform**, and "External" is part of its setup wizard.
+1. In the same project, open **APIs & Services → OAuth consent screen** (or search for "Google Auth Platform" in the top search bar).
+2. If you see *"Google Auth Platform not configured yet"*, click **Get started** and go through the wizard:
+   1. **App information:** app name "Round Remote", and your email as the support email → *Next*.
+   2. **Audience:** choose **External** → *Next*.
+   3. **Contact information:** your email → *Next*.
+   4. **Finish:** tick the agreement → **Create**.
+
+   If there's no *Get started* button, the setup was already done. Open **Audience** in the left menu. If it says *User type: External* and *Publishing status: Testing*, you're fine. If it says *Internal*, click **Make external**.
+3. In the left menu, go to **Audience → Test users → + Add users**, add your own Google (Gmail) address, then **Save**. Leave the app in *Testing*.
+4. Go to **Clients** in the left menu → **+ Create client** → *Application type:* **Web application** → Name: "Round Remote".
+5. Under **Authorized JavaScript origins**, click *+ Add URI* for each of these (no path, no trailing slash):
    - `https://royborkin.github.io`
    - `http://127.0.0.1:8765`
    - `http://localhost:8765`
-4. Copy the **Client ID** (`…apps.googleusercontent.com`) into the YouTube tile, then tap **Sign in with Google**.
+
+   You can leave **Authorized redirect URIs** empty. Click **Create**.
+6. Copy the **Client ID** (ends in `.apps.googleusercontent.com`; you don't need the client secret). Paste it into the YouTube tile, then tap **Sign in with Google**. Google may say *"Google hasn't verified this app"*; that's normal in Testing mode, so click **Continue**.
 
 **Notes:**
 - The free quota is 10,000 units a day. A search costs 100, so that's about 100 searches or music-video lookups a day. Found videos are remembered, so each song is only looked up once.
@@ -181,7 +194,20 @@ Both play through the official YouTube player on this display. The same free **A
   - Video view uses it as the background.
   - Info and Vinyl use it as the artwork.
   - Lyrics shows it as a small bubble at the top.
-- To control YouTube on a **TV or Chromecast**, use the **Google Cast** tile with the bridge; YouTube offers no API to control its own apps remotely.
+- Something you **cast** from your phone to a Chromecast also shows up in the **Google Cast** tile.
+
+#### YouTube on your TV (Google TV, Android TV, smart TVs, consoles)
+
+The YouTube or YouTube Music tile can control the **YouTube app on your TV**, just like the YouTube phone app does. You get play/pause, seek on the ring, next/previous and volume, plus the video's title and picture. Search on the round screen and the result plays on the TV. This needs the **bridge** running on a computer (`start-bridge.bat`) or on the Pi.
+
+1. Start the bridge (see [The bridge](#3-the-bridge)).
+2. On the **TV**, open **YouTube → Settings (gear) → Link with TV code**. A code appears, e.g. `123 456 789 012`.
+3. In Round Remote, tap the **YouTube** tile. Under **YouTube on your TV**, enter the code and tap **Link TV**.
+4. Tap **Control** (or open the YouTube remote → **Devices** → pick your TV). Choose **This display** to play on the round screen again.
+
+The TV stays linked; the bridge remembers it in `bridge/youtube-tv.json`. It works through youtube.com, so the TV doesn't have to be on the same network as the bridge. In **Video** view, the TV's video plays muted in the background, in sync with the TV.
+
+This uses YouTube's own TV-linking protocol, the one the YouTube phone app uses. It isn't officially documented, so a YouTube update could break it.
 
 ### Plex / Plexamp
 
@@ -207,7 +233,7 @@ Neither offers an API for controlling playback. Play them through **Roon**, by c
 
 ## 3. The bridge
 
-Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal and Qobuz**. It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
+Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal, Qobuz and YouTube on your TV**. It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
 
 ### On your computer (to use with GitHub Pages)
 
@@ -319,6 +345,7 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Setting | What it does |
 |---|---|
 | Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
+| Show the Demo service | Hide the Demo tile from Home |
 | Control size | XS, S, M, **L** (default), XL |
 | Start in view | Info, Vinyl, Lyrics or Video |
 | Auto-hide controls | Hide the controls after a few seconds |
@@ -348,6 +375,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 | Spotify: sign-in works but nothing loads / **403** | Add your account under *User Management* in the Spotify dashboard. The app owner needs Premium. |
 | Spotify: "No active device" | Open Spotify on any device, pick one under **Devices**, or play on "This display". |
 | "This browser can't play Spotify audio" | The browser lacks Widevine DRM. Remote control still works. On the Pi, install `libwidevinecdm0`. |
+| YouTube: "That code wasn't accepted" | Codes expire after a few minutes. Get a new one from the TV (YouTube → Settings → Link with TV code) and enter it straight away. |
 | A bridge tile says **Bridge not found** | Start the bridge (`start-bridge.bat` / `.sh`, or the Pi service). In Chrome, allow *local network access*. If you blocked it, re-enable it via the lock icon → *Site settings*. |
 | Jellyfin/Plex on `http://` doesn't connect from GitHub Pages | Use Chrome/Edge and allow local network access, use an `https://` address, or run the bridge. |
 | YouTube: "Add a YouTube API key" | See [YouTube](#youtube-and-youtube-music). |
@@ -362,7 +390,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 
 - **Spotify Canvas** (the short looping videos) and **Apple Music motion artwork** aren't available to third-party apps through the official APIs. Video view uses the song's official music video from YouTube instead.
 - **Tidal and Qobuz** have no public remote-control API; they're controlled through Roon, Cast, UPnP or AirPlay.
-- **YouTube** plays on the display itself; there's no public API to control the YouTube app on a phone or TV. Use Google Cast for a TV or Chromecast.
+- **YouTube on a TV** uses YouTube's undocumented TV-linking protocol and could stop working after a YouTube update. It hasn't been tested with a real TV yet.
 - **AirPlay:** no seeking. **Cast:** next/previous depends on the casting app.
 - **Apple Music** plays on the display itself; MusicKit can't control another device.
 - The Demo and the bridge were tested with fake zones. The Roon, UPnP, Cast, shairport-sync and YouTube paths follow each service's documented API but haven't been tested against real accounts and hardware yet.
@@ -376,10 +404,10 @@ index.html, css/app.css         round UI (everything sized in cqmin → scales t
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
 js/core/                        settings/tokens, player controller, router, colours, YouTube helper
 js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js), video
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js), video
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
-bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, airplay, mock)
+bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, airplay, mock)
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
 screenshots/                    images used in this README

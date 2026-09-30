@@ -24,6 +24,7 @@ export function SettingsScreen() {
   list.append(
     section('Display'),
     toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
+    toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
     opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
     opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),

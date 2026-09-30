@@ -1,7 +1,8 @@
 // YouTube and YouTube Music. Plays through the official YouTube IFrame player on this
-// display (YouTube has no public API to remote-control the YouTube app on a phone or TV;
-// for a TV/Chromecast use the Google Cast tile). Search uses the YouTube Data API (free API
-// key); "Sign in with Google" adds your playlists and liked videos.
+// display — or, with the bridge, remote-controls the YouTube app on your TV ("Link with TV
+// code", see bridge/adapters/youtubetv.js): pick the TV under Devices.
+// Search uses the YouTube Data API (free API key); "Sign in with Google" adds your
+// playlists and liked videos.
 // YouTube's terms don't allow hiding the player, so the video always stays visible: as the
 // background in Video view, as the artwork in Info / Vinyl, or as a small bubble elsewhere.
 import { Provider } from './base.js';
@@ -11,6 +12,7 @@ import {
   search as ytSearch, myPlaylists, playlistVideoIds, splitTitle, bigThumb,
 } from '../core/youtube.js';
 import { h } from '../ui/dom.js';
+import { BridgeProvider, bridgeFetch, bridgeBase } from './bridge.js';
 
 let host = null, ytPlayer = null, readyP = null, owner = null;
 
@@ -50,15 +52,26 @@ export class YouTubeProvider extends Provider {
     this.music = music;
     this.local = true;
     this.videoHost = true; // the Video view shows this provider's own player
-    Object.assign(this.caps, { seek: true, volume: true, next: true, prev: true, playlists: true, search: true, shuffle: true, repeat: true, devices: false });
+    Object.assign(this.caps, { seek: true, volume: true, next: true, prev: true, playlists: true, search: true, shuffle: true, repeat: true, devices: true });
+    this.remote = null; // BridgeProvider for a linked TV, when one is selected
     this.queue = []; this.qi = -1;
     this.shuffle = false; this.repeat = 'off';
     this.lastResults = [];
   }
-  setupHint() { return apiKey() || googleClientId() ? '' : 'Add a free YouTube Data API key in Settings.'; }
+  setupHint() {
+    if (apiKey() || googleClientId() || String(store.getZone(this.id) || '').startsWith('youtubetv:')) return '';
+    return 'Add a free YouTube Data API key in Settings, or link your TV.';
+  }
   isAuthed() { return true; }
 
   async start() {
+    const want = store.getZone(this.id);
+    if (want && want.startsWith('youtubetv:')) {
+      try { await this._attachTv(want); return; } catch (e) { this.emit('notice', e.userMessage || 'Your TV isn’t reachable — playing here instead'); }
+    }
+    return this._startLocal();
+  }
+  async _startLocal() {
     owner = this;
     this.publish({ status: 'loading', message: 'Loading YouTube player…' });
     await ensurePlayer();
@@ -72,12 +85,30 @@ export class YouTubeProvider extends Provider {
     this._emit();
   }
   stop() {
+    this.remote?.stop();
     clearInterval(this.timer);
     try { ytPlayer?.pauseVideo(); } catch {}
     document.getElementById('app').classList.remove('has-yt');
     if (owner === this) owner = null;
   }
-  async refresh() { this._emit(); }
+  async refresh() { if (this.remote) return this.remote.refresh(); this._emit(); }
+
+  // ---------- YouTube on your TV (through the bridge) ----------
+  async _attachTv(zoneId) {
+    if (!(await bridgeBase())) throw Object.assign(new Error('no bridge'), { userMessage: 'Start the bridge to control YouTube on your TV' });
+    clearInterval(this.timer);
+    try { ytPlayer?.pauseVideo(); } catch {}
+    document.getElementById('app').classList.remove('has-yt');
+    this.remote?.stop();
+    const r = new BridgeProvider({ id: `${this.id}-tv`, name: this.name }, { adapter: 'youtubetv' });
+    r.zoneId = zoneId; r.userPicked = true;
+    r.on('state', (s) => { Object.assign(this.caps, r.caps, { playlists: true, search: true, devices: true, shuffle: false, repeat: false }); this.publish(s); });
+    this.remote = r;
+    this.videoHost = false; // Video view plays the TV's video muted, in sync
+    await r.start();
+  }
+  _detachTv() { this.remote?.stop(); this.remote = null; this.videoHost = true; }
+  async getVideo(track) { return this.remote && track?.id ? { type: 'youtube', id: track.id } : null; }
   signOut() { googleSignOut(); }
 
   _remember() {
@@ -86,6 +117,7 @@ export class YouTubeProvider extends Provider {
     if (ids?.length) store.set(this.music ? 'ytmLast' : 'ytLast', { ids: ids.slice(0, 200), index });
   }
   _emit() {
+    if (this.remote) return; // a linked TV is in charge
     const p = ytPlayer;
     if (!p?.getPlayerState) return;
     const st = p.getPlayerState();
@@ -124,23 +156,25 @@ export class YouTubeProvider extends Provider {
   _load(id) { ytPlayer.loadVideoById(id); }
 
   // ---------- transport ----------
-  async play() { ytPlayer.playVideo(); }
-  async pause() { ytPlayer.pauseVideo(); }
+  async play() { if (this.remote) return this.remote.play(); ytPlayer.playVideo(); }
+  async pause() { if (this.remote) return this.remote.pause(); ytPlayer.pauseVideo(); }
   async next() {
+    if (this.remote) return this.remote.next();
     if (ytPlayer.getPlaylist?.()?.length) return ytPlayer.nextVideo();
     if (!this.queue.length) return;
     this.qi = this.shuffle ? Math.floor(Math.random() * this.queue.length) : (this.qi + 1) % this.queue.length;
     this._load(this.queue[this.qi].id);
   }
   async prev() {
+    if (this.remote) return this.remote.prev();
     if ((ytPlayer.getCurrentTime?.() || 0) > 3) return ytPlayer.seekTo(0, true);
     if (ytPlayer.getPlaylist?.()?.length) return ytPlayer.previousVideo();
     if (!this.queue.length) return;
     this.qi = (this.qi - 1 + this.queue.length) % this.queue.length;
     this._load(this.queue[this.qi].id);
   }
-  async seek(ms) { ytPlayer.seekTo(ms / 1000, true); }
-  async setVolume(v) { if (v > 0) ytPlayer.unMute(); else ytPlayer.mute(); ytPlayer.setVolume(v); }
+  async seek(ms) { if (this.remote) return this.remote.seek(ms); ytPlayer.seekTo(ms / 1000, true); }
+  async setVolume(v) { if (this.remote) return this.remote.setVolume(v); if (v > 0) ytPlayer.unMute(); else ytPlayer.mute(); ytPlayer.setVolume(v); }
   async setShuffle(on) { this.shuffle = on; try { ytPlayer.setShuffle(on); } catch {} }
   async setRepeat(m) { this.repeat = m; try { ytPlayer.setLoop(m === 'all'); } catch {} }
 
@@ -155,6 +189,7 @@ export class YouTubeProvider extends Provider {
     if (pl.id === '__signin') { await googleSignIn(); this.emit('notice', 'Signed in — open Playlists again'); return; }
     const ids = await playlistVideoIds(pl);
     if (!ids.length) throw Object.assign(new Error('empty'), { userMessage: 'That playlist is empty' });
+    if (this.remote) return this.remote.playItem(pl.liked ? { kind: 'track', id: ids[0] } : { kind: 'playlist', id: pl.id, firstVideoId: ids[0] });
     this.queue = []; this.qi = -1;
     ytPlayer.loadPlaylist(ids, 0);
     if (this.shuffle) setTimeout(() => ytPlayer.setShuffle(true), 500);
@@ -165,6 +200,10 @@ export class YouTubeProvider extends Provider {
     return res;
   }
   async playItem(item) {
+    if (this.remote) {
+      if (item.kind === 'playlist') { const ids = await playlistVideoIds({ id: item.id }); return this.remote.playItem({ kind: 'playlist', id: item.id, firstVideoId: ids[0] }); }
+      return this.remote.playItem({ kind: 'track', id: item.id });
+    }
     if (item.kind === 'playlist') {
       const ids = await playlistVideoIds({ id: item.id });
       this.queue = []; this.qi = -1;
@@ -175,5 +214,23 @@ export class YouTubeProvider extends Provider {
     this.queue = this.lastResults.length ? this.lastResults : [item];
     this.qi = Math.max(0, this.queue.findIndex((x) => x.id === item.id));
     this._load(item.id);
+  }
+
+  // ---------- devices: this display + linked TVs ----------
+  async getDevices() {
+    const list = [{ id: 'local', name: 'This display', type: 'YouTube player here', active: !this.remote }];
+    try {
+      const zones = await bridgeFetch('/api/zones');
+      for (const z of zones || []) {
+        if (z.adapter !== 'youtubetv') continue;
+        list.push({ id: z.id, name: z.name, type: `TV · ${z.state?.track ? z.state.track.title : 'YouTube app'}`, active: this.remote?.zoneId === z.id });
+      }
+    } catch {}
+    return list;
+  }
+  async selectDevice(dev) {
+    store.setZone(this.id, dev.id === 'local' ? null : dev.id);
+    if (dev.id === 'local') { this._detachTv(); await this._startLocal(); return; }
+    await this._attachTv(dev.id);
   }
 }

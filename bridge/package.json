@@ -1,0 +1,19 @@
+{
+  "name": "roundremote-bridge",
+  "version": "2.0.0",
+  "description": "Local-network bridge for Round Remote: Roon, UPnP/DLNA, AirPlay (shairport-sync), Google Cast, plus a LAN proxy and Apple Music token signer.",
+  "type": "module",
+  "main": "server.js",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "mock": "RR_MOCK=1 node server.js",
+    "roon": "npm install --no-save github:roonlabs/node-roon-api github:roonlabs/node-roon-api-status github:roonlabs/node-roon-api-transport github:roonlabs/node-roon-api-image github:roonlabs/node-roon-api-browse",
+    "apple-token": "node tools/apple-token.js"
+  },
+  "dependencies": {
+    "castv2-client": "^1.2.0",
+    "multicast-dns": "^7.2.5"
+  }
+}

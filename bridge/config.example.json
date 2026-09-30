@@ -1,0 +1,20 @@
+{
+  "port": 8765,
+  "allowedOrigins": ["https://royborkin.github.io"],
+
+  "adapters": { "roon": true, "upnp": true, "cast": true, "airplay": true, "mock": false },
+
+  "airplay": { "metadataPipe": "/tmp/shairport-sync-metadata", "bus": "system", "name": "Round Display" },
+
+  "apple": {
+    "teamId": "",
+    "keyId": "",
+    "privateKeyPath": "AuthKey_XXXXXXXXXX.p8"
+  },
+
+  "app": {
+    "spotifyClientId": "",
+    "jellyfinServer": "",
+    "appleDeveloperToken": ""
+  }
+}

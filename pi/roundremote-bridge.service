@@ -1,0 +1,16 @@
+[Unit]
+Description=Round Remote bridge (Roon / UPnP / AirPlay / Cast + app server)
+After=network-online.target shairport-sync.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__/bridge
+ExecStart=/usr/bin/env node server.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

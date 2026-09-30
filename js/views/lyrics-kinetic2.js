@@ -14,6 +14,7 @@ import { h } from '../ui/dom.js';
 import { lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
 import { isGap, dots, clean, isSmall, textWidth, rowsOf, wordEnd } from './lyrics-extra.js';
+import { isRTL, dirOf, joinsLetters } from '../lyrics/bidi.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 function svg(tag, attrs = {}, ...kids) {
@@ -61,7 +62,7 @@ function leaveAfter(el, ms = 700, cls = 'out') {
 // =====================================================================================
 // BLACK & WHITE
 // =====================================================================================
-const BW = "'League Spartan', 'Arial Black', Impact, sans-serif";
+const BW = "'League Spartan', 'Rubik', 'Arial Black', Impact, sans-serif";
 
 export function bwStyle(box, lyr, api) {
   wantFonts(['900 50px "League Spartan"', '800 50px "League Spartan"']);
@@ -120,7 +121,7 @@ const BW_SCENES = {
     words.forEach((w, j) => { const l = clean(w.text).length; if (l > best) { best = l; acc = j; } });
     const spans = words.map((w, j) => h(`span.kbw-tw${j === acc ? '.acc' : ''}`, w.text));
     const line = h('div.kbw-tline', { style: { fontSize: px(size), maxWidth: px(W * 0.92) } }, ...spans.flatMap((s, j) => (j ? [' ', s] : [s])));
-    const el = h('div.kbw-scene.kbw-ticker', h('div.kbw-tcol', line, h('i.kbw-rule')));
+    const el = h('div.kbw-scene.kbw-ticker', { dir: dirOf(ln.text) }, h('div.kbw-tcol', line, h('i.kbw-rule')));
     ctx.root.appendChild(el);
     return { el, reveal: (j) => spans[j]?.classList.add('in'), leave: leaveAfter(el) };
   },
@@ -140,7 +141,7 @@ const BW_SCENES = {
     function show(ui) {
       const text = units[ui].map((j) => words[j].text).join(' ').toUpperCase();
       const size = fit(text, W * 0.92, BW, 900, H * 0.12, H * 0.6);
-      const w = h(`div.kbw-big.e-${ENTR[(ui + off) % ENTR.length]}`, { style: { fontSize: px(size) } }, text);
+      const w = h(`div.kbw-big.e-${ENTR[(ui + off) % ENTR.length]}`, { dir: dirOf(text), style: { fontSize: px(size) } }, text);
       if (curEl) { const o = curEl; o.classList.add('thru'); setTimeout(() => o.remove(), 500); }
       curEl = w;
       el.appendChild(w);
@@ -154,7 +155,7 @@ const BW_SCENES = {
     const words = ln.words || [];
     const spans = [];
     const bw = Math.min(W * 0.66, H * 0.95);
-    const block = h('div.kbw-iblock');
+    const block = h('div.kbw-iblock', { dir: dirOf(ln.text) }); // Hebrew stacks flush right
     rowsOf(words).forEach((idxs) => {
       const text = idxs.map((j) => words[j].text).join(' ').toUpperCase();
       const size = fit(text, bw, BW, 900, H * 0.07, H * 0.34);
@@ -229,7 +230,11 @@ const BW_SCENES = {
     const line = svg('path', { id, d, class: 'kbw-wave' });
     let fs = Math.min(W, H) * 0.07;
     const tspans = words.map((w) => svg('tspan', {}, `${w.text.toUpperCase()} `));
-    const text = svg('text', { class: 'kbw-otext', 'font-size': f1(fs), dy: f1(-fs * 0.3) }, svg('textPath', { href: `#${id}`, startOffset: '4%' }, ...tspans));
+    // Hebrew: the browser already orders the words right-to-left along the path; anchor the text at the
+    // right-hand end so the first word starts on the right, where a Hebrew reader begins
+    const rtl = isRTL(ln.text);
+    const text = svg('text', { class: 'kbw-otext', 'font-size': f1(fs), dy: f1(-fs * 0.3), 'text-anchor': rtl ? 'end' : 'start' },
+      svg('textPath', { href: `#${id}`, startOffset: rtl ? '96%' : '4%' }, ...tspans));
     const s = svg('svg', { class: 'kbw-svg', width: f1(W), height: f1(H), viewBox: `0 0 ${f1(W)} ${f1(H)}` }, line, text);
     const el = h('div.kbw-scene.kbw-wav', s);
     ctx.root.appendChild(el);
@@ -249,7 +254,7 @@ const BW_SCENES = {
     const m = Math.min(W, H);
     const bw = m * 0.6;
     const spans = [];
-    const block = h('div.kbw-block');
+    const block = h('div.kbw-block', { dir: dirOf(ln.text) });
     rowsOf(words).forEach((idxs) => {
       const text = idxs.map((j) => words[j].text).join(' ').toUpperCase();
       const size = fit(text, bw, BW, 900, m * 0.055, m * 0.2);
@@ -271,7 +276,7 @@ const BW_SCENES = {
 // =====================================================================================
 // HAND-DRAWN
 // =====================================================================================
-const HD_BIG = "'Permanent Marker', 'Comic Sans MS', cursive";
+const HD_BIG = "'Permanent Marker', 'Karantina', 'Comic Sans MS', cursive";
 const HD_SMALL = "'Amatic SC', 'Permanent Marker', cursive";
 const PALETTES = [
   { bg: '#12f5bd', ink: '#3d0f8f', pop: '#ff2472' },
@@ -382,11 +387,15 @@ export function handStyle(box, lyr, api) {
       }
     };
   }
-  const letterSpans = (text) => [...text.toUpperCase()].map((ch) => {
-    const l = h('span.hl.wait', ch === ' ' ? ' ' : ch);
-    scatterVars(l);
-    return l;
-  });
+  const letterSpans = (text) => {
+    // Arabic-script letters join up, so those words write on as a whole instead of letter by letter
+    const parts = joinsLetters(text) ? [text] : [...text.toUpperCase()];
+    return parts.map((ch) => {
+      const l = h('span.hl.wait', ch === ' ' ? ' ' : ch);
+      scatterVars(l);
+      return l;
+    });
+  };
   const smallWord = (text, spans, j) => { const s = h('span.hw.wait', text); scatterVars(s); spans[j] = s; return s; };
 
   function plan(ln) {
@@ -405,7 +414,7 @@ export function handStyle(box, lyr, api) {
       const W = box.clientWidth, H = box.clientHeight;
       const { words } = P;
       const spans = [];
-      const el = h('div.khd-scene.khd-lockup');
+      const el = h('div.khd-scene.khd-lockup', { dir: dirOf(ln.text) });
       if (P.lead.length) {
         const t = P.lead.map((j) => words[j].text).join(' ').toUpperCase();
         const wide = textWidth(t, H * 0.09, 700, HD_SMALL) > W * 0.62;
@@ -449,12 +458,14 @@ export function handStyle(box, lyr, api) {
         if (k < items.length - 1) y += it.h * 0.8;
       });
       const maxY = y + (items.at(-1)?.h || 0);
+      if (isRTL(ln.text)) items.forEach((it) => { it.x = maxX - it.x - it.w; }); // Hebrew steps down to the left
       const k = Math.min((W * 0.78) / Math.max(1, maxX), (H * 0.8) / Math.max(1, maxY)); // keep the corners inside the circle
       const wrap = h('div.khd-stairs', { style: { width: px(maxX * k), height: px(maxY * k) } });
       const pc = Math.random() < 0.5;
       items.forEach((it) => {
         const letters = letterSpans(it.t);
         const wd = h(`div.khd-sw${(it.j === P.hero) !== pc ? '.popc' : ''}`, {
+          dir: dirOf(it.t),
           style: { left: px(it.x * k), top: px(it.y * k), fontSize: px(100 * it.s * k), rotate: `${f1(rnd(-7, 7))}deg` },
         }, ...letters);
         spans[it.j] = { letters, el: wd };
@@ -524,3 +535,6 @@ export function handStyle(box, lyr, api) {
     },
   };
 }
+
+// shared with the variants in lyrics-kinetic3.js
+export { svg, rnd, pick, px, f1, wantFonts, fit, sceneRunner, leaveAfter, blobPath };

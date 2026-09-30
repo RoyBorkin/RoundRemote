@@ -1,4 +1,4 @@
-// View 3: synced lyrics with five selectable styles (Kinetic Type has nine variants).
+// View 3: synced lyrics with five selectable styles (Kinetic Type has thirteen variants).
 //   basic    – classic centred list that glides to the active line
 //   animated – (Kinetic Type variant) karaoke: words fill in as they're sung, lines rise & blur between
 //   typing   – typewriter / terminal, each line typed out in time
@@ -13,6 +13,8 @@ import { getLyrics, lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
 import { fluidStyle, typoStyle } from './lyrics-extra.js';
 import { bwStyle, handStyle } from './lyrics-kinetic2.js';
+import { popStyle, pastelStyle, comicStyle, neonStyle } from './lyrics-kinetic3.js';
+import { dirOf, songDir } from '../lyrics/bidi.js';
 
 export const LYRIC_STYLES = [
   { id: 'basic', name: 'Basic' },
@@ -32,7 +34,7 @@ function basicStyle(box, lyr, api) {
   const L = lyr.lines;
   const list = h('div.lyb-list');
   const lead = h('div.lyb-line.lead', h('span.dots', h('i'), h('i'), h('i')));
-  const rows = L.map((ln) => h('div.lyb-line', ln.text.trim() || '♪'));
+  const rows = L.map((ln) => h('div.lyb-line', { dir: dirOf(ln.text) }, ln.text.trim() || '♪'));
   list.append(lead, ...rows);
   box.appendChild(list);
   let cur = -99;
@@ -61,7 +63,7 @@ function animatedStyle(box, lyr, api) {
   wrap.appendChild(nextEl);
   function build(i) {
     const ln = L[i];
-    const el = h('div.lya-line.enter');
+    const el = h('div.lya-line.enter', { dir: dirOf(ln.text) });
     words = (ln.words || []).map((w) => { const s = h('span.lya-w', w.text); el.append(s, ' '); return s; });
     if (!words.length) el.append(h('span.dots', h('i'), h('i'), h('i')));
     return el;
@@ -78,6 +80,7 @@ function animatedStyle(box, lyr, api) {
         wrap.insertBefore(curEl, nextEl);
         requestAnimationFrame(() => curEl && curEl.classList.add('cur'));
         nextEl.textContent = L[lineAt(L, ms) + 1]?.text || '';
+        nextEl.dir = dirOf(nextEl.textContent);
       }
       if (i >= 0 && words.length) {
         const ln = L[i];
@@ -107,12 +110,13 @@ function typingStyle(box, lyr, api) {
       const i = lineAt(L, ms);
       if (i !== idx) {
         if (idx >= 0 && L[idx].text.trim()) {
-          const done = h('div.lyt-old', L[idx].text);
+          const done = h('div.lyt-old', { dir: dirOf(L[idx].text) }, L[idx].text);
           log.appendChild(done);
           while (log.children.length > 4) log.firstChild.remove();
           [...log.children].forEach((c, k, a) => (c.style.opacity = String(0.14 + (0.5 * (k + 1)) / a.length)));
         }
         idx = i;
+        cur.dir = i >= 0 ? dirOf(L[i].text) : 'ltr'; // Hebrew types from the right, caret on the left
       }
       if (i < 0) { text.textContent = ''; cur.classList.add('idle'); return; }
       const ln = L[i];
@@ -134,7 +138,7 @@ function rollStyle(box, lyr, api) {
   const L = lyr.lines;
   const drum = h('div.lyr-drum');
   const STEP = 22; // degrees between lines
-  const rows = L.map((ln) => h('div.lyr-line', ln.text.trim() || '♪'));
+  const rows = L.map((ln) => h('div.lyr-line', { dir: dirOf(ln.text) }, ln.text.trim() || '♪'));
   drum.append(...rows);
   box.appendChild(h('div.lyr', drum));
   let last = null;
@@ -171,7 +175,7 @@ function kineticStyle(box, lyr, api) {
   const rnd = (a, b) => a + Math.random() * (b - a);
   function build(i) {
     const ln = L[i];
-    const g = h('div.lyk-group');
+    const g = h('div.lyk-group', { dir: dirOf(ln.text) });
     const ws = ln.words || [];
     const longest = ws.reduce((a, w) => (w.text.length > a.length ? w.text : a), '');
     spans = ws.map((w, j) => {
@@ -187,6 +191,7 @@ function kineticStyle(box, lyr, api) {
       return s;
     });
     bg.textContent = longest.replace(/[^\p{L}\p{N}']/gu, '').toUpperCase();
+    bg.dir = dirOf(bg.textContent);
     bg.classList.remove('swap'); void bg.offsetWidth; bg.classList.add('swap');
     return g;
   }
@@ -231,6 +236,10 @@ export const TYPO_VARIANTS = [
   { id: 'mosaic', name: 'Mosaic' },
   { id: 'bw', name: 'Black & White' },
   { id: 'hand', name: 'Hand-drawn' },
+  { id: 'pop', name: 'Pop' },
+  { id: 'pastel', name: 'Pastel' },
+  { id: 'comic', name: 'Comic' },
+  { id: 'neon', name: 'Neon Drive' },
   { id: 'animated', name: 'Animated' },
   { id: 'moving', name: 'Moving Words' },
   { id: 'random', name: 'Random' },
@@ -242,6 +251,10 @@ const VARIANT_FNS = {
   mosaic: (b, l, a) => typoStyle(b, l, a, 'mosaic'),
   bw: bwStyle,
   hand: handStyle,
+  pop: popStyle,
+  pastel: pastelStyle,
+  comic: comicStyle,
+  neon: neonStyle,
   animated: animatedStyle,
   moving: kineticStyle,
 };
@@ -288,6 +301,15 @@ function randomStyle(box, lyr, api) {
   };
 }
 
+// Hebrew letters come from fallback fonts (Rubik, Karantina, Frank Ruhl Libre, Amatic SC). Load them before
+// the first Hebrew song is laid out, then lay it out again so every size is measured with the real font.
+let hebrewFonts = null;
+function loadHebrewFonts() {
+  hebrewFonts ||= Promise.all(['800 40px Rubik', '700 40px Karantina', '300 40px Karantina', '700 40px "Frank Ruhl Libre"', '700 40px "Amatic SC"', '400 40px "Suez One"', '400 40px "Rubik Dirt"']
+    .map((f) => document.fonts?.load(f, 'אבג').catch(() => {}))).then(() => true);
+  return hebrewFonts;
+}
+
 const STYLES = {
   basic: basicStyle, typing: typingStyle, roll: rollStyle, fluid: fluidStyle,
   typo: (b, l, a) => {
@@ -314,6 +336,9 @@ export function createLyricsView({ player }) {
     renderer?.destroy(); renderer = null;
     clear(stage); clear(bg);
     stage.className = `ly-stage style-${style}`;
+    stage.dataset.dir = lyr ? songDir(lyr.lines) : 'ltr';
+    const forLyr = lyr;
+    if (stage.dataset.dir === 'rtl' && !hebrewFonts) loadHebrewFonts().then(() => { if (lyr === forLyr) mount(); });
     el.dataset.style = style;
     if (!lyr || !lyr.lines.length) return;
     renderer = (STYLES[style] || basicStyle)(stage, lyr, api);

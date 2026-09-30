@@ -33,16 +33,21 @@ The current song can be shown **five ways**:
 3. **Lyrics:** synced lyrics in five styles:
    - **Basic**, **Typing** (typewriter) and **Roll** (3D drum).
    - **Fluid**, in the spirit of Lyricify / BetterLyrics: a flowing album-art colour field, lines that glide in a staggered cascade, and words that fill with a soft glow and lift as they're sung. Long notes glow letter by letter.
-   - **Kinetic Type**, lyric-video typography with nine variants:
+   - **Kinetic Type**, lyric-video typography with thirteen variants:
      - **Stack:** full-width words stacked like a poster.
      - **Camera:** the view pans, zooms and turns 90° between phrases.
      - **Slam:** one huge word at a time.
      - **Mosaic:** each word snaps onto the edge of the block, some turned sideways, in mixed typefaces, building an interlocking word puzzle (classic After Effects lyric-video style).
      - **Black & White:** heavy caps on black with a new scene for every line: giant words the camera flies through, words ticking along a rule, words around a planet or riding a wave, a block inside a ring, and black-on-white blocks with an hourglass wipe.
      - **Hand-drawn:** flat mint / indigo / pink palettes that change with a paint-splash wipe; small hand-lettered words over one big brush word that writes itself on, staircases and little planets; everything jitters like frame-by-frame animation.
+     - **Pop:** flat bright colour screens that change with a circular wipe; one huge striped-3D word with the small words stacked beside it, single-word slams with paint drops, and mixed-typeface stacks.
+     - **Pastel:** pink, lavender and yellow with rough brush letters; the line arrives as chat bubbles, with a highlighter swiped behind each word, over a repeating word wallpaper, inside pulsing hearts, or in a grid of tiles with doodles.
+     - **Comic:** Spider-Verse-style comic caption boxes with hard black shadows on a night halftone sky; big words get a burst and an RGB glitch, and it all moves "on twos" like the film.
+     - **Neon Drive:** synthwave: words fly toward you down a neon road, flicker in a neon kaleidoscope, glow on a striped retro sun, or appear under a magnifying lens gliding over the blurred lyrics.
      - **Animated:** karaoke fill.
      - **Moving Words**.
      - **Random:** a different variant for every line. It goes through all of them in a shuffled order before any repeats. Choose which variants it uses in *Settings → Lyrics → Random includes*.
+   - **Hebrew and other right-to-left lyrics** are detected line by line and shown right to left in every style: word order, typing, the karaoke fill, staircases and Mosaic all run from the right, and a line that mixes in an English word still reads correctly. Hebrew letters use Rubik, Karantina, Frank Ruhl Libre and Amatic SC. The Demo has a Hebrew song to try it: **אור על המים** (playlist *בעברית · Hebrew*).
 4. **Video:** like the classic view, but the background is a video:
    - **YouTube / YouTube Music:** the song's own video.
    - **Every other service:** the song's official music video, found on YouTube, played muted and kept in sync with the song. This needs the free YouTube API key (see below).
@@ -421,7 +426,7 @@ index.html, css/app.css         round UI (everything sized in cqmin → scales t
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
 js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual)
 js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js), video, tone (+ tone-visuals.js)
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, airplay, mock)

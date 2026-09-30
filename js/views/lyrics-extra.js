@@ -18,6 +18,7 @@
 import { h } from '../ui/dom.js';
 import { lineAt } from '../lyrics/lrc.js';
 import { clamp } from '../core/util.js';
+import { isRTL, dirOf, joinsLetters } from '../lyrics/bidi.js';
 
 
 const lineEnd = (L, i) => (L[i + 1] ? L[i + 1].t : L[i].t + 6000);
@@ -30,7 +31,7 @@ const isSmall = (w) => SMALL.has(clean(w).toLowerCase()) || clean(w).length <= 2
 
 // Measure text width without touching layout.
 const mctx = document.createElement('canvas').getContext('2d');
-function textWidth(text, px, weight = 700, family = "'Space Grotesk', Inter, system-ui, sans-serif") {
+function textWidth(text, px, weight = 700, family = "'Space Grotesk', Rubik, Inter, system-ui, sans-serif") {
   mctx.font = `${weight} ${px}px ${family}`;
   return mctx.measureText(text).width;
 }
@@ -52,10 +53,10 @@ export function fluidStyle(box, lyr, api) {
   const list = h('div.flu-list');
   const lead = h('div.flu-line.lead', dots());
   const rows = L.map((ln, i) => {
-    const el = h('div.flu-line');
+    const el = h('div.flu-line', { dir: dirOf(ln.text) });
     const words = (ln.words || []).map((w, j) => {
       const dur = wordEnd(ln, j, L, i) - w.t;
-      const emph = dur > 950 && clean(w.text).length >= 3;
+      const emph = dur > 950 && clean(w.text).length >= 3 && !joinsLetters(w.text); // joined scripts (Arabic) stay whole
       const span = h(`span.flu-w${emph ? '.emph' : ''}`);
       if (emph) [...w.text].forEach((ch) => span.appendChild(h('span.flu-ch', ch)));
       else span.textContent = w.text;
@@ -158,7 +159,7 @@ function typoStack(box, lyr, api) {
     const ln = L[i];
     const W = box.clientWidth * 0.8, H = box.clientHeight;
     cam.style.width = `${W}px`;
-    const b = h('div.kt-block', { style: { width: `${W}px` } });
+    const b = h('div.kt-block', { dir: dirOf(ln.text), style: { width: `${W}px` } });
     spans = []; rowEls = [];
     rowsOf(ln.words || []).forEach((idxs, r) => {
       const text = idxs.map((k) => ln.words[k].text).join(' ').toUpperCase();
@@ -224,7 +225,7 @@ function typoCamera(box, lyr, api) {
   function build(i) {
     const ln = L[i];
     const W = box.clientWidth * 0.78, H = box.clientHeight;
-    const el = h('div.kt-cblock', { style: { width: `${W}px` } });
+    const el = h('div.kt-cblock', { dir: dirOf(ln.text), style: { width: `${W}px` } });
     const base = H * 0.085;
     const spans = (ln.words || []).map((w, j) => {
       const len = clean(w.text).length;
@@ -317,6 +318,7 @@ function typoSlam(box, lyr, api) {
     const el = h(`div.ks-word.${ENTRANCES[k++ % ENTRANCES.length]}${clean(main).length >= 6 ? '.heavy' : ''}${k % 3 === 0 ? '.accent' : ''}`,
       top ? h('div.ks-top', { style: { fontSize: `${Math.min(bigSize * 0.42, fitSize(top, W * 0.8, H * 0.05, H * 0.12)).toFixed(1)}px` } }, top) : null,
       h('div.ks-main', { style: { fontSize: `${bigSize.toFixed(1)}px` } }, main));
+    el.dir = dirOf(ln.text);
     if (curEl) { const old = curEl; old.classList.add('out'); setTimeout(() => old.remove(), 600); }
     curEl = el; stage.appendChild(el);
     // pulse ring + shake for heavy words
@@ -331,6 +333,7 @@ function typoSlam(box, lyr, api) {
         cur = i; gi = -1; strip.innerHTML = ''; stripSpans = [];
         if (i >= 0) {
           groups = plan(L[i]);
+          strip.dir = dirOf(L[i].text);
           stripSpans = (L[i].words || []).map((w) => { const s = h('span', w.text); strip.append(s, ' '); return s; });
         } else {
           groups = [];
@@ -369,7 +372,7 @@ function typoMosaic(box, lyr, api) {
     root.appendChild(el);
     const ln = i >= 0 ? L[i] : null;
     const units = ln ? rowsOf(ln.words || []) : [];
-    const st = { el, canvas, ln, units, cells: [], bb: null, W, H, next: 0, face: Math.floor(Math.random() * FACES.length) };
+    const st = { el, canvas, ln, units, cells: [], bb: null, W, H, next: 0, face: Math.floor(Math.random() * FACES.length), rtl: !!ln && isRTL(ln.text) };
     if (!units.length) {
       canvas.append(h('div.km-cell.km-dots', { style: { left: '0px', top: '0px' } }, dots()));
       camera(st, { x0: 0, y0: 0, x1: 0, y1: 0 }, true);
@@ -379,7 +382,7 @@ function typoMosaic(box, lyr, api) {
 
   // Measure a word at 100px in its face, then scale it to the span it has to cover.
   function measure(st, text, face) {
-    const w = h(`span.km-w.f-${face}`, { style: { fontSize: '100px' } }, text);
+    const w = h(`span.km-w.f-${face}`, { dir: dirOf(text), style: { fontSize: '100px' } }, text);
     const cell = h('div.km-cell.measure', w);
     st.canvas.appendChild(cell);
     const r = { w: w.offsetWidth || 1, h: w.offsetHeight || 1 };
@@ -403,6 +406,7 @@ function typoMosaic(box, lyr, api) {
       const vertical = asp < 0.8 ? true : asp > 1.3 ? false : k % 2 === 1;
       const alt = (k * 7 + st.face) % 10 < 3; // now and then build upward / leftward
       side = vertical ? (alt ? 'left' : 'right') : (alt ? 'above' : 'below');
+      if (st.rtl && vertical) side = side === 'right' ? 'left' : 'right'; // Hebrew builds leftwards, in reading order
       const span = vertical ? bh : bw;
       // fit the word's length to the edge it lands on, but keep its thickness sane
       size = (100 * span) / m.w;
@@ -422,7 +426,7 @@ function typoMosaic(box, lyr, api) {
     const accent = k % 3 === 2 && face !== 'box';
     const cell = h(`div.km-cell.from-${side}${accent ? '.accent' : ''}`, {
       style: { left: `${x.toFixed(1)}px`, top: `${y.toFixed(1)}px`, width: `${cw.toFixed(1)}px`, height: `${ch.toFixed(1)}px` },
-    }, h(`span.km-w.f-${face}`, { style: { fontSize: `${size.toFixed(1)}px`, transform: `translate(-50%, -50%) rotate(${rot}deg)` } }, text));
+    }, h(`span.km-w.f-${face}`, { dir: dirOf(text), style: { fontSize: `${size.toFixed(1)}px`, transform: `translate(-50%, -50%) rotate(${rot}deg)` } }, text));
     st.canvas.appendChild(cell);
     st.cells.forEach((c) => c.classList.add('settled'));
     st.cells.push(cell);

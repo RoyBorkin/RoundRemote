@@ -2,7 +2,7 @@
 import { h, badge, iconBtn, onCircle, clear } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
 import { toast } from '../ui/overlay.js';
-import { getService, provider } from '../providers/registry.js';
+import { getService, provider, adapterOf } from '../providers/registry.js';
 import { bridgeInfo, bridgeBase, bridgeFetch, bridgeZones, isAppleZone } from '../providers/bridge.js';
 import { redirectUri } from '../providers/spotify.js';
 import { googleSignIn, googleSignOut, googleSignedIn } from '../core/youtube.js';
@@ -19,6 +19,8 @@ const BRIDGE_TIPS = {
   cast: 'Cast devices on the same network appear automatically.',
   airplay: 'Install shairport-sync on the Pi (pi/setup.sh does it). Then pick “Round Display” as the AirPlay speaker on your phone or Mac.',
   androidtv: 'Google TV / Android TV: pair once with the code the TV shows.',
+  appletv: 'Apple TV: pair once with the code the TV shows.',
+  castvideo: 'Chromecasts and Google TVs on the same network appear automatically. Cast a movie or show from any app (Netflix, Disney+, Plex, YouTube…).',
   upnp: 'UPnP/DLNA renderers on the same network appear automatically.',
   tidal: 'Play TIDAL through Roon, cast it from the TIDAL app, or send it to a UPnP renderer / AirPlay — this tile follows it.',
   qobuz: 'Play Qobuz through Roon, cast it from the Qobuz app, or send it to a UPnP renderer / AirPlay — this tile follows it.',
@@ -50,13 +52,13 @@ export function ConnectScreen({ id }) {
     body.append(...header());
     const kind = svc.kind;
     if (id === 'demo') { body.append(h('div.actions', btn('Start demo', () => openService(id), 'primary'))); return; }
-    if (id === 'androidtv') return renderAndroidTv();
+    if (['androidtv', 'appletv'].includes(adapterOf(svc)) && svc.id !== 'cast') return renderTvPairing();
     if (kind === 'bridge') return renderBridge();
     if (kind === 'youtube') return renderYouTube();
     if (id === 'spotify') return renderSpotify();
     if (id === 'apple') return renderApple();
-    if (id === 'plex') return renderPlex();
-    if (id === 'jellyfin') return renderJellyfin();
+    if (id === 'plex' || svc.signIn === 'plex') return renderPlex();
+    if (id === 'jellyfin' || svc.signIn === 'jellyfin') return renderJellyfin();
   }
 
   function renderSpotify() {
@@ -222,13 +224,28 @@ export function ConnectScreen({ id }) {
   }
 
   // Google TV / Android TV: pair once with the code the TV shows (Android TV Remote protocol, via the bridge)
-  async function renderAndroidTv() {
+  // TVs paired once with a code the TV shows: Google TV (androidtv) and Apple TV (appletv, via pyatv)
+  const TV_PAIRING = {
+    androidtv: {
+      missing: 'The Google TV add-on isn’t installed in the bridge yet: in the bridge folder run  npm run androidtv  (start-bridge.bat does it for you), then restart the bridge.',
+      codeHint: 'Enter the 6-character code shown on the TV', codePh: 'A1B2C3', ipHint: 'TV Settings → Network → About',
+      note: 'For the song or video playing in YouTube on the TV, also link it under YouTube → “YouTube on your TV”.',
+    },
+    appletv: {
+      missing: 'Apple TV support needs pyatv on the bridge computer: install Python, then run  pip install pyatv  and restart the bridge (pi/setup.sh does it on the Pi).',
+      codeHint: 'Enter the 4-digit code shown on the Apple TV', codePh: '1234', ipHint: 'Apple TV Settings → Network',
+      note: 'The Apple TV must allow the connection: Settings → AirPlay and HomeKit → Allow Access → Anyone on the Same Network (or Everyone).',
+    },
+  };
+  async function renderTvPairing() {
+    const ad = adapterOf(svc), conf = TV_PAIRING[ad];
+    const api = (a) => `/api/adapters/${ad}/${a}`;
     body.append(status);
     setStatus('Looking for the bridge…');
     const info = await bridgeInfo();
     if (!info) { clear(body); body.append(...header()); return renderBridge(); }
-    const a = info.adapters?.androidtv;
-    if (!a?.enabled) setStatus(a?.status?.startsWith('not installed') ? 'The Google TV add-on isn’t installed in the bridge yet: in the bridge folder run  npm run androidtv  (start-bridge.bat does it for you), then restart the bridge.' : `Google TV is ${a?.status || 'disabled'} in the bridge.`, 'warn');
+    const a = info.adapters?.[ad];
+    if (!a?.enabled) setStatus(a?.status?.startsWith('not installed') ? conf.missing : `${svc.name} is ${a?.status || 'disabled'} in the bridge.`, 'warn');
     else setStatus(a.status || '', 'ok');
     const bridgeErr = (e) => e?.body?.error || err(e);
     const tvList = h('div.stack'), found = h('div.stack'), pairArea = h('div.stack');
@@ -238,42 +255,48 @@ export function ConnectScreen({ id }) {
     const loadTvs = async () => {
       clear(tvList);
       try {
-        const tvs = await bridgeFetch('/api/adapters/androidtv/list');
+        const tvs = await bridgeFetch(api('list'));
         if (tvs?.length) tvList.append(h('div.section', 'Your TVs'));
         for (const t of tvs || []) {
           tvList.append(h('div.actions', h('span.note', `${t.connected ? '●' : '○'} ${t.name}`),
             btn('Control', () => { store.setZone(id, t.id); openService(id); }, 'primary'),
-            btn('Forget', async () => { await bridgeFetch('/api/adapters/androidtv/unpair', { method: 'POST', json: { host: t.host } }).catch(() => {}); if (store.getZone(id) === t.id) store.setZone(id, null); loadTvs(); })));
+            btn('Forget', async () => { await bridgeFetch(api('unpair'), { method: 'POST', json: { host: t.host } }).catch(() => {}); if (store.getZone(id) === t.id) store.setZone(id, null); loadTvs(); })));
         }
       } catch {}
     };
 
+    const askCode = (host, message) => {
+      clear(pairArea);
+      say(message || conf.codeHint, 'ok');
+      const code = field({ label: 'Code on the TV', placeholder: conf.codePh });
+      pairArea.append(code, h('div.actions', btn('Pair', async () => {
+        say('Pairing…');
+        try {
+          const r = await bridgeFetch(api('code'), { method: 'POST', json: { host, code: code.querySelector('input').value } });
+          if (r.next) { askCode(host, r.message); return; }   // Apple TV: a second code (AirPlay)
+          store.setZone(id, r.id);
+          clear(pairArea); say(`Paired ${r.name}`, 'ok'); toast(`Paired ${r.name}`); loadTvs();
+        } catch (e) { say(bridgeErr(e), 'error'); }
+      }, 'primary'), btn('Cancel', () => { clear(pairArea); say(''); })));
+    };
     const startPair = async (host, name) => {
       host = String(host || '').trim();
       if (!host) { say('Enter the TV’s IP address', 'error'); return; }
       clear(pairArea);
       say(`Connecting to ${name || host}… (the TV has to be on)`);
       try {
-        await bridgeFetch('/api/adapters/androidtv/pair', { method: 'POST', json: { host, name } });
-      } catch (e) { say(bridgeErr(e), 'error'); return; }
-      say('Enter the 6-character code shown on the TV', 'ok');
-      const code = field({ label: 'Code on the TV', placeholder: 'A1B2C3' });
-      pairArea.append(code, h('div.actions', btn('Pair', async () => {
-        say('Pairing…');
-        try {
-          const r = await bridgeFetch('/api/adapters/androidtv/code', { method: 'POST', json: { host, code: code.querySelector('input').value } });
-          store.setZone(id, r.id);
-          clear(pairArea); say(`Paired ${r.name}`, 'ok'); toast(`Paired ${r.name}`); loadTvs();
-        } catch (e) { say(bridgeErr(e), 'error'); }
-      }, 'primary'), btn('Cancel', () => { clear(pairArea); say(''); })));
+        const r = await bridgeFetch(api('pair'), { method: 'POST', json: { host, name } });
+        if (r?.id) { store.setZone(id, r.id); say(`Paired ${r.name}`, 'ok'); loadTvs(); return; } // no code needed
+        askCode(host, r?.message);
+      } catch (e) { say(bridgeErr(e), 'error'); }
     };
 
     const search = async () => {
       clear(found); found.append(h('div.note.dim', 'Searching the network…'));
       try {
-        const list = await bridgeFetch('/api/adapters/androidtv/discover');
+        const list = await bridgeFetch(api('discover'));
         clear(found);
-        if (!list?.length) { found.append(h('div.note.dim', 'No TV found — type its IP address below (TV Settings → Network → About).')); return; }
+        if (!list?.length) { found.append(h('div.note.dim', `No TV found — type its IP address below (${conf.ipHint}).`)); return; }
         for (const t of list) found.append(h('div.actions', h('span.note', `📺 ${t.name}`), t.paired ? h('span.note.dim', 'paired') : btn('Pair', () => startPair(t.host, t.name), 'primary')));
       } catch (e) { clear(found); found.append(h('div.note.dim', bridgeErr(e))); }
     };
@@ -285,14 +308,15 @@ export function ConnectScreen({ id }) {
       h('div.actions', btn('Search the network', search)), found,
       ip, h('div.actions', btn('Pair by IP', () => startPair(ip.querySelector('input').value))),
       pairStatus, pairArea,
-      h('div.note.dim', 'For the song or video playing in YouTube on the TV, also link it under YouTube → “YouTube on your TV”.'),
+      h('div.note.dim', conf.note),
     );
     loadTvs();
     if (a?.enabled) search();
   }
 
+
   async function renderBridge() {
-    const adapter = ['tidal', 'qobuz'].includes(id) ? null : id;
+    const adapter = ['tidal', 'qobuz'].includes(id) ? null : adapterOf(svc);
     body.append(h('div.note', BRIDGE_TIPS[id] || ''), status);
     setStatus('Looking for the bridge…');
     const bf = field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto (http://localhost:8765)', onChange: async (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); await bridgeBase({ force: true }); render(); } });

@@ -11,7 +11,6 @@ import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { sound } from '../core/sound.js';
 import { VIDEO_KINDS } from '../core/youtube.js';
 import { videoKinds } from '../views/video.js';
-import { bridgeFetch } from '../providers/bridge.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -347,12 +346,13 @@ export function toggle(label, get, set) {
   return h('div.opt.row-opt', h('div.opt-label', label), b);
 }
 
-// ---------------------------------------------------------------- TV remote (Google TV / Android TV)
-export function openTvRemote() {
-  const zone = player.provider?.zone;
-  if (!zone || zone.adapter !== 'androidtv') return toast('No TV selected');
-  const send = (key) => bridgeFetch('/api/adapters/androidtv/key', { method: 'POST', json: { id: zone.id, key } })
-    .catch((e) => toast(e?.body?.error || errMsg(e), { kind: 'error' }));
+// ---------------------------------------------------------------- TV remote (Google TV, Apple TV)
+/** Build the round D-pad remote into `body` (a panel body or a screen). Returns a cleanup function. */
+export function buildTvRemote(body, { showApps = true } = {}) {
+  const send = (key) => {
+    if (!player.provider?.remoteKey || !player.provider.zone) { toast('No TV selected'); return; }
+    player.provider.remoteKey(key).catch((e) => toast(e?.body?.error || errMsg(e), { kind: 'error' }));
+  };
   // press = one key; holding repeats (D-pad and volume)
   const hold = (el, key, repeat = true) => {
     let t1 = 0, t2 = 0;
@@ -367,46 +367,47 @@ export function openTvRemote() {
     return el;
   };
   const key = (name, label, k, cls, repeat = false) => hold(h(`button.ibtn.tvk.${cls}`, { type: 'button', 'aria-label': label, title: label, html: icon(name) }), k, repeat);
+  // D-pad ring: four wedges around an OK button
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.classList.add('tv-dpad');
+  const R = 49, r = 21, gap = 3;
+  const pt = (rad, deg) => { const a = (deg * Math.PI) / 180; return `${(50 + rad * Math.cos(a)).toFixed(2)} ${(50 + rad * Math.sin(a)).toFixed(2)}`; };
+  for (const [k, mid] of [['up', -90], ['right', 0], ['down', 90], ['left', 180]]) {
+    const a0 = mid - 45 + gap, a1 = mid + 45 - gap;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.classList.add('tv-wedge'); g.setAttribute('role', 'button'); g.setAttribute('aria-label', k);
+    g.innerHTML = `<path d="M${pt(R, a0)} A${R} ${R} 0 0 1 ${pt(R, a1)} L${pt(r + 3, a1)} A${r + 3} ${r + 3} 0 0 0 ${pt(r + 3, a0)} Z"/>`
+      + `<path class="tv-chev" transform="translate(${pt(35, mid).replace(' ', ',')}) rotate(${mid + 90})" d="M-3.4 1.8 L0 -1.8 L3.4 1.8"/>`;
+    svg.append(hold(g, k, true));
+  }
+  const ok = hold(h('button.tv-ok', { type: 'button', 'aria-label': 'OK' }, 'OK'), 'ok', false);
+  const now = h('div.tv-now');
+  body.append(
+    svg, ok,
+    key('power', 'Power', 'power', 'tv-power'),
+    key('mute', 'Mute', 'mute', 'tv-mute'),
+    showApps ? iconBtn('apps', 'Apps', () => openLibrary(), 'tvk tv-apps') : null,
+    key('back', 'Back', 'back', 'tv-back'),
+    key('home', 'Home', 'home', 'tv-home'),
+    key('minus', 'Volume down', 'voldown', 'tv-vdown', true),
+    key('play', 'Play / pause', 'playpause', 'tv-pp'),
+    key('plus', 'Volume up', 'volup', 'tv-vup', true),
+    now,
+  );
+  const paint = (st) => {
+    const t = st.track;
+    now.textContent = t ? `${t.media?.show || t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : (st.device ? 'TV off' : 'No TV');
+    body.querySelector('.tv-mute')?.classList.toggle('on', !!st.muted);
+  };
+  paint(player.state);
+  return player.on('state', paint);
+}
+
+export function openTvRemote() {
+  if (!player.caps.remote) return toast('No TV selected');
   openPanel({
     title: 'TV remote', className: 'tv-panel',
-    build(body, panel) {
-      // D-pad ring: four wedges around an OK button
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 100 100');
-      svg.classList.add('tv-dpad');
-      const R = 49, r = 21, gap = 3;
-      const pt = (rad, deg) => { const a = (deg * Math.PI) / 180; return `${(50 + rad * Math.cos(a)).toFixed(2)} ${(50 + rad * Math.sin(a)).toFixed(2)}`; };
-      const dirs = [['up', -90], ['right', 0], ['down', 90], ['left', 180]];
-      for (const [k, mid] of dirs) {
-        const a0 = mid - 45 + gap, a1 = mid + 45 - gap;
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.classList.add('tv-wedge'); g.setAttribute('role', 'button'); g.setAttribute('aria-label', k);
-        g.innerHTML = `<path d="M${pt(R, a0)} A${R} ${R} 0 0 1 ${pt(R, a1)} L${pt(r + 3, a1)} A${r + 3} ${r + 3} 0 0 0 ${pt(r + 3, a0)} Z"/>`
-          + `<path class="tv-chev" transform="translate(${pt(35, mid).replace(' ', ',')}) rotate(${mid + 90})" d="M-3.4 1.8 L0 -1.8 L3.4 1.8"/>`;
-        svg.append(hold(g, k, true));
-      }
-      const ok = hold(h('button.tv-ok', { type: 'button', 'aria-label': 'OK' }, 'OK'), 'ok', false);
-      const now = h('div.tv-now');
-      body.append(
-        svg, ok,
-        key('power', 'Power', 'power', 'tv-power'),
-        key('mute', 'Mute', 'mute', 'tv-mute'),
-        iconBtn('apps', 'Apps', () => openLibrary(), 'tvk tv-apps'),
-        key('back', 'Back', 'back', 'tv-back'),
-        key('home', 'Home', 'home', 'tv-home'),
-        key('minus', 'Volume down', 'voldown', 'tv-vdown', true),
-        key('play', 'Play / pause', 'playpause', 'tv-pp'),
-        key('plus', 'Volume up', 'volup', 'tv-vup', true),
-        now,
-      );
-      const paint = (st) => {
-        const t = st.track;
-        now.textContent = t ? `${t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : 'TV off';
-        body.querySelector('.tv-mute').classList.toggle('on', !!st.muted);
-      };
-      paint(player.state);
-      const off = player.on('state', paint);
-      panel.onDestroy = off;
-    },
+    build(body, panel) { panel.onDestroy = buildTvRemote(body); },
   });
 }

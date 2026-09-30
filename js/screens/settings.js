@@ -11,6 +11,7 @@ import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, vinylTitleToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
 import { sound } from '../core/sound.js';
+import { MEDIA_BGS } from './media-panels.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
 
@@ -78,6 +79,28 @@ export function SettingsScreen() {
     section('Fun Facts'),
     factChips(),
 
+    section('Movies & TV'),
+    opt('Background', chips(MEDIA_BGS, store.get('mediaBg'), (v) => store.set('mediaBg', v))),
+    stepper('Slideshow: seconds per picture', () => store.get('mediaSlideSec'), (v) => store.set('mediaSlideSec', clamp(v, 4, 60)), { step: 2, fmt: (v) => `${v}s` }),
+    opt('Skip back', chips([5, 10, 15, 30].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipBack'), (v) => store.set('mediaSkipBack', v))),
+    opt('Skip forward', chips([10, 15, 30, 60].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipFwd'), (v) => store.set('mediaSkipFwd', v))),
+    h('div.opt-hint', 'Buttons on the Now playing screen'),
+    ...[
+      ['mediaPrevNext', 'Previous / next episode'], ['mediaSkip', 'Skip back / forward'], ['mediaInfo', 'Movie / show / episode info'],
+      ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'Suggestions from your library'],
+      ['mediaCollection', 'More from the collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop'],
+    ].map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
+    h('div.opt-hint', 'While watching'),
+    toggle('Auto-hide controls', () => store.get('mediaAutoHide'), (v) => store.set('mediaAutoHide', v)),
+    toggle('“Ends at” time', () => store.get('mediaEndsAt'), (v) => store.set('mediaEndsAt', v)),
+    toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),
+    toggle('Clock when hidden', () => store.get('mediaClock'), (v) => store.set('mediaClock', v)),
+    toggle('Fun facts when hidden', () => store.get('mediaIdleFacts'), (v) => store.set('mediaIdleFacts', v)),
+    h('div.opt-hint', 'Library'),
+    opt('Play button', chips([{ id: 'resume', name: 'Resume' }, { id: 'start', name: 'From start' }], store.get('mediaResume'), (v) => store.set('mediaResume', v))),
+    toggle('Hide what I’ve watched', () => store.get('mediaHideWatched'), (v) => store.set('mediaHideWatched', v)),
+    toggle('No spoilers (blur unwatched episodes)', () => store.get('mediaNoSpoilers'), (v) => store.set('mediaNoSpoilers', v)),
+
     section('Connection'),
     field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
     opt('Refresh rate', chips([{ id: 1000, name: '1s' }, { id: 2000, name: '2s' }, { id: 4000, name: '4s' }], store.get('pollMs'), (v) => store.set('pollMs', v))),
@@ -91,7 +114,7 @@ export function SettingsScreen() {
     field({ label: 'Jellyfin server', value: store.get('jellyfinServer'), placeholder: 'http://192.168.1.20:8096', onChange: (v) => store.set('jellyfinServer', v.replace(/\/$/, '')) }),
 
     section('Accounts'),
-    ...SERVICES.filter((s) => s.kind === 'oauth').map((s) => {
+    ...SERVICES.filter((s) => s.kind === 'oauth' && !s.signIn).map((s) => {
       const p = provider(s.id);
       return h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
         badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', p.isAuthed() ? 'Signed in' : 'Not signed in')));

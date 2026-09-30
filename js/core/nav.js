@@ -13,6 +13,8 @@ export async function openService(id, { forceSetup = false } = {}) {
   document.getElementById('app').style.setProperty('--accent', getService(id).color);
   document.getElementById('app').style.setProperty('--brand', getService(id).color);
   const ready = player.provider !== p ? player.use(p) : null;
-  go('player');
+  const svc = getService(id);
+  if (svc.section === 'media') store.set('homeMode', 'media');
+  go(svc.section === 'media' ? 'media' : 'player');
   await ready;
 }

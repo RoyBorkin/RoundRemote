@@ -31,6 +31,11 @@ echo "    node $(node -v)"
 echo "==> Bridge dependencies"
 cd "$APP_DIR/bridge"
 npm install --omit=dev --no-audit --no-fund
+# Apple TV (the "AirPlay · Apple TV" tile in Movies & TV) uses pyatv
+if ! command -v atvscript >/dev/null 2>&1; then
+  sudo apt-get install -y python3-pip || true
+  pip3 install --user --break-system-packages pyatv 2>/dev/null || pip3 install --user pyatv || echo "pyatv not installed — Apple TV control will be off (pip3 install pyatv)"
+fi
 if [ "$ROON" = 1 ]; then npm run roon; fi
 [ -f config.json ] || cp config.example.json config.json
 

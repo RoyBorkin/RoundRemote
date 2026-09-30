@@ -8,6 +8,7 @@ import { bridgeInfo } from './providers/bridge.js';
 import { setOverlayRoot, toast, topPanel, closeAllPanels } from './ui/overlay.js';
 import { HomeScreen } from './screens/home.js';
 import { PlayerScreen } from './screens/player.js';
+import { MediaScreen } from './screens/media.js';
 import { ConnectScreen } from './screens/connect.js';
 import { SettingsScreen } from './screens/settings.js';
 import { openVolume, openLibrary, openSearch } from './screens/panels.js';
@@ -19,6 +20,8 @@ setOverlayRoot(app);
 let playerScreen = null;
 register('home', () => { closeAllPanels(); return HomeScreen(); });
 register('player', () => { playerScreen = PlayerScreen(); return playerScreen; });
+let mediaScreen = null;
+register('media', () => { mediaScreen = MediaScreen(); return mediaScreen; });
 register('connect', (p) => { closeAllPanels(); return ConnectScreen(p); });
 register('settings', () => { closeAllPanels(); return SettingsScreen(); });
 
@@ -68,7 +71,22 @@ app.addEventListener('pointerdown', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Escape') topPanel()?.close(); return; }
   const inPlayer = currentScreen() === 'player';
+  const inMedia = currentScreen() === 'media';
   const k = e.key;
+  if (inMedia) {
+    if (k === 'Escape') { if (topPanel()) topPanel().close(); else go('home'); return; }
+    const skip = (key) => (store.get(key) || 10) * 1000;
+    const m = {
+      ' ': () => player.toggle(), k: () => player.toggle(), MediaPlayPause: () => player.toggle(),
+      ArrowRight: () => player.seekBy(skip('mediaSkipFwd')), ArrowLeft: () => player.seekBy(-skip('mediaSkipBack')),
+      ArrowUp: () => player.caps.volume && player.setVolume((player.state.volume ?? 50) + 5),
+      ArrowDown: () => player.caps.volume && player.setVolume((player.state.volume ?? 50) - 5),
+      n: () => player.next(), MediaTrackNext: () => player.next(), p: () => player.prev(), MediaTrackPrevious: () => player.prev(),
+      l: () => mediaScreen?.setTab?.('lib'), v: () => openVolume(),
+    }[k];
+    if (m) { e.preventDefault(); m(); mediaScreen?.showChrome?.(); }
+    return;
+  }
   if (k === 'Escape') { if (topPanel()) topPanel().close(); else if (inPlayer) go('home'); return; }
   if (!inPlayer) return;
   const map = {

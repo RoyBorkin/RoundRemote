@@ -90,7 +90,7 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 1. [Services](#services)
 2. [Put it on GitHub Pages](#1-put-it-on-github-pages)
 3. [Set up each service](#2-set-up-each-service)
-4. [The bridge (Roon, UPnP, Cast, AirPlay, Tidal, Qobuz)](#3-the-bridge)
+4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Tidal, Qobuz)](#3-the-bridge)
 5. [Raspberry Pi kiosk](#4-raspberry-pi-kiosk)
 6. [Using the app](#5-using-the-app)
 7. [Troubleshooting](#6-troubleshooting)
@@ -112,12 +112,23 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 | **Roon** | Official Roon extension API: zones, volume, playlists and search. | Needs the bridge |
 | **UPnP / DLNA** | Standard AV renderers: WiiM, Bluesound, Denon/Marantz, BubbleUPnP, Volumio, moOde… | Needs the bridge |
 | **Google Cast** | Chromecast, Nest and Cast speakers. Shows and controls whatever is *cast* to them (for apps opened directly on the TV, see [YouTube on your TV](#youtube-on-your-tv-google-tv-android-tv-smart-tvs-consoles)). | Needs the bridge |
-| **Google TV** | Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…) through the Android TV Remote protocol the Google TV phone app uses: TV volume and mute, power, play/pause/next, a round D-pad remote (arrows, OK, Back, Home) and an app launcher. Pair once with the code on the TV. | Needs the bridge |
 | **AirPlay 1/2** | The Pi becomes an AirPlay speaker (shairport-sync) and controls the phone or Mac that's streaming. | Linux/Pi bridge only |
 | **Tidal** | No public remote-control API. The tile follows TIDAL playing through Roon, Cast, UPnP or AirPlay. | Needs the bridge |
 | **Qobuz** | Qobuz Connect is closed to third parties. Same approach as Tidal. | Needs the bridge |
 | **Computer** | Music and video apps on the computer running the bridge: Apple Music (Cider, Sidra, the Windows app, iTunes), Spotify desktop, YouTube / YouTube Music in Chrome, Edge or Firefox, VLC, TIDAL desktop… Uses the system's own media controls (Windows media sessions, or MPRIS on Linux / the Pi) plus Cider's API. | Needs the bridge |
 | **Demo** | Fictional songs with original lyrics. Try everything without an account. | ✅ |
+
+### Movies & TV
+
+Tap **Movies & TV** under the clock on the home screen (or swipe sideways) to switch from music to video services. **Music** switches back.
+
+| Service | What you get | Works from GitHub Pages? |
+|---|---|---|
+| **Plex** | Now playing on any Plex player (Plex on your TV, Android/Google TV, Apple TV, Roku, Plex HTPC…) and your **Library**: libraries, Continue watching, Recently added, collections, search, details, cast, seasons and episodes, and *Play on the TV*. Same sign-in as the music Plex tile. | ✅ |
+| **Jellyfin** | The same for Jellyfin clients (Jellyfin on your TV, Android TV, Jellyfin Media Player, the web app, Kodi…), plus *Next up*. Same sign-in as the music Jellyfin tile. | ✅ |
+| **Chromecast** | Whatever is cast to a Chromecast or Google TV from any app: movie or show, season and episode, progress, skip, volume, stop. | Needs the bridge |
+| **AirPlay · Apple TV** | The Apple TV and whatever is playing on it — from any app or AirPlayed to it: title, series, season, episode, progress, skip, volume, a D-pad remote and your apps. Uses [pyatv](https://pyatv.dev); pair once with the code on the TV. | Needs the bridge |
+| **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. | Needs the bridge |
 
 On the home screen:
 - a green dot means you're signed in;
@@ -277,7 +288,7 @@ Neither offers an API for controlling playback. Play them through **Roon**, by c
 
 ## 3. The bridge
 
-Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal, Qobuz, YouTube on your TV, the Google TV remote, and the apps on the computer it runs on** (Cider, Sidra, the Apple Music app, Spotify desktop, YouTube in the browser…). It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
+Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal, Qobuz, YouTube on your TV, the Google TV remote, Apple TV, and the apps on the computer it runs on** (Cider, Sidra, the Apple Music app, Spotify desktop, YouTube in the browser…). It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
 
 ### On your computer (to use with GitHub Pages)
 
@@ -299,21 +310,27 @@ The bridge also controls media apps on the computer it runs on, with nothing to 
 
 They show up on the **Computer** tile. Apple Music apps also appear under the **Apple Music** tile, and browsers playing YouTube under **YouTube / YouTube Music → Devices**.
 
-### Google TV remote (the Google TV tile)
+### Google TV remote (Movies & TV → Google TV)
 
 Controls the TV itself, like the Google TV app on a phone. Works with anything running Google TV or Android TV: Chromecast with Google TV, Google TV Streamer, Sony / TCL / Hisense / Philips TVs, Nvidia Shield…
 
 1. The bridge needs the `androidtv-remote` add-on. `start-bridge.bat` / `start-bridge.sh` install it automatically; otherwise run `npm run androidtv` in the `bridge` folder and restart the bridge.
-2. Turn the TV on, then tap the **Google TV** tile. TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
+2. Turn the TV on, then tap **Google TV** (on the Movies & TV side). TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
 3. The TV shows a 6-character code. Type it in and tap **Pair**. Pairing is kept in `bridge/androidtv.json`, so you only do it once.
 
-On the player screen:
-- the volume dial sets the TV volume;
-- play/pause, next and previous send the TV's media keys;
-- the **remote** button (where Search usually is) opens a round D-pad with OK, Back, Home, Power, Mute and volume. Hold an arrow or a volume key to repeat it;
-- the **apps** button (where Playlists usually is) opens YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex or Twitch on the TV.
+The screen is the remote: a round D-pad with OK around the middle, Back and Home on the sides, Power, Mute and **Apps** (YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex, Twitch) at the top, and volume and play/pause at the bottom. Hold an arrow or a volume key to repeat it. Tap the TV's name at the top to pick another TV.
 
 The protocol reports which app is open, but not the song or video. For what's playing in YouTube on that TV, also link it under **YouTube → YouTube on your TV** (above).
+
+### Apple TV (Movies & TV → AirPlay · Apple TV)
+
+Uses [pyatv](https://pyatv.dev), the library Home Assistant uses for Apple TV.
+
+1. Install it on the computer that runs the bridge: install [Python](https://www.python.org), then `pip install pyatv`. `start-bridge.bat` does this for you when Python is installed; `pi/setup.sh` does it on the Pi.
+2. On the Apple TV: **Settings → AirPlay and HomeKit → Allow Access → Anyone on the Same Network** (or Everyone).
+3. Tap **AirPlay · Apple TV**, then **Pair** next to your Apple TV (or type its IP address). Type the code the Apple TV shows. On tvOS 15 and newer it shows a second code (for AirPlay) — type that one too. pyatv keeps the keys in `~/.pyatv.conf`, and the bridge lists your TVs in `bridge/appletv.json`.
+
+You get the title, series, season and episode, the app, the artwork, the progress ring, skip, seek, previous / next, volume, stop, a **TV remote** button (D-pad, Menu = Back, Home, power) and your apps (the Apps list opens any app on the Apple TV).
 
 ### Roon
 
@@ -411,6 +428,43 @@ sudo reboot
 
 Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmusic`, `plex`, `jellyfin`, `roon`, …) to the address opens that service directly.
 
+### Movies & TV
+
+**Now playing** shows:
+- the movie title, or the show's name with the season, episode number and episode title;
+- the year, running time, age rating and rating;
+- the progress ring around the edge (drag it to seek), with time passed, time left and when it ends ("Ends 22:41").
+
+The buttons are play/pause, skip back and forward (10 s and 30 s by default), and previous / next episode. For a show, previous / next play the neighbouring episode, even across seasons. Below them:
+- **Info** — summary, tagline, genres, director, writers, studio, release date;
+- **Cast** — photos, names and roles;
+- **Fun facts** — from Wikipedia and your library's details. They change every few seconds; tap for the next one;
+- **More like this** — suggestions from your own library;
+- **Collection** — the other movies in its collection (for example the rest of a trilogy);
+- **Audio & subtitles** — pick the audio track and the subtitles, or turn subtitles off;
+- **TV remote** (Apple TV) and **Stop**.
+
+Tap a suggestion or a collection title to open its page in the Library tab.
+
+**⋯ Options** chooses the background:
+- **Poster**;
+- **Photo** (the movie's backdrop);
+- **Blurred**;
+- **Black**;
+- **Slideshow** — the movie's backdrops, then pictures from its collection, show and suggestions, with a slow zoom.
+
+While you watch, the controls hide by themselves. The title and time left can stay on screen, and optionally the clock and rotating fun facts. Tap anywhere to bring the controls back.
+
+**Library** (Plex and Jellyfin) lets you browse your libraries: Continue watching, Next up (Jellyfin), Recently added, Collections, and every movie and show. Search with the 🔍 button. An item's page shows:
+- the poster and details;
+- *Resume* / *From start* / *Mark watched*;
+- seasons and episodes;
+- the cast;
+- the rest of its collection;
+- "More like this".
+
+*Play* starts it on the TV you picked under **Devices**. On a show, *Play next episode* picks up where you are.
+
 ### Settings
 
 | Setting | What it does |
@@ -435,6 +489,11 @@ Adding `?service=demo` (or any service id: `spotify`, `apple`, `youtube`, `ytmus
 | Random includes | Which Kinetic Type variants the Random variant picks from (tap to include or leave out; at least one stays on; *Include all* resets) |
 | Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
 | Centre artwork / Hide the arm with the controls / Show the title / Record speed | See the Vinyl view |
+| Movies & TV: background / slideshow speed | Poster, Photo, Blurred, Black or Slideshow; seconds per picture |
+| Movies & TV: skip back / skip forward | 5–30 s back, 10–60 s forward |
+| Movies & TV: buttons | Turn on or off: previous / next episode, skip, info, cast, fun facts, suggestions from your library, more from the collection, audio & subtitles, stop |
+| Movies & TV: while watching | Auto-hide controls, "Ends at" time, title & time left, clock, fun facts while the controls are hidden |
+| Movies & TV: library | Play button resumes or starts over; hide what you've watched; no spoilers (blurs summaries and stills of episodes you haven't seen — tap to reveal) |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
 | Accounts | Sign in or out of each service |
@@ -468,6 +527,12 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 
 ## 7. Honest limits
 
+- **Movies & TV control depends on the app on the TV.**
+  - Plex: the Plex app must allow remote control ("Advertise as player", on by default in Plex for Android/Google TV, Apple TV and Plex HTPC). The Plex web app in a browser can't be controlled.
+  - Jellyfin: any client that shows up as remote-controllable.
+  - Chromecast: shows what the casting app reports. Netflix, for example, sends only a title.
+  - Netflix, Disney+ and other streaming apps opened *directly on the TV* don't report what's playing to Google TV. On an Apple TV they do.
+- **AirPlay to the Pi** is audio only (the Pi becomes a speaker). Movies AirPlayed to an **Apple TV** show up in *AirPlay · Apple TV*.
 - **Spotify Canvas** (the short looping videos) and **Apple Music motion artwork** aren't available to third-party apps through the official APIs. Video view uses the song's official music video from YouTube instead.
 - **Tidal and Qobuz** have no public remote-control API; they're controlled through Roon, Cast, UPnP or AirPlay.
 - **YouTube on a TV** uses YouTube's undocumented TV-linking protocol and could stop working after a YouTube update. It hasn't been tested with a real TV yet.
@@ -483,12 +548,12 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ```
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
-js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year)
-js/providers/                   one file per service + the bridge client (common interface in base.js)
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts
+js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts)
+js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
-js/screens/                     home ring, player, panels, connect, settings
-bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, airplay, cider, mpris, winmedia, mock)
+js/screens/                     home ring, player, media (Movies & TV) + media-panels, panels, connect, settings
+bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, airplay, cider, mpris, winmedia, mock)
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
 screenshots/                    images used in this README

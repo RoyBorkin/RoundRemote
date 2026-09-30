@@ -6,7 +6,12 @@ import { PlexProvider } from './plex.js';
 import { JellyfinProvider } from './jellyfin.js';
 import { BridgeProvider } from './bridge.js';
 import { YouTubeProvider } from './youtube.js';
+import { PlexMediaProvider } from './plex-media.js';
+import { JellyfinMediaProvider } from './jellyfin-media.js';
 
+// section: 'media' = Movies & shows (the home screen's Media side); everything else is music.
+// signIn: shares the sign-in of another tile · bridgeAdapter: the bridge adapter behind a bridge tile (default: its id)
+// remote: the service is a TV remote (its screen is the D-pad)
 // kind: 'oauth' (sign in via redirect/code), 'bridge' (needs bridge/server.js), 'local' (no sign-in)
 // icon: Simple Icons slug (https://simpleicons.org, loaded from jsDelivr); falls back to `mono`.
 export const SERVICES = [
@@ -46,15 +51,29 @@ export const SERVICES = [
   { id: 'computer', name: 'Computer', mono: 'PC', glyph: 'desktop', color: '#94a3b8', kind: 'bridge',
     blurb: 'Music and video apps on the computer running the bridge: Apple Music (Cider, Sidra, the Windows app), Spotify desktop, YouTube in the browser, VLC…',
     make: (m) => new BridgeProvider(m, { adapter: ['cider', 'winmedia', 'mpris'] }) },
-  { id: 'androidtv', name: 'Google TV', short: 'TV', mono: 'TV', glyph: 'tv', color: '#4285f4', kind: 'bridge',
-    blurb: 'Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): volume, power, play/pause, a round D-pad remote and app launcher. Pairs once with a code on the TV.',
-    make: (m) => new BridgeProvider(m, { adapter: 'androidtv' }) },
   { id: 'upnp', name: 'UPnP / DLNA', short: 'UPnP', mono: 'Up', icon: 'dlna', color: '#2dd4bf', kind: 'bridge',
     blurb: 'Any UPnP AV / DLNA renderer: WiiM, Bluesound, Denon/Marantz, BubbleUPnP, Volumio, moOde…',
     make: (m) => new BridgeProvider(m, { adapter: 'upnp' }) },
   { id: 'demo', name: 'Demo', mono: 'De', glyph: 'note', color: '#e5e7eb', kind: 'local',
     blurb: 'A simulated player with fictional songs and lyrics. Try everything without an account.',
     make: (m) => new DemoProvider(m) },
+
+  // ---------------- Movies & shows ----------------
+  { id: 'plexvideo', section: 'media', signIn: 'plex', name: 'Plex', mono: 'Px', icon: 'plex', color: '#e5a00d', kind: 'oauth',
+    blurb: 'Movies and shows on your Plex server: control Plex on your TV, browse libraries and collections, search, and see cast, info and suggestions.',
+    make: (m) => new PlexMediaProvider(m) },
+  { id: 'jellyfinvideo', section: 'media', signIn: 'jellyfin', name: 'Jellyfin', mono: 'Jf', icon: 'jellyfin', color: '#00a4dc', kind: 'oauth',
+    blurb: 'Movies and shows on your Jellyfin server: control Jellyfin on your TV, browse libraries and collections, search, and see cast, info and suggestions.',
+    make: (m) => new JellyfinMediaProvider(m) },
+  { id: 'castvideo', section: 'media', bridgeAdapter: 'cast', name: 'Chromecast', mono: 'Cc', icon: 'googlecast', color: '#ff8a3d', kind: 'bridge',
+    blurb: 'Whatever is cast to a Chromecast or Google TV: movie or show name, season and episode, progress, skip and volume.',
+    make: (m) => new BridgeProvider(m, { adapter: 'cast', prefer: (z) => !!z.state?.track?.media }) },
+  { id: 'appletv', section: 'media', name: 'AirPlay · Apple TV', short: 'Apple TV', mono: 'tv', icon: 'appletv', color: '#e5e7eb', kind: 'bridge',
+    blurb: 'Apple TV (and what is AirPlayed to it): the movie or show playing in any app, progress, skip, volume, a D-pad remote and your apps. Pairs once with a code on the TV.',
+    make: (m) => new BridgeProvider(m, { adapter: 'appletv' }) },
+  { id: 'androidtv', section: 'media', remote: true, name: 'Google TV', short: 'Google TV', mono: 'TV', glyph: 'tv', color: '#4285f4', kind: 'bridge',
+    blurb: 'A remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): D-pad, Back, Home, power, volume, play/pause and your apps. Pairs once with a code on the TV.',
+    make: (m) => new BridgeProvider(m, { adapter: 'androidtv' }) },
 ];
 
 const instances = new Map();
@@ -68,4 +87,6 @@ export function provider(id) {
   }
   return instances.get(id);
 }
+export const inSection = (svc, section) => (svc.section || 'music') === section;
+export const adapterOf = (svc) => svc.bridgeAdapter || svc.id;
 export function allProviders() { return SERVICES.map((s) => provider(s.id)); }

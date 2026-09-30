@@ -22,7 +22,7 @@ const DEFAULTS = {
   host: '0.0.0.0',
   allowedOrigins: ['https://royborkin.github.io'],
   // AirPlay needs shairport-sync (Linux/Pi); mpris = Linux media players (playerctl); winmedia = Windows media sessions
-  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', mock: false },
+  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, appletv: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', mock: false },
   airplay: { metadataPipe: '/tmp/shairport-sync-metadata', bus: 'system', name: 'Round Display' },
   upnp: { pollMs: 2000, searchEverySec: 60 },
   apple: { teamId: '', keyId: '', privateKeyPath: '' },
@@ -39,7 +39,7 @@ function loadConfig() {
     catch (e) { log('bridge', `config.json is not valid JSON: ${e.message}`); }
   }
   const cfg = { ...DEFAULTS, ...user };
-  for (const k of ['adapters', 'airplay', 'upnp', 'apple', 'cider', 'mpris', 'winmedia', 'androidtv', 'app']) cfg[k] = { ...DEFAULTS[k], ...(user[k] || {}) };
+  for (const k of ['adapters', 'airplay', 'upnp', 'apple', 'cider', 'mpris', 'winmedia', 'androidtv', 'appletv', 'app']) cfg[k] = { ...DEFAULTS[k], ...(user[k] || {}) };
   if (process.env.PORT) cfg.port = +process.env.PORT;
   if (process.env.RR_MOCK) cfg.adapters.mock = true;
   return cfg;
@@ -55,6 +55,7 @@ const ADAPTERS = {
   airplay: () => import('./adapters/airplay.js'),
   youtubetv: () => import('./adapters/youtubetv.js'),
   androidtv: () => import('./adapters/androidtv.js'),
+  appletv: () => import('./adapters/appletv.js'),
   cider: () => import('./adapters/cider.js'),
   mpris: () => import('./adapters/mpris.js'),
   winmedia: () => import('./adapters/winmedia.js'),

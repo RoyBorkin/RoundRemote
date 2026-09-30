@@ -31,6 +31,7 @@ export class PlexProvider extends Provider {
     this.timer = null;
     this.tick = 0;
     this.timeline = {};
+    this.ctype = 'music';   // Plex Companion command type: music (Plexamp) | video (Movies & Shows)
   }
   get token() { return store.auth('plex')?.token; }
   isAuthed() { return !!this.token; }
@@ -53,12 +54,15 @@ export class PlexProvider extends Provider {
     // "Sign in on this screen": redirect to Plex, come back with ?plexpin=
     const { id, code } = await this.pinStart(true);
     store.temp('plex_pin', String(id));
+    store.temp('plex_return', this.id); // which tile (music Plex or Movies & Shows Plex) to open afterwards
     const forwardUrl = `${location.origin}${location.pathname.replace(/index\.html$/, '')}?plexpin=${id}`;
     location.href = `https://app.plex.tv/auth#?${qs({ clientID: clientId(), code, forwardUrl, 'context[device][product]': PRODUCT })}`;
   }
   async handleRedirect(params) {
     const id = params.get('plexpin');
     if (!id) return false;
+    if ((store.temp('plex_return') || 'plex') !== this.id) return false;
+    store.temp('plex_return', null);
     const p = await http(`${PLEX_TV}/pins/${id}`, { headers: baseHeaders() });
     if (!p?.authToken) throw new Error('Plex sign-in was not completed');
     store.setAuth('plex', { token: p.authToken });
@@ -133,7 +137,7 @@ export class PlexProvider extends Provider {
     return (d?.MediaContainer?.Metadata || []).filter((m) => m.type === 'track');
   }
   _pick(sessions) {
-    const want = store.getZone('plex');
+    const want = store.getZone(this.id);
     return sessions.find((m) => m.Player?.machineIdentifier === want)
       || sessions.find((m) => m.Player?.state === 'playing') || sessions[0] || null;
   }
@@ -142,7 +146,7 @@ export class PlexProvider extends Provider {
     const sessions = await this._sessions();
     this.sessionsCache = sessions;
     const m = this._pick(sessions);
-    const wantId = store.getZone('plex');
+    const wantId = store.getZone(this.id);
     this.playerId = m?.Player?.machineIdentifier || wantId || null;
     if (this.playerId && this.tick++ % 2 === 0) this._pollTimeline().catch(() => {});
     if (!m) {
@@ -172,13 +176,15 @@ export class PlexProvider extends Provider {
     const xml = await this._player('timeline/poll', { wait: 0 }, true);
     if (typeof xml !== 'string') return;
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    const t = doc.querySelector('Timeline[type="music"]');
+    const t = doc.querySelector(`Timeline[type="${this.ctype}"]`);
     if (!t) return;
     const num = (a) => (t.getAttribute(a) != null ? +t.getAttribute(a) : undefined);
     this.timeline = {
       volume: num('volume'),
       shuffle: t.getAttribute('shuffle') != null ? t.getAttribute('shuffle') === '1' : undefined,
       repeat: t.getAttribute('repeat') != null ? ['off', 'one', 'all'][+t.getAttribute('repeat')] : undefined,
+      audioStreamID: t.getAttribute('audioStreamID') || undefined,
+      subtitleStreamID: t.getAttribute('subtitleStreamID') ?? undefined,
     };
   }
 
@@ -188,7 +194,7 @@ export class PlexProvider extends Provider {
   async _player(cmd, params = {}, raw = false) {
     const id = this.playerId;
     if (!id) throw Object.assign(new Error('No player'), { userMessage: 'Pick a Plex player in Devices' });
-    const q = qs({ type: 'music', ...params, commandID: this.cmdId++ });
+    const q = qs({ type: this.ctype, ...params, commandID: this.cmdId++ });
     const hdrs = { ...baseHeaders(this.server.token), 'X-Plex-Target-Client-Identifier': id };
     try {
       return await http(await this._url(`${this.server.uri}/player/${cmd}?${q}`), { headers: hdrs, timeout: 6000 });
@@ -210,13 +216,13 @@ export class PlexProvider extends Provider {
   setShuffle(on) { return this._player('playback/setParameters', { shuffle: on ? 1 : 0 }); }
   setRepeat(m) { return this._player('playback/setParameters', { repeat: { off: 0, one: 1, all: 2 }[m] ?? 0 }); }
 
-  async _playQueue(params) {
-    const d = await this.pms(`/playQueues?${qs({ type: 'audio', shuffle: 0, continuous: 0, repeat: 0, own: 1, ...params })}`, { method: 'POST' });
+  async _playQueue(params, offset = 0) {
+    const d = await this.pms(`/playQueues?${qs({ type: this.ctype === 'video' ? 'video' : 'audio', shuffle: 0, continuous: this.ctype === 'video' ? 1 : 0, repeat: 0, own: 1, ...params })}`, { method: 'POST' });
     const mc = d?.MediaContainer;
     const sel = mc?.Metadata?.[mc.playQueueSelectedItemOffset || 0] || mc?.Metadata?.[0];
     if (!mc?.playQueueID || !sel) throw new Error('Plex could not build a play queue');
     return this._player('playback/playMedia', {
-      key: sel.key, offset: 0, machineIdentifier: this.server.id,
+      key: sel.key, offset: Math.round(offset || 0), machineIdentifier: this.server.id,
       address: this.server.address, port: this.server.port, protocol: this.server.protocol,
       token: this.server.token, containerKey: `/playQueues/${mc.playQueueID}?window=100&own=1`,
     });
@@ -266,5 +272,5 @@ export class PlexProvider extends Provider {
     } catch {}
     return [...seen.values()].map((d) => ({ ...d, active: d.id === this.playerId }));
   }
-  async selectDevice(dev) { store.setZone('plex', dev.id); this.playerId = dev.id; await this.refresh(); }
+  async selectDevice(dev) { store.setZone(this.id, dev.id); this.playerId = dev.id; await this.refresh(); }
 }

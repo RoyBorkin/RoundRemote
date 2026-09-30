@@ -108,7 +108,7 @@ export class JellyfinProvider extends Provider {
     return this.sessions;
   }
   _pick() {
-    const want = store.getZone('jellyfin');
+    const want = store.getZone(this.id);
     const ss = this.sessions;
     return ss.find((s) => s.Id === want)
       || ss.find((s) => s.NowPlayingItem?.MediaType === 'Audio' && !s.PlayState?.IsPaused)
@@ -183,7 +183,7 @@ export class JellyfinProvider extends Provider {
     const cur = this.session?.Id;
     return this.sessions.map((s) => ({ id: s.Id, name: s.DeviceName, type: `${s.Client}${s.NowPlayingItem ? ' · playing' : ''}`, active: s.Id === cur, volume: s.PlayState?.VolumeLevel }));
   }
-  async selectDevice(dev) { store.setZone('jellyfin', dev.id); await this.refresh(); }
+  async selectDevice(dev) { store.setZone(this.id, dev.id); await this.refresh(); }
 
   async getLyrics(track) {
     try {

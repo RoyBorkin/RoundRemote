@@ -2,7 +2,7 @@
   "port": 8765,
   "allowedOrigins": ["https://royborkin.github.io"],
 
-  "adapters": { "roon": true, "upnp": true, "cast": true, "youtubetv": true, "androidtv": true, "cider": true, "mpris": true, "winmedia": true, "airplay": true, "mock": false },
+  "adapters": { "roon": true, "upnp": true, "cast": true, "youtubetv": true, "androidtv": true, "appletv": true, "cider": true, "mpris": true, "winmedia": true, "airplay": true, "mock": false },
 
   "cider": { "host": "127.0.0.1", "port": 10767, "token": "" },
 

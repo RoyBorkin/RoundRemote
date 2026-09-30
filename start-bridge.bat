@@ -16,6 +16,17 @@ if not exist node_modules\androidtv-remote (
   echo Adding the Google TV remote add-on...
   call npm install --no-save --no-audit --no-fund androidtv-remote
 )
+where atvscript >nul 2>nul
+if errorlevel 1 (
+  where python >nul 2>nul
+  if not errorlevel 1 (
+    python -c "import pyatv" >nul 2>nul
+    if errorlevel 1 (
+      echo Adding Apple TV support ^(pyatv^)...
+      python -m pip install --user --quiet pyatv
+    )
+  )
+)
 echo.
 echo Round Remote bridge running at http://127.0.0.1:8765/  (close this window to stop it)
 node server.js

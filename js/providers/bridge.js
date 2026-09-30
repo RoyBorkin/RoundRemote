@@ -74,8 +74,9 @@ const SOURCE_MATCH = {
 
 export class BridgeProvider extends Provider {
   /** @param meta  @param {{adapter?:string, source?:string}} opts */
-  constructor(meta, { adapter = null, source = null } = {}) {
+  constructor(meta, { adapter = null, source = null, prefer = null } = {}) {
     super(meta);
+    this.prefer = prefer;       // zones to pick first when none was chosen (e.g. video for the Chromecast media tile)
     this.adapter = adapter;      // 'roon' | 'upnp' | 'airplay' | 'cast' | null (any)
     this.source = source;        // 'tidal' | 'qobuz' | null
     this.zones = [];
@@ -99,9 +100,11 @@ export class BridgeProvider extends Provider {
       const playingSrc = zs.find((x) => re.test(x.sourceApp || '') && x.state?.isPlaying) || zs.find((x) => re.test(x.sourceApp || ''));
       if (playingSrc && !this.userPicked && (!z || !re.test(z.sourceApp || ''))) z = playingSrc;
     }
+    if (!z && this.prefer) z = zs.find((x) => this.prefer(x) && x.state?.isPlaying) || zs.find((x) => this.prefer(x));
     if (!z) z = zs.find((x) => x.state?.isPlaying) || zs[0] || null;
     return z;
   }
+  _abs(u) { return u && u.startsWith('/') ? this.base + u : u; }
   _publishZone() {
     const z = this._pickZone();
     this.zone = z;
@@ -111,12 +114,12 @@ export class BridgeProvider extends Provider {
       return;
     }
     this.zoneId = z.id;
-    Object.assign(this.caps, { seek: false, volume: false, next: false, prev: false, playlists: false, search: false, shuffle: false, repeat: false, remote: false, ...(z.caps || {}), devices: true });
+    Object.assign(this.caps, { seek: false, volume: false, next: false, prev: false, playlists: false, search: false, shuffle: false, repeat: false, remote: false, stop: false, ...(z.caps || {}), devices: true });
     const s = z.state || {};
     const age = s.isPlaying && z.sampledAt ? Math.max(0, Date.now() - z.sampledAt) : 0;
     const t = s.track;
     this.publish({
-      track: t ? { ...t, art: t.art && t.art.startsWith('/') ? this.base + t.art : t.art } : null,
+      track: t ? { ...t, art: this._abs(t.art), ...(t.media ? { media: { ...t.media, poster: this._abs(t.media.poster), backdrop: this._abs(t.media.backdrop) } } : {}) } : null,
       isPlaying: !!s.isPlaying,
       progressMs: (s.progressMs || 0) + age,
       volume: s.volume ?? null, muted: !!s.muted,
@@ -176,6 +179,9 @@ export class BridgeProvider extends Provider {
   prev() { return this._cmd('prev'); }
   seek(ms) { return this._cmd('seek', Math.round(ms)); }
   setVolume(v) { return this._cmd('volume', Math.round(v)); }
+  stopPlayback() { return this._cmd('stop'); }
+  /** TV remote key (up/down/left/right/ok/back/home/power/mute/volup/voldown/playpause) for adapters with a D-pad. */
+  remoteKey(key) { return bridgeFetch(`/api/adapters/${this.zone.adapter}/key`, { method: 'POST', json: { id: this.zone.id, key } }); }
   setShuffle(on) { return this._cmd('shuffle', !!on); }
   setRepeat(m) { return this._cmd('repeat', m); }
 

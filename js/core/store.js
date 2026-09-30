@@ -40,6 +40,29 @@ export const DEFAULTS = Object.freeze({
   toneVariant: 'ferro',        // Tone Visual style
   toneSource: 'sim',           // Tone Visual sound: sim (follows playback) | mic (live microphone)
   vinylArmHide: true,          // Vinyl: hide the tone arm together with the controls
+  homeMode: 'music',           // home: music | media (movies & shows)
+  // Movies & shows (the media services)
+  mediaBg: 'blur',             // background: poster | backdrop | blur | black | slides
+  mediaSlideSec: 10,           // slideshow: seconds per picture
+  mediaSkipBack: 10,           // skip back, seconds
+  mediaSkipFwd: 30,            // skip forward, seconds
+  mediaPrevNext: true,         // previous / next episode buttons
+  mediaSkip: true,             // skip back / forward buttons
+  mediaInfo: true,             // function buttons under the controls…
+  mediaCast: true,
+  mediaFacts: true,
+  mediaSuggest: true,
+  mediaCollection: true,
+  mediaTracks: true,           // audio & subtitles
+  mediaStop: true,
+  mediaEndsAt: true,           // "ends at 22:41" under the time
+  mediaHud: true,              // title + time left while the controls are hidden
+  mediaClock: false,           // the clock while the controls are hidden
+  mediaIdleFacts: false,       // rotate fun facts while the controls are hidden
+  mediaAutoHide: true,         // hide the controls by themselves
+  mediaHideWatched: false,     // library: hide what you've already watched
+  mediaNoSpoilers: false,      // library: hide summaries and stills of episodes you haven't seen
+  mediaResume: 'resume',       // play from the library: resume | start | ask
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)

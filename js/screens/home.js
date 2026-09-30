@@ -1,6 +1,7 @@
 // Home: every service on a ring around a clock. Green dot = signed in / reachable.
 import { h, badge, iconBtn } from '../ui/dom.js';
-import { SERVICES, provider } from '../providers/registry.js';
+import { SERVICES, provider, inSection, adapterOf } from '../providers/registry.js';
+import { icon } from '../ui/icons.js';
 import { bridgeInfo } from '../providers/bridge.js';
 import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
@@ -22,15 +23,20 @@ export function HomeScreen() {
   });
 
   // Spread the visible services evenly around the ring.
+  const mode = () => (store.get('homeMode') === 'media' ? 'media' : 'music');
   function layout() {
     const only = store.get('onlySignedIn');
     const demo = store.get('showDemo');
-    const avail = items.filter((it) => demo || it.svc.id !== 'demo');
+    const sec = mode();
+    el.dataset.mode = sec;
+    modeBtns.forEach((b) => b.classList.toggle('on', b.dataset.mode === sec));
+    const avail = items.filter((it) => inSection(it.svc, sec) && (demo || it.svc.id !== 'demo'));
     let shown = avail.filter((it) => !only || (it.ready && it.svc.kind !== 'local'));
     hint.textContent = '';
     if (!shown.length) {
       // Nothing signed in yet: show the Demo, or (with the Demo hidden) every service so you can sign in.
-      shown = demo ? avail.filter((it) => it.svc.kind === 'local') : avail;
+      const local = avail.filter((it) => it.svc.kind === 'local');
+      shown = demo && local.length ? local : avail;
       hint.textContent = 'No services signed in yet — Settings → “Show only signed-in services”';
     }
     items.forEach((it) => { it.btn.hidden = !shown.includes(it); });
@@ -45,7 +51,13 @@ export function HomeScreen() {
   const date = h('div.date');
   const now = h('button.now-mini', { type: 'button', onclick: () => go('player') });
   const settings = iconBtn('settings', 'Settings', () => go('settings'), 'home-settings');
-  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, now, settings);
+  // Music ⇄ Movies & shows
+  const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Movies & TV']].map(([m, ic, label]) => h('button.hm-btn', {
+    type: 'button', dataset: { mode: m }, 'aria-label': label, html: `${icon(ic)}<span>${label}</span>`,
+    onclick: (e) => { e.stopPropagation(); if (mode() !== m) { store.set('homeMode', m); ring.classList.remove('swap'); void ring.offsetWidth; ring.classList.add('swap'); } },
+  }));
+  const modeSwitch = h('div.home-mode', modeBtns);
+  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now, settings);
   const el = h('div.home', h('div.home-glow'), ring, center, hint);
 
   function tickClock() {
@@ -84,7 +96,8 @@ export function HomeScreen() {
       const ad = info?.adapters || {};
       const ok = it.svc.id === 'tidal' || it.svc.id === 'qobuz'
         ? Object.values(ad).some((a) => a.enabled && a.id !== 'mock')
-        : ad[it.svc.id]?.enabled;
+        : it.svc.id === 'computer' ? ['cider', 'winmedia', 'mpris'].some((k) => ad[k]?.enabled)
+        : ad[adapterOf(it.svc)]?.enabled;
       it.ready = !!ok;
       it.btn.classList.toggle('ready', it.ready);
       if (info && !ok) it.btn.classList.add('off');
@@ -94,6 +107,15 @@ export function HomeScreen() {
   })();
   const offFilter = store.on('change:onlySignedIn', layout);
   const offDemo = store.on('change:showDemo', layout);
+  const offMode = store.on('change:homeMode', layout);
+  // swipe sideways on the home screen to switch between Music and Movies & TV
+  let sx = null;
+  el.addEventListener('pointerdown', (e) => { sx = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  el.addEventListener('pointerup', (e) => {
+    if (!sx) return;
+    const dx = e.clientX - sx.x, dy = e.clientY - sx.y, dt = performance.now() - sx.t; sx = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) modeBtns[mode() === 'music' ? 1 : 0].click();
+  });
 
-  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); } };
+  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); offMode(); } };
 }

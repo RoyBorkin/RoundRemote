@@ -104,17 +104,19 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 | Service | How it connects | Works from GitHub Pages? |
 |---|---|---|
 | **Spotify** | Web API (sign in once). Controls any of your Spotify devices, and the page itself can be a Spotify speaker. | ✅ |
-| **Apple Music** | MusicKit JS. Plays *on this display*. Needs a developer token. | ✅ |
-| **YouTube Music** | YouTube player on this display (search and your playlists), **or the YouTube app on your TV** once it's linked with a TV code. | ✅ (free API key); the TV needs the bridge |
-| **YouTube** | Same, for any YouTube video. | ✅ (free API key); the TV needs the bridge |
+| **Apple Music** | Either remote-controls Apple Music on a computer — **Cider**, **Sidra** or the **Apple Music app for Windows** — with no developer token, or plays it *on this display* with MusicKit (needs a developer token). | ✅ MusicKit; the computer option needs the bridge |
+| **YouTube Music** | YouTube player on this display (search and your playlists), **the YouTube app on your TV** once it's linked with a TV code, or **a browser tab on your computer** playing YouTube Music. | ✅ (free API key); TV and computer need the bridge |
+| **YouTube** | Same, for any YouTube video. | ✅ (free API key); TV and computer need the bridge |
 | **Plex / Plexamp** | Sign in with a plex.tv code. Controls Plexamp (incl. headless) and Plex players through your server. | ✅ |
 | **Jellyfin** | Quick Connect or username/password. Controls any Jellyfin app session and uses server lyrics when available. | ✅ (see [Jellyfin](#jellyfin) for http servers) |
 | **Roon** | Official Roon extension API: zones, volume, playlists and search. | Needs the bridge |
 | **UPnP / DLNA** | Standard AV renderers: WiiM, Bluesound, Denon/Marantz, BubbleUPnP, Volumio, moOde… | Needs the bridge |
 | **Google Cast** | Chromecast, Nest and Cast speakers. Shows and controls whatever is *cast* to them (for apps opened directly on the TV, see [YouTube on your TV](#youtube-on-your-tv-google-tv-android-tv-smart-tvs-consoles)). | Needs the bridge |
+| **Google TV** | Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…) through the Android TV Remote protocol the Google TV phone app uses: TV volume and mute, power, play/pause/next, a round D-pad remote (arrows, OK, Back, Home) and an app launcher. Pair once with the code on the TV. | Needs the bridge |
 | **AirPlay 1/2** | The Pi becomes an AirPlay speaker (shairport-sync) and controls the phone or Mac that's streaming. | Linux/Pi bridge only |
 | **Tidal** | No public remote-control API. The tile follows TIDAL playing through Roon, Cast, UPnP or AirPlay. | Needs the bridge |
 | **Qobuz** | Qobuz Connect is closed to third parties. Same approach as Tidal. | Needs the bridge |
+| **Computer** | Music and video apps on the computer running the bridge: Apple Music (Cider, Sidra, the Windows app, iTunes), Spotify desktop, YouTube / YouTube Music in Chrome, Edge or Firefox, VLC, TIDAL desktop… Uses the system's own media controls (Windows media sessions, or MPRIS on Linux / the Pi) plus Cider's API. | Needs the bridge |
 | **Demo** | Fictional songs with original lyrics. Try everything without an account. | ✅ |
 
 On the home screen:
@@ -173,7 +175,16 @@ You can control any device running Spotify (phone, PC, speakers) and pick one un
 
 ### Apple Music
 
-Apple Music needs a **developer token**, which requires an Apple Developer Program membership.
+There are two ways, and you can use both (switch under **Devices**):
+
+**A. Control Apple Music on a computer (no developer token).** Play Apple Music in one of these on the computer (or the Pi) that runs the bridge, then open the **Apple Music** tile and tap **Control** next to it:
+- **[Cider](https://cider.sh)** (Windows, macOS, Linux) — the most complete: now playing, artwork, play/pause, next/prev, seek, volume, shuffle, repeat, **your library playlists and search**. In Cider open *Settings → Connectivity*, turn on the API, and either create an app token under *Manage External Application Access* and put it in `bridge/config.json → "cider": { "token": "…" }`, or turn off *Require API tokens*. For Cider on another computer set `"host"` to its address.
+- **[Sidra](https://github.com/wimpysworld/sidra)** (Linux, incl. the Pi) — through MPRIS: now playing, artwork, play/pause, next/prev, seek, volume, shuffle, repeat.
+- **The Apple Music app for Windows** or **iTunes** — through Windows media controls: now playing, artwork, play/pause, next/prev, seek, shuffle, repeat.
+
+Playlists and search need Cider; with Sidra or the Windows app, pick music in the app itself.
+
+**B. Play Apple Music on this display (MusicKit).** This needs a **developer token**, which requires an Apple Developer Program membership.
 
 1. At developer.apple.com, go to *Certificates, IDs & Profiles → Keys*. Create a key with **Media Services (MusicKit)** and download the `AuthKey_XXXX.p8` file. Note your **Team ID** and the **Key ID**.
 2. Make a token, choosing one of:
@@ -181,7 +192,7 @@ Apple Music needs a **developer token**, which requires an Apple Developer Progr
    - Or, on the Pi, put `teamId`, `keyId` and `privateKeyPath` in `bridge/config.json → apple`, and the bridge signs tokens automatically.
 3. In the app, tap **Apple Music → Sign in with Apple Music**.
 
-Apple Music plays on the display itself; MusicKit can't remote-control another device.
+With MusicKit, Apple Music plays on the display itself; to control another device use option A.
 
 ### YouTube and YouTube Music
 
@@ -266,7 +277,7 @@ Neither offers an API for controlling playback. Play them through **Roon**, by c
 
 ## 3. The bridge
 
-Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal, Qobuz and YouTube on your TV**. It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
+Browsers can't find devices on your home network by themselves. The bridge is a small Node.js program that does this for **Roon, UPnP/DLNA, Google Cast, AirPlay, Tidal, Qobuz, YouTube on your TV, the Google TV remote, and the apps on the computer it runs on** (Cider, Sidra, the Apple Music app, Spotify desktop, YouTube in the browser…). It also lets an `https` page reach `http` Plex/Jellyfin servers, and can sign Apple tokens.
 
 ### On your computer (to use with GitHub Pages)
 
@@ -278,6 +289,31 @@ Browsers can't find devices on your home network by themselves. The bridge is a 
 4. To use a bridge on another machine (e.g. the Pi), enter its address under *Settings → Bridge address*, e.g. `http://192.168.1.50:8765`.
 
 AirPlay needs shairport-sync, so it only works when the bridge runs on Linux / the Pi.
+
+### Apps on this computer (the Computer tile)
+
+The bridge also controls media apps on the computer it runs on, with nothing to install:
+- **Windows** (10 1809 or newer): every app in the Windows media flyout — the Apple Music app, iTunes, Spotify, Cider, TIDAL, Amazon Music, Chrome / Edge / Firefox playing YouTube or YouTube Music, VLC… It uses the built-in Windows PowerShell 5.1 (`bridge/tools/winmedia.ps1`). Windows doesn't expose per-app volume there, so the volume slider isn't offered for these.
+- **Linux / the Pi:** every MPRIS player — Sidra, Cider, Chromium tabs (YouTube, YouTube Music, SoundCloud…), Spotify, VLC, Rhythmbox, Strawberry… Needs `playerctl` (`sudo apt install playerctl`; `pi/setup.sh` installs it).
+- **Cider** on any system, through its own API (see [Apple Music](#apple-music)).
+
+They show up on the **Computer** tile. Apple Music apps also appear under the **Apple Music** tile, and browsers playing YouTube under **YouTube / YouTube Music → Devices**.
+
+### Google TV remote (the Google TV tile)
+
+Controls the TV itself, like the Google TV app on a phone. Works with anything running Google TV or Android TV: Chromecast with Google TV, Google TV Streamer, Sony / TCL / Hisense / Philips TVs, Nvidia Shield…
+
+1. The bridge needs the `androidtv-remote` add-on. `start-bridge.bat` / `start-bridge.sh` install it automatically; otherwise run `npm run androidtv` in the `bridge` folder and restart the bridge.
+2. Turn the TV on, then tap the **Google TV** tile. TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
+3. The TV shows a 6-character code. Type it in and tap **Pair**. Pairing is kept in `bridge/androidtv.json`, so you only do it once.
+
+On the player screen:
+- the volume dial sets the TV volume;
+- play/pause, next and previous send the TV's media keys;
+- the **remote** button (where Search usually is) opens a round D-pad with OK, Back, Home, Power, Mute and volume. Hold an arrow or a volume key to repeat it;
+- the **apps** button (where Playlists usually is) opens YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex or Twitch on the TV.
+
+The protocol reports which app is open, but not the song or video. For what's playing in YouTube on that TV, also link it under **YouTube → YouTube on your TV** (above).
 
 ### Roon
 
@@ -291,7 +327,8 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it:
 ```json
 {
   "allowedOrigins": ["https://royborkin.github.io"],
-  "adapters": { "roon": true, "upnp": true, "cast": true, "airplay": true },
+  "adapters": { "roon": true, "upnp": true, "cast": true, "airplay": true, "cider": true, "mpris": true, "winmedia": true },
+  "cider": { "host": "127.0.0.1", "port": 10767, "token": "your Cider app token" },
   "apple": { "teamId": "ABCDE12345", "keyId": "XYZ987", "privateKeyPath": "AuthKey_XYZ987.p8" },
   "app": {
     "spotifyClientId": "…",
@@ -304,6 +341,7 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it:
 
 - **`app`** pre-fills the app's settings on first run, so you never have to type keys on the round screen.
 - **`apple`** lets the bridge sign Apple Music developer tokens.
+- **`cider`** is where Cider's API is and its app token (see [Apple Music](#apple-music)). `mpris` only runs on Linux and `winmedia` only on Windows, so leaving both on is fine.
 - **`allowedOrigins`**: the bridge answers only pages on the same machine, your LAN, or the origins listed here.
 - **Testing without devices:** `cd bridge && npm run mock` adds two fake zones.
 
@@ -421,6 +459,9 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 | YouTube: "quota used up" | The free daily quota resets at midnight Pacific time. |
 | Video view shows only the blurred artwork | No embeddable music video was found for that song, or no API key is set. |
 | Icons show initials | The logos haven't been downloaded yet (first run while offline, or a blocker stopping jsDelivr/unpkg). They appear once they've loaded; after that they work offline. |
+| Computer tile: Cider not found | In Cider: *Settings → Connectivity* → turn on the API; put its app token in `bridge/config.json → cider.token` (or turn off *Require API tokens*); restart the bridge. |
+| Computer tile: nothing listed on the Pi | `sudo apt install playerctl`, then start playing something in the app. |
+| Computer tile: nothing listed on Windows | Play something first — apps only appear in the Windows media flyout while they have something loaded. |
 | The site still shows an old version | Reload once or twice; the offline cache updates itself in the background. |
 
 ---
@@ -431,7 +472,8 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 - **Tidal and Qobuz** have no public remote-control API; they're controlled through Roon, Cast, UPnP or AirPlay.
 - **YouTube on a TV** uses YouTube's undocumented TV-linking protocol and could stop working after a YouTube update. It hasn't been tested with a real TV yet.
 - **AirPlay:** no seeking. **Cast:** next/previous depends on the casting app.
-- **Apple Music** plays on the display itself; MusicKit can't control another device.
+- **Apple Music with MusicKit** plays on the display itself. To control Apple Music elsewhere, use Cider, Sidra or the Apple Music app for Windows through the bridge (the Computer tile).
+- **The Computer tile** (Cider API, Windows media controls, MPRIS) was tested with stand-ins that follow each interface, not yet with the real apps.
 - The Demo and the bridge were tested with fake zones. The Roon, UPnP, Cast, shairport-sync and YouTube paths follow each service's documented API but haven't been tested against real accounts and hardware yet.
 
 ---
@@ -446,7 +488,7 @@ js/providers/                   one file per service + the bridge client (common
 js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, panels, connect, settings
-bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, airplay, mock)
+bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, airplay, cider, mpris, winmedia, mock)
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
 screenshots/                    images used in this README

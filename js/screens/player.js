@@ -15,7 +15,7 @@ import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
 import { createVideoView } from '../views/video.js';
 import { createToneView } from '../views/tone.js';
 import { createFactsView } from '../views/facts.js';
-import { openLibrary, openSearch, openDevices, openVolume, openMore, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
+import { openLibrary, openSearch, openDevices, openVolume, openMore, openTvRemote, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
 
 const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone', 'facts'];
 const VIEW_NAMES = { info: 'Classic', vinyl: 'Vinyl', lyrics: 'Lyrics', video: 'Video', tone: 'Tone Visual', facts: 'Fun Facts' };
@@ -44,7 +44,7 @@ export function PlayerScreen() {
   // ---------- chrome ----------
   const btnHome = onCircle(iconBtn('home', 'Services', () => go('home')), -55, 38.5);
   const btnLib = onCircle(iconBtn('library', 'Playlists', () => openLibrary()), -20, 38.5);
-  const btnSearch = onCircle(iconBtn('search', 'Search', () => openSearch()), 20, 38.5);
+  const btnSearch = onCircle(iconBtn('search', 'Search', () => (player.caps.remote ? openTvRemote() : openSearch())), 20, 38.5);
   const btnDev = onCircle(iconBtn('speaker', 'Devices', () => openDevices()), 55, 38.5);
   const pill = h('button.device-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
@@ -197,13 +197,21 @@ export function PlayerScreen() {
     btnPlay.classList.toggle('is-playing', !!s.isPlaying);
     const c = player.caps;
     btnPrev.disabled = !c.prev; btnNext.disabled = !c.next;
-    btnLib.disabled = !c.playlists; btnSearch.disabled = !c.search; btnDev.disabled = !c.devices;
+    btnLib.disabled = !c.playlists; btnSearch.disabled = !c.search && !c.remote; btnDev.disabled = !c.devices;
+    if (btnSearch.dataset.mode !== (c.remote ? 'tv' : 'search')) {  // Google TV: the search button becomes the D-pad remote, playlists become apps
+      btnSearch.dataset.mode = c.remote ? 'tv' : 'search';
+      btnSearch.innerHTML = icon(c.remote ? 'remote' : 'search');
+      btnSearch.setAttribute('aria-label', c.remote ? 'TV remote' : 'Search'); btnSearch.title = c.remote ? 'TV remote' : 'Search';
+      btnLib.innerHTML = icon(c.remote ? 'apps' : 'library');
+      btnLib.setAttribute('aria-label', c.remote ? 'Apps' : 'Playlists'); btnLib.title = c.remote ? 'Apps' : 'Playlists';
+    }
     btnVol.disabled = !c.volume;
     btnVol.innerHTML = icon(s.muted || s.volume === 0 ? 'mute' : s.volume != null && s.volume < 45 ? 'volumeLow' : 'volume');
     pill.querySelector('.pill-text').textContent = s.device?.name ? `${svc.name} · ${s.device.name}` : svc.name;
     miniMeta.textContent = t ? `${t.title} — ${t.artist}` : '';
     el.classList.toggle('no-track', !t);
     el.classList.toggle('no-seek', !c.seek);
+    el.classList.toggle('no-time', !!t?.notSong); // a TV app, not a song: no times or progress
     if (t?.durationMs !== lastDur) { lastDur = t?.durationMs; tDur.textContent = fmtTime(t?.durationMs || 0); }
     // call-to-action when idle
     cta.innerHTML = '';

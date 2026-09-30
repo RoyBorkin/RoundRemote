@@ -57,6 +57,16 @@ export async function bridgeInfo({ passive = false } = {}) {
   try { return await bridgeFetch('/api/info'); } catch { return null; }
 }
 
+/** Zones the bridge knows about right now (empty when there's no bridge). */
+export async function bridgeZones(filter = () => true) {
+  try { return ((await bridgeFetch('/api/zones')) || []).filter(filter); } catch { return []; }
+}
+const DESKTOP = ['cider', 'mpris', 'winmedia'];
+/** Apple Music playing on a computer: Cider, Sidra, the Apple Music app for Windows, iTunes. */
+export const isAppleZone = (z) => z.adapter === 'cider' || (DESKTOP.includes(z.adapter) && /apple music|itunes|cider|sidra/i.test(z.sourceApp || ''));
+/** A web browser on a computer (YouTube / YouTube Music tabs). */
+export const isBrowserZone = (z) => ['mpris', 'winmedia'].includes(z.adapter) && /chrom|edge|firefox|brave|opera|vivaldi|safari/i.test(z.sourceApp || '');
+
 const SOURCE_MATCH = {
   tidal: /tidal/i,
   qobuz: /qobuz/i,
@@ -78,7 +88,7 @@ export class BridgeProvider extends Provider {
   setupHint() { return ''; }
 
   _mine(z) {
-    if (this.adapter && z.adapter !== this.adapter) return false;
+    if (this.adapter && ![].concat(this.adapter).includes(z.adapter)) return false;
     return true;
   }
   _pickZone() {
@@ -101,7 +111,7 @@ export class BridgeProvider extends Provider {
       return;
     }
     this.zoneId = z.id;
-    Object.assign(this.caps, { seek: false, volume: false, next: false, prev: false, playlists: false, search: false, shuffle: false, repeat: false, ...(z.caps || {}), devices: true });
+    Object.assign(this.caps, { seek: false, volume: false, next: false, prev: false, playlists: false, search: false, shuffle: false, repeat: false, remote: false, ...(z.caps || {}), devices: true });
     const s = z.state || {};
     const age = s.isPlaying && z.sampledAt ? Math.max(0, Date.now() - z.sampledAt) : 0;
     const t = s.track;
@@ -127,6 +137,8 @@ export class BridgeProvider extends Provider {
   }
 
   async start() {
+    const saved = store.getZone(this.id); // a device picked on the setup screen since this provider was made
+    if (saved) this.zoneId = saved;
     this.publish({ status: 'loading', message: 'Looking for the bridge…' });
     this.base = await bridgeBase();
     if (!this.base) {

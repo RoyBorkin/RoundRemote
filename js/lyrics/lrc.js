@@ -90,7 +90,7 @@ function keyOf(track) { return `${normalizeText(track.artist)}|${normalizeText(t
  * @returns {Promise<{synced:boolean, lines:Array, instrumental?:boolean, source:string}|null>}
  */
 export async function getLyrics(track, provider) {
-  if (!track?.title) return null;
+  if (!track?.title || track.notSong) return null;
   const key = keyOf(track);
   if (memCache.has(key)) return memCache.get(key);
 

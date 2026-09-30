@@ -189,7 +189,7 @@ const seeded = (arr, seed) => {
  * shorts and anything far longer or shorter than the song are always skipped.
  */
 export async function findMusicVideo(track, { kinds = ['clip', 'live'], preferClip = false } = {}) {
-  if (!track?.title) return null;
+  if (!track?.title || track.notSong) return null;
   const want = normalizeText(track.title);
   const artist = (track.artist || '').split(/,|&| feat\.? | ft\.? /i)[0].trim();
   const artistNorm = normalizeText(artist);

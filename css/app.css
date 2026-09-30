@@ -165,6 +165,7 @@ input { font: inherit; color: inherit; }
 .ring.drag .ring-knob { r: 2.4; }
 .ring.drag .ring-fill, .ring.drag .ring-track { stroke-width: 1.8; }
 .no-seek .ring-knob { display: none; }
+.no-time .t-cur, .no-time .t-dur, .no-time .ring-fill { visibility: hidden; }
 
 /* chrome */
 .chrome { position: absolute; inset: 0; z-index: 10; pointer-events: none; transition: opacity .45s var(--ease); }
@@ -494,6 +495,30 @@ input { font: inherit; color: inherit; }
 .vol-minus { left: 34%; } .vol-plus { left: 66%; }
 .vol-minus:active, .vol-plus:active { transform: translate(-50%, -50%) scale(.9); }
 .volume-panel .panel-title { top: 13%; }
+
+/* TV remote (Google TV): round D-pad with keys around it */
+.tv-panel .panel-body { inset: 0; }
+.tv-panel .panel-title { top: 8.5%; font-size: 3cqmin; opacity: .8; }
+.tv-dpad { position: absolute; left: 50%; top: 49%; width: 42cqmin; height: 42cqmin; transform: translate(-50%, -50%); touch-action: none; overflow: visible; }
+.tv-wedge path:first-child { fill: var(--glass-2, rgba(255,255,255,.1)); stroke: rgba(255,255,255,.08); stroke-width: .5; transition: fill .12s; cursor: pointer; }
+.tv-wedge.down path:first-child { fill: var(--accent); }
+.tv-chev { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; opacity: .85; }
+.tv-ok { position: absolute; left: 50%; top: 49%; width: 16cqmin; height: 16cqmin; transform: translate(-50%, -50%); border-radius: 50%;
+  background: rgba(255,255,255,.16); color: #fff; font: 800 3.6cqmin/1 var(--display, inherit); letter-spacing: .06em; box-shadow: 0 0 0 .5cqmin rgba(0,0,0,.25) inset; transition: background .12s, transform .12s; }
+.tv-ok.down { background: var(--accent); transform: translate(-50%, -50%) scale(.94); }
+.tvk { position: absolute; transform: translate(-50%, -50%); width: 9cqmin; height: 9cqmin; font-size: 4.4cqmin; }
+.tvk.down, .tvk:active { transform: translate(-50%, -50%) scale(.9); }
+.tvk.down { background: var(--accent); }
+.tv-power { left: 32%; top: 20%; color: #ff6b6b; }
+.tv-mute { left: 50%; top: 18.5%; }
+.tv-mute.on { background: var(--accent); }
+.tv-apps { left: 68%; top: 20%; }
+.tv-back { left: 13%; top: 49%; }
+.tv-home { left: 87%; top: 49%; }
+.tv-vdown { left: 31%; top: 78%; }
+.tv-pp { left: 50%; top: 80%; }
+.tv-vup { left: 69%; top: 78%; }
+.tv-now { position: absolute; left: 50%; top: 71.5%; transform: translateX(-50%); max-width: 30%; font-size: 2.3cqmin; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* options */
 .opts-panel .panel-body { justify-content: center; gap: 3.2cqmin; top: 20%; bottom: 20%; }

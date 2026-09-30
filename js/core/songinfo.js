@@ -73,7 +73,7 @@ function mbArtist(id) {
 
 /** Release year of the song, from the provider if it gave one, otherwise MusicBrainz. */
 export async function songYear(t) {
-  if (!t?.title) return null;
+  if (!t?.title || t.notSong) return null;
   if (t.year) return t.year;
   const cache = lsGet('rr.year.v1');
   const k = keyOf(t);
@@ -168,7 +168,7 @@ const fmtLen = (ms) => `${Math.floor(ms / 60000)}:${String(Math.round((ms % 6000
  */
 export function funFacts(t, provider) {
   return once(`facts|${keyOf(t)}|${t?.album || ''}`, async () => {
-    if (!t?.title) return [];
+    if (!t?.title || t.notSong) return [];
     if (provider?.getFacts) { const own = await provider.getFacts(t).catch(() => null); if (own?.length) return own; }
     const lang = langOf(t), L = T[lang], dir = lang === 'he' ? 'rtl' : 'ltr';
     const title = cleanTitle(t.title), artist = mainArtist(t.artist);
@@ -203,7 +203,7 @@ export function funFacts(t, provider) {
 /** Photos related to the song: [{ url, credit }]. Album art first, then artist photos. */
 export function songPhotos(t) {
   return once(`photos|${keyOf(t)}|${t?.album || ''}`, async () => {
-    if (!t?.title) return [];
+    if (!t?.title || t.notSong) return [];
     const artist = mainArtist(t.artist);
     const out = [];
     const add = (url, credit) => { if (url && !out.some((p) => p.url === url)) out.push({ url, credit }); };

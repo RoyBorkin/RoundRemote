@@ -2,9 +2,13 @@
 // means the Pi's speakers/DAC), so this provider is a player rather than a remote.
 // Needs an Apple Music developer token (JWT): paste it in Settings, or let the bridge
 // generate one from your .p8 key (see bridge/config.example.json).
+// Without a token it can instead remote-control Apple Music playing on a computer through the
+// bridge: Cider (Windows/macOS/Linux), Sidra (Linux) or the Apple Music app for Windows.
 import { Provider } from './base.js';
 import { store } from '../core/store.js';
-import { bridgeFetch } from './bridge.js';
+import { bridgeFetch, bridgeBase, bridgeZones, isAppleZone, BridgeProvider } from './bridge.js';
+
+const REMOTE = /^(cider|mpris|winmedia):/;
 
 const SDK = 'https://js-cdn.music.apple.com/musickit/v3/musickit.js';
 let sdkPromise = null;
@@ -34,7 +38,7 @@ export class AppleProvider extends Provider {
     this.handlers = [];
   }
   setupHint() { return ''; }
-  isAuthed() { return !!store.auth('apple')?.authorized; }
+  isAuthed() { return !!store.auth('apple')?.authorized || REMOTE.test(store.getZone(this.id) || ''); }
 
   async _token() {
     const t = (store.get('appleDeveloperToken') || '').trim();
@@ -56,6 +60,34 @@ export class AppleProvider extends Provider {
   }
 
   async start() {
+    const want = store.getZone(this.id);
+    if (want && REMOTE.test(want)) {
+      try { await this._attach(want); return; } catch (e) {
+        if (!store.auth('apple')?.authorized) throw e;
+        this.emit('notice', e.userMessage || 'Apple Music on your computer isn’t reachable — playing here instead');
+      }
+    }
+    if (!store.auth('apple')?.authorized) {
+      // not signed in to MusicKit: use Apple Music on a computer if the bridge sees one
+      const z = (await bridgeZones(isAppleZone))[0];
+      if (z) { store.setZone(this.id, z.id); return this._attach(z.id); }
+      throw Object.assign(new Error('not signed in'), { userMessage: 'Sign in with Apple Music, or play it in Cider / the Apple Music app on a computer running the bridge' });
+    }
+    return this._startLocal();
+  }
+  // ---------- Apple Music on a computer, through the bridge ----------
+  async _attach(zoneId) {
+    if (!(await bridgeBase())) throw Object.assign(new Error('no bridge'), { userMessage: 'Start the bridge to control Apple Music on your computer' });
+    this._stopLocal();
+    this.remote?.stop();
+    const r = new BridgeProvider({ id: `${this.id}-remote`, name: this.name }, { adapter: zoneId.split(':')[0] });
+    r.zoneId = zoneId; r.userPicked = true;
+    r.on('state', (st) => { Object.assign(this.caps, r.caps, { devices: true }); this.publish(st); });
+    this.remote = r;
+    await r.start();
+  }
+  _detach() { this.remote?.stop(); this.remote = null; Object.assign(this.caps, { seek: true, volume: true, next: true, prev: true, playlists: true, search: true, shuffle: true, repeat: true }); }
+  async _startLocal() {
     this.publish({ status: 'loading' });
     const m = await this._init();
     if (!m.isAuthorized) { store.setAuth('apple', null); throw new Error('Apple Music sign-in expired — connect again'); }
@@ -69,11 +101,14 @@ export class AppleProvider extends Provider {
     on(E.playbackTimeDidChange, () => { const n = performance.now(); if (n - last > 2000) { last = n; this.refresh(); } });
     await this.refresh();
   }
-  stop() {
+  stop() { this.remote?.stop(); this._stopLocal(); }
+  _stopLocal() {
     for (const [ev, fn] of this.handlers) this.music?.removeEventListener(ev, fn);
     this.handlers = [];
+    try { if (this.music?.isPlaying) this.music.pause(); } catch {}
   }
   async refresh() {
+    if (this.remote) return this.remote.refresh();
     const m = this.music; if (!m) return;
     const it = m.nowPlayingItem;
     if (!it) { this.publish({ track: null, isPlaying: false, status: 'nodevice', message: 'Pick a playlist or search to start playing' }); return; }
@@ -93,23 +128,25 @@ export class AppleProvider extends Provider {
       status: 'ok', message: '',
     });
   }
-  play() { return this.music.play(); }
-  pause() { return this.music.pause(); }
-  next() { return this.music.skipToNextItem(); }
-  prev() { return this.music.skipToPreviousItem(); }
-  seek(ms) { return this.music.seekToTime(ms / 1000); }
-  async setVolume(v) { this.music.volume = v / 100; }
-  async setShuffle(on) { this.music.shuffleMode = on ? 1 : 0; }
-  async setRepeat(mode) { this.music.repeatMode = { off: 0, one: 1, all: 2 }[mode] ?? 0; }
+  play() { return this.remote ? this.remote.play() : this.music.play(); }
+  pause() { return this.remote ? this.remote.pause() : this.music.pause(); }
+  next() { return this.remote ? this.remote.next() : this.music.skipToNextItem(); }
+  prev() { return this.remote ? this.remote.prev() : this.music.skipToPreviousItem(); }
+  seek(ms) { return this.remote ? this.remote.seek(ms) : this.music.seekToTime(ms / 1000); }
+  async setVolume(v) { if (this.remote) return this.remote.setVolume(v); this.music.volume = v / 100; }
+  async setShuffle(on) { if (this.remote) return this.remote.setShuffle(on); this.music.shuffleMode = on ? 1 : 0; }
+  async setRepeat(mode) { if (this.remote) return this.remote.setRepeat(mode); this.music.repeatMode = { off: 0, one: 1, all: 2 }[mode] ?? 0; }
 
   async getPlaylists() {
+    if (this.remote) return this.remote.getPlaylists();
     const r = await this.music.api.music('/v1/me/library/playlists', { limit: 100 });
     return (r?.data?.data || []).map((p) => ({
       id: p.id, name: p.attributes?.name || 'Playlist', art: art(p.attributes?.artwork, 120), subtitle: 'Library playlist',
     }));
   }
-  async playPlaylist(pl) { await this.music.setQueue({ playlist: pl.id, startPlaying: true }); }
+  async playPlaylist(pl) { if (this.remote) return this.remote.playPlaylist(pl); await this.music.setQueue({ playlist: pl.id, startPlaying: true }); }
   async search(q) {
+    if (this.remote) return this.remote.search(q);
     const r = await this.music.api.music('/v1/catalog/{{storefrontId}}/search', { term: q, types: 'songs,albums,playlists', limit: 10 });
     const res = r?.data?.results || {};
     const songs = (res.songs?.data || []).map((s) => ({ kind: 'track', id: s.id, title: s.attributes.name, subtitle: `${s.attributes.artistName} · ${s.attributes.albumName}`, art: art(s.attributes.artwork, 120) }));
@@ -118,9 +155,20 @@ export class AppleProvider extends Provider {
     return [...songs, ...albums, ...pls];
   }
   async playItem(item) {
+    if (this.remote) return this.remote.playItem(item);
     const key = { track: 'song', album: 'album', playlist: 'playlist' }[item.kind] || 'song';
     await this.music.setQueue({ [key]: item.id, startPlaying: true });
   }
-  async getDevices() { return [{ id: 'local', name: 'This display', type: 'Computer', active: true }]; }
-  async signOut() { try { await this.music?.unauthorize(); } catch {} store.setAuth('apple', null); }
+  async getDevices() {
+    const list = [];
+    if (store.auth('apple')?.authorized) list.push({ id: 'local', name: 'This display', type: 'MusicKit player here', active: !this.remote });
+    for (const z of await bridgeZones(isAppleZone)) list.push({ id: z.id, name: z.name, type: z.state?.track ? `${z.sourceApp} · ${z.state.track.title}` : z.sourceApp, active: this.remote?.zoneId === z.id, volume: z.state?.volume });
+    return list;
+  }
+  async selectDevice(dev) {
+    if (dev.id === 'local') { store.setZone(this.id, null); this._detach(); await this._startLocal(); return; }
+    store.setZone(this.id, dev.id);
+    await this._attach(dev.id);
+  }
+  async signOut() { try { await this.music?.unauthorize(); } catch {} store.setAuth('apple', null); if (REMOTE.test(store.getZone(this.id) || '')) store.setZone(this.id, null); this._detach(); }
 }

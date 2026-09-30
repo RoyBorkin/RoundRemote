@@ -22,7 +22,7 @@ echo "==> Round Remote in $APP_DIR (user: $USER_NAME)"
 
 echo "==> Packages"
 sudo apt-get update -y
-sudo apt-get install -y git curl chromium-browser unclutter || sudo apt-get install -y git curl chromium unclutter
+sudo apt-get install -y git curl chromium-browser unclutter playerctl || sudo apt-get install -y git curl chromium unclutter playerctl  # playerctl: control Sidra / Chromium / Spotify on the Pi
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 18 ]; then
   sudo apt-get install -y nodejs npm
 fi

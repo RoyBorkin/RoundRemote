@@ -12,6 +12,10 @@ if not exist node_modules (
   echo Installing bridge dependencies...
   call npm install --omit=dev --no-audit --no-fund
 )
+if not exist node_modules\androidtv-remote (
+  echo Adding the Google TV remote add-on...
+  call npm install --no-save --no-audit --no-fund androidtv-remote
+)
 echo.
 echo Round Remote bridge running at http://127.0.0.1:8765/  (close this window to stop it)
 node server.js

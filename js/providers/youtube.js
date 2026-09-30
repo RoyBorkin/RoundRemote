@@ -12,7 +12,9 @@ import {
   search as ytSearch, myPlaylists, playlistVideoIds, splitTitle, bigThumb,
 } from '../core/youtube.js';
 import { h } from '../ui/dom.js';
-import { BridgeProvider, bridgeFetch, bridgeBase } from './bridge.js';
+import { BridgeProvider, bridgeFetch, bridgeBase, isBrowserZone } from './bridge.js';
+
+const REMOTE = /^(youtubetv|mpris|winmedia):/; // a TV, or a browser tab on a computer
 
 let host = null, ytPlayer = null, readyP = null, owner = null;
 
@@ -59,14 +61,14 @@ export class YouTubeProvider extends Provider {
     this.lastResults = [];
   }
   setupHint() {
-    if (apiKey() || googleClientId() || String(store.getZone(this.id) || '').startsWith('youtubetv:')) return '';
+    if (apiKey() || googleClientId() || REMOTE.test(String(store.getZone(this.id) || ''))) return '';
     return 'Add a free YouTube Data API key in Settings, or link your TV.';
   }
   isAuthed() { return true; }
 
   async start() {
     const want = store.getZone(this.id);
-    if (want && want.startsWith('youtubetv:')) {
+    if (want && REMOTE.test(want)) {
       try { await this._attachTv(want); return; } catch (e) { this.emit('notice', e.userMessage || 'Your TV isn’t reachable — playing here instead'); }
     }
     return this._startLocal();
@@ -100,7 +102,7 @@ export class YouTubeProvider extends Provider {
     try { ytPlayer?.pauseVideo(); } catch {}
     document.getElementById('app').classList.remove('has-yt');
     this.remote?.stop();
-    const r = new BridgeProvider({ id: `${this.id}-tv`, name: this.name }, { adapter: 'youtubetv' });
+    const r = new BridgeProvider({ id: `${this.id}-tv`, name: this.name }, { adapter: zoneId.split(':')[0] });
     r.zoneId = zoneId; r.userPicked = true;
     r.on('state', (s) => { Object.assign(this.caps, r.caps, { playlists: true, search: true, devices: true, shuffle: false, repeat: false }); this.publish(s); });
     this.remote = r;
@@ -108,7 +110,7 @@ export class YouTubeProvider extends Provider {
     await r.start();
   }
   _detachTv() { this.remote?.stop(); this.remote = null; this.videoHost = true; }
-  async getVideo(track) { return this.remote && track?.id ? { type: 'youtube', id: track.id } : null; }
+  async getVideo(track) { return this.remote && /^[\w-]{11}$/.test(track?.id || '') ? { type: 'youtube', id: track.id } : null; }
   signOut() { googleSignOut(); }
 
   _remember() {
@@ -222,8 +224,8 @@ export class YouTubeProvider extends Provider {
     try {
       const zones = await bridgeFetch('/api/zones');
       for (const z of zones || []) {
-        if (z.adapter !== 'youtubetv') continue;
-        list.push({ id: z.id, name: z.name, type: `TV · ${z.state?.track ? z.state.track.title : 'YouTube app'}`, active: this.remote?.zoneId === z.id });
+        if (z.adapter === 'youtubetv') list.push({ id: z.id, name: z.name, type: `TV · ${z.state?.track ? z.state.track.title : 'YouTube app'}`, active: this.remote?.zoneId === z.id });
+        else if (isBrowserZone(z)) list.push({ id: z.id, name: z.name, type: `Browser · ${z.state?.track ? z.state.track.title : 'nothing playing'}`, active: this.remote?.zoneId === z.id });
       }
     } catch {}
     return list;

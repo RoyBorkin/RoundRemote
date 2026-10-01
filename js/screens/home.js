@@ -1,6 +1,6 @@
 // Home: every service on a ring around a clock. Green dot = signed in / reachable.
 import { h, badge, iconBtn } from '../ui/dom.js';
-import { SERVICES, provider, inSection, adapterOf } from '../providers/registry.js';
+import { SERVICES, provider, inSection, adaptersOf } from '../providers/registry.js';
 import { icon } from '../ui/icons.js';
 import { bridgeInfo } from '../providers/bridge.js';
 import { openService } from '../core/nav.js';
@@ -97,8 +97,7 @@ export function HomeScreen() {
       const ad = info?.adapters || {};
       const ok = it.svc.id === 'tidal' || it.svc.id === 'qobuz'
         ? Object.values(ad).some((a) => a.enabled && a.id !== 'mock')
-        : it.svc.id === 'computer' ? ['cider', 'winmedia', 'mpris'].some((k) => ad[k]?.enabled)
-        : ad[adapterOf(it.svc)]?.enabled;
+        : adaptersOf(it.svc).some((k) => ad[k]?.enabled);
       it.ready = !!ok;
       it.btn.classList.toggle('ready', it.ready);
       if (info && !ok) it.btn.classList.add('off');

@@ -8,9 +8,9 @@ import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { getService } from '../providers/registry.js';
 import { fmtTime, angleFromCenter, distFromCenter, clamp } from '../core/util.js';
-import { accentFromImage } from '../core/color.js';
+import { accentFromImage, paletteFromImage } from '../core/color.js';
 import { toast, topPanel } from '../ui/overlay.js';
-import { openDevices, openVolume, openTvRemote, buildTvRemote } from './panels.js';
+import { openDevices, openVolume, openTvRemote, buildTvRemote, openCustomizeControls } from './panels.js';
 import { createMediaLibrary, runtimeOf } from '../views/media-library.js';
 import { mediaFacts } from '../core/mediainfo.js';
 import {
@@ -18,6 +18,23 @@ import {
 } from './media-panels.js';
 
 const RING_R = 47.4, C = 2 * Math.PI * RING_R;
+// Content-aware mood from the genres (first match wins)
+const MOODS = [
+  ['horror', /horror|slasher|zombie/i], ['scifi', /sci-?fi|science fiction|space|cyberpunk/i], ['thriller', /thriller|crime|mystery|suspense|noir|detective/i],
+  ['action', /action|war|western|martial/i], ['fantasy', /fantasy|adventure|magic/i], ['comedy', /comedy|family|animation|kids|children|anime|sitcom/i],
+  ['music', /music|musical|concert/i], ['doc', /documentary|history|biograph|news|nature/i], ['romance', /romance|drama/i],
+];
+export function moodOf(m) {
+  const g = (m?.genres || []).join(' ');
+  if (!g) return 'default';
+  return (MOODS.find(([, re]) => re.test(g)) || ['default'])[0];
+}
+const MOOD_COLOURS = {
+  horror: ['#5a0610', '#1d0205', '#8a1020', '#2a0a2a'], scifi: ['#0a3b7a', '#12c2e9', '#3a0ca3', '#0b1e3f'], thriller: ['#0f3d3e', '#1b262c', '#2a6f7a', '#3b1d4a'],
+  action: ['#ff6a00', '#0f4c75', '#ee0979', '#f7b733'], fantasy: ['#6a3093', '#f4c430', '#2c7744', '#a044ff'], comedy: ['#ffb347', '#ff6f91', '#ffd86b', '#7afcff'],
+  music: ['#8e2de2', '#ff0080', '#4a00e0', '#00d2ff'], doc: ['#8d6e63', '#5d4037', '#a1887f', '#37474f'], romance: ['#ff9a9e', '#a18cd1', '#fbc2eb', '#f6416c'],
+  default: ['#3a4a8a', '#8a3a6a', '#2a7a7a', '#6a5a2a'],
+};
 const timeOfDay = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export function MediaScreen() {
@@ -28,9 +45,14 @@ export function MediaScreen() {
   const caps = () => player.caps;
 
   // ---------- background ----------
+  // poster · backdrop · blur · black · slides · aware (follows what you're looking at, graded by genre)
+  // · aurora (soft moving colours taken from the content)
   const bgA = h('div.mbg-img'), bgB = h('div.mbg-img');
-  const bg = h('div.mbg', bgA, bgB, h('div.mbg-shade'));
-  let bgFront = bgA, bgUrl = null, slides = [], slideI = 0, slideT = 0;
+  const blobs = [0, 1, 2, 3].map((i) => h(`div.mbg-blob.b${i}`));
+  const aurora = h('div.mbg-aurora', blobs);
+  const mood = h('div.mbg-mood');
+  const bg = h('div.mbg', bgA, bgB, aurora, mood, h('div.mbg-shade'));
+  let bgFront = bgA, bgUrl = null, slides = [], slideI = 0, slideT = 0, libCtx = null;
   function setBg(url) {
     if (url === bgUrl) return;
     bgUrl = url;
@@ -40,14 +62,23 @@ export function MediaScreen() {
     back.classList.add('on'); bgFront.classList.remove('on');
     bgFront = back;
   }
-  function refreshBg() {
+  /** What the background is about right now: the Library page you're on, or what's playing. */
+  function bgSource() {
+    const mode = store.get('mediaBg');
+    if (tab === 'lib' && libCtx && (mode === 'aware' || mode === 'aurora')) return libCtx;
     const m = player.state.track?.media;
+    return m ? { ...m, genres: details?.genres || m.genres || [], type: m.type } : null;
+  }
+  function refreshBg() {
+    const m = bgSource();
     const mode = store.get('mediaBg');
     el.dataset.bg = mode;
+    el.dataset.mood = mode === 'aware' || mode === 'aurora' ? moodOf(m) : '';
     clearInterval(slideT);
+    if (mode === 'aurora') { setBg(''); paintAurora(m); return; }
     if (!m || mode === 'black') { setBg(''); return; }
     if (mode === 'poster') return setBg(m.poster || m.backdrop || '');
-    if (mode === 'backdrop' || mode === 'blur') return setBg(m.backdrop || m.poster || '');
+    if (mode === 'backdrop' || mode === 'blur' || mode === 'aware') return setBg(m.backdrop || m.poster || '');
     // slideshow: the item's own pictures first, then collection / related / show pictures once details are in
     slides = [m.backdrop, m.still, ...(details?.backdrops || [])].filter(Boolean).filter((u, i, a) => a.indexOf(u) === i);
     if (!slides.length && m.poster) slides = [m.poster];
@@ -57,7 +88,15 @@ export function MediaScreen() {
     const key = m.itemId;
     if (details && prov.slideImages) prov.slideImages(details).then((list) => { if (key === player.state.track?.media?.itemId && list.length) slides = [...new Set([...slides, ...list])]; }).catch(() => {});
   }
-
+  async function paintAurora(m) {
+    const moodCols = MOOD_COLOURS[moodOf(m)] || MOOD_COLOURS.default;
+    const set = (cols) => blobs.forEach((b, i) => { const c = cols[i % cols.length]; b.style.color = Array.isArray(c) ? `rgb(${c.join(',')})` : c; });
+    set(moodCols);
+    const url = m?.poster || m?.backdrop;
+    if (!url) return;
+    const pal = await paletteFromImage(url).catch(() => null);
+    if (pal?.length && (bgSource()?.poster || bgSource()?.backdrop) === url) set(pal.length >= 3 ? pal : [...pal, ...moodCols]);
+  }
   // ---------- ring ----------
   const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   ring.setAttribute('viewBox', '0 0 100 100');
@@ -72,12 +111,12 @@ export function MediaScreen() {
   const tabNow = h('button.m-tab.on', { type: 'button', onclick: (e) => { e.stopPropagation(); setTab('now'); } }, 'Now playing');
   const tabLib = h('button.m-tab', { type: 'button', onclick: (e) => { e.stopPropagation(); setTab('lib'); } }, 'Library');
   const tabs = h('div.m-tabs', tabNow, tabLib);
-  const btnHome = onCircle(iconBtn('home', 'Services', () => go('home')), -42, 38.5);
-  const btnDev = onCircle(iconBtn('devices', 'Devices', () => openDevices()), 42, 38.5);
+  const btnHome = onCircle(iconBtn('home', 'Services', () => go('home'), 'mp-home'), -42, 38.5);
+  const btnDev = onCircle(iconBtn('devices', 'Devices', () => openDevices(), 'mp-devices'), 42, 38.5);
   const pill = h('button.device-pill.m-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
-  const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume()), -110, 38.5);
-  const btnMore = onCircle(iconBtn('more', 'Options', () => openMediaOptions({ onRemote: openTvRemote })), 110, 38.5);
+  const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume(), 'mp-volume'), -110, 38.5);
+  const btnMore = onCircle(iconBtn('more', 'Options', () => openMediaOptions({ onRemote: openTvRemote }), 'mp-options'), 110, 38.5);
 
   const kicker = h('div.m-kicker'), title = h('div.m-title', { dir: 'auto' }), sub = h('div.m-sub', { dir: 'auto' });
   const meta = h('div.m-meta', kicker, title, sub);
@@ -98,9 +137,10 @@ export function MediaScreen() {
   const openDetailInLibrary = (entry) => { setTab('lib'); lib()?.openDetail(entry); };
   const FUNCS = [
     { key: 'mediaEpisodes', icon: 'list', label: 'Seasons & episodes', ok: () => player.state.track?.media?.type === 'episode' && !!player.state.track?.media?.seriesId && !!prov.browse, run: openMediaEpisodes },
-    { key: 'mediaInfo', icon: 'about', label: 'Info', ok: () => true, run: openMediaInfo },
-    { key: 'mediaCast', icon: 'people', label: 'Cast', ok: () => !!prov.details && (!details || details.cast?.length > 0), run: openMediaCast },
-    { key: 'mediaFacts', icon: 'bulb', label: 'Fun facts', ok: () => true, run: openMediaFacts },
+    { key: null, icon: 'apps', label: `Open ${svc.name}`, ok: () => !!caps().launch && !!prov.launch, run: () => prov.launch().then(() => toast(`Opening ${svc.name}…`)).catch((e) => toast(e?.userMessage || e?.message, { kind: 'error' })) },
+    { key: 'mediaInfo', icon: 'about', label: 'Info', ok: () => !!player.state.track?.media, run: openMediaInfo },
+    { key: 'mediaCast', icon: 'people', label: 'Cast', ok: () => !!prov.details && !!player.state.track?.media?.itemId && (!details || details.cast?.length > 0), run: openMediaCast },
+    { key: 'mediaFacts', icon: 'bulb', label: 'Fun facts', ok: () => !!player.state.track?.media, run: openMediaFacts },
     { key: 'mediaSuggest', icon: 'sparkle', label: 'More like this', ok: () => !!prov.related, run: () => openMediaSuggestions(openDetailInLibrary) },
     { key: 'mediaCollection', icon: 'stack', label: 'Collection', ok: () => !!prov.collectionsFor && hasCollection !== false, run: () => openMediaCollection(openDetailInLibrary) },
     { key: 'mediaTracks', icon: 'subtitles', label: 'Audio & subtitles', ok: () => !!caps().tracks && !!prov.streams, run: openMediaTracks },
@@ -123,7 +163,7 @@ export function MediaScreen() {
   let tab = 'now', library = null;
   const lib = () => {
     if (!library && prov.browse) {
-      library = createMediaLibrary({ provider: prov, onPlayed: () => setTimeout(() => setTab('now'), 1200), onNeedDevice: openDevices });
+      library = createMediaLibrary({ provider: prov, onPlayed: () => setTimeout(() => setTab('now'), 1200), onNeedDevice: openDevices, onContext: (c) => { libCtx = c; refreshBgIfChanged(); } });
       libBox.append(library.el);
     }
     return library;
@@ -135,6 +175,7 @@ export function MediaScreen() {
     el.dataset.tab = t;
     tabNow.classList.toggle('on', t === 'now'); tabLib.classList.toggle('on', t === 'lib');
     if (t === 'lib') lib();
+    refreshBgIfChanged();
     showChrome();
   }
   el.dataset.tab = 'now';
@@ -195,6 +236,16 @@ export function MediaScreen() {
     if (!wasHidden && player.state.track && store.get('mediaAutoHide')) { clearTimeout(hideT); el.classList.add('chrome-hidden'); }
   });
 
+  // hold an empty part of the screen: show/hide parts of the controls
+  let holdT = 0, holdXY = null;
+  el.addEventListener('pointerdown', (e) => {
+    if (tab !== 'now' || e.target.closest('button, .m-lib, .panel, input')) return;
+    holdXY = [e.clientX, e.clientY]; clearTimeout(holdT);
+    holdT = setTimeout(() => { holdXY = null; openCustomizeControls('media'); }, 900);
+  });
+  el.addEventListener('pointermove', (e) => { if (holdXY && Math.hypot(e.clientX - holdXY[0], e.clientY - holdXY[1]) > 12) clearTimeout(holdT); });
+  ['pointerup', 'pointercancel'].forEach((ev) => el.addEventListener(ev, () => clearTimeout(holdT)));
+
   // ---------- details of what's playing ----------
   let details = null, detailsKey = null, hasCollection = null, facts = [], factI = 0;
   async function loadDetails() {
@@ -207,7 +258,7 @@ export function MediaScreen() {
     if (key !== detailsKey) return;
     details = d;
     renderMeta(player.state);
-    if (store.get('mediaBg') === 'slides') refreshBg();
+    if (['slides', 'aware', 'aurora'].includes(store.get('mediaBg'))) { bgKey = null; refreshBgIfChanged(); }
     if (prov.collectionsFor && store.get('mediaCollection')) {
       prov.collectionsFor(d).then((c) => { if (key === detailsKey) { hasCollection = c.length > 0; renderFuncs(); } }).catch(() => { hasCollection = false; renderFuncs(); });
     }
@@ -274,6 +325,8 @@ export function MediaScreen() {
       const row = h('div.cta-row');
       if (c.devices) row.append(h('button.pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } }, 'Devices'));
       if (c.library) row.append(h('button.pill.primary', { type: 'button', onclick: (e) => { e.stopPropagation(); setTab('lib'); } }, 'Library'));
+      if (c.launch && prov.launch) row.append(h('button.pill.primary', { type: 'button', onclick: (e) => { e.stopPropagation(); prov.launch().then(() => toast(`Opening ${svc.name}…`)).catch((er) => toast(er?.userMessage || er?.message, { kind: 'error' })); } }, `Open ${svc.name}`));
+      if (c.remote) row.append(h('button.pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openTvRemote(); } }, 'Remote'));
       if (s.status === 'error') row.append(h('button.pill', { type: 'button', onclick: (e) => { e.stopPropagation(); go('connect', { id: prov.id }); } }, 'Setup'));
       cta.append(row);
     } else if (!t) cta.append(h('div.cta-msg', 'Connecting…'));
@@ -286,8 +339,8 @@ export function MediaScreen() {
   }
   let bgKey = null;
   function refreshBgIfChanged() {
-    const m = player.state.track?.media;
-    const k = `${store.get('mediaBg')}|${m?.itemId || m?.title || ''}|${m?.poster || ''}|${m?.backdrop || ''}`;
+    const m = bgSource();
+    const k = `${store.get('mediaBg')}|${tab}|${m?.itemId || m?.id || m?.title || ''}|${m?.poster || ''}|${m?.backdrop || ''}|${(m?.genres || []).join(',')}`;
     if (k !== bgKey) { bgKey = k; refreshBg(); }
   }
 
@@ -297,10 +350,11 @@ export function MediaScreen() {
     el.classList.toggle('facts-on', !!store.get('mediaIdleFacts'));
     el.classList.toggle('no-pill', store.get('showDevicePill') === false);
     el.classList.toggle('lite-bg', !!store.get('liteMode'));
+    el.dataset.hide = (store.get('mediaHide') || []).join(' ');
     render(player.state);
   };
   const offs = [
-    ...['mediaEpisodes', 'mediaHud', 'mediaClock', 'mediaIdleFacts', 'showDevicePill', 'mediaPrevNext', 'mediaSkip', 'mediaSkipBack', 'mediaSkipFwd',
+    ...['mediaHide', 'mediaEpisodes', 'mediaHud', 'mediaClock', 'mediaIdleFacts', 'showDevicePill', 'mediaPrevNext', 'mediaSkip', 'mediaSkipBack', 'mediaSkipFwd',
       'mediaInfo', 'mediaCast', 'mediaFacts', 'mediaSuggest', 'mediaCollection', 'mediaTracks', 'mediaStop', 'mediaEndsAt'].map((k) => store.on(`change:${k}`, applyOpts)),
     store.on('change:mediaBg', () => { bgKey = null; refreshBgIfChanged(); }),
     store.on('change:mediaSlideSec', () => { bgKey = null; refreshBgIfChanged(); }),

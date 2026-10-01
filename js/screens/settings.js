@@ -12,6 +12,9 @@ import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, vinylTitleToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
 import { sound } from '../core/sound.js';
 import { MEDIA_BGS } from './media-panels.js';
+import { LIB_VIEWS } from '../views/media-views.js';
+import { partToggles, PLAYER_PARTS, MEDIA_PARTS } from './panels.js';
+import { SUB_LANGS, preferredSubLangs } from '../core/languages.js';
 import { buildProfile, applyProfile, isProfile, downloadProfile, pickProfileFile, listBridgeProfiles, loadBridgeProfile, saveBridgeProfile, deleteBridgeProfile } from '../core/profiles.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
@@ -40,6 +43,9 @@ export function SettingsScreen() {
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
     opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
     opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
+
+    h('div.opt-hint', 'Music player — show these controls (or hold the middle of the player)'),
+    ...partToggles('playerHide', PLAYER_PARTS),
 
     section('Classic'),
     infoArtChips(),
@@ -91,6 +97,11 @@ export function SettingsScreen() {
       ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'Suggestions from your library'],
       ['mediaCollection', 'More from the collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop'],
     ].map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
+    h('div.opt-hint', 'Now playing — show these parts (or hold an empty part of the screen)'),
+    ...partToggles('mediaHide', MEDIA_PARTS),
+    h('div.opt-hint', 'Subtitles from the internet'),
+    opt('Subtitle languages (first = default)', multiChips(SUB_LANGS.map((l) => ({ id: l.id, name: l.name })), () => preferredSubLangs(store.get('mediaSubLangs')), (on) => store.set('mediaSubLangs', on))),
+    toggle('Switch to downloaded subtitles', () => store.get('mediaSubAuto') !== false, (v) => store.set('mediaSubAuto', v)),
     h('div.opt-hint', 'While watching'),
     toggle('Auto-hide controls', () => store.get('mediaAutoHide'), (v) => store.set('mediaAutoHide', v)),
     toggle('“Ends at” time', () => store.get('mediaEndsAt'), (v) => store.set('mediaEndsAt', v)),
@@ -98,6 +109,7 @@ export function SettingsScreen() {
     toggle('Clock when hidden', () => store.get('mediaClock'), (v) => store.set('mediaClock', v)),
     toggle('Fun facts when hidden', () => store.get('mediaIdleFacts'), (v) => store.set('mediaIdleFacts', v)),
     h('div.opt-hint', 'Library'),
+    opt('Library view', chips(LIB_VIEWS, store.get('mediaLibView') || 'list', (v) => store.set('mediaLibView', v))),
     opt('Play button', chips([{ id: 'resume', name: 'Resume' }, { id: 'start', name: 'From start' }], store.get('mediaResume'), (v) => store.set('mediaResume', v))),
     toggle('Hide what I’ve watched', () => store.get('mediaHideWatched'), (v) => store.set('mediaHideWatched', v)),
     toggle('No spoilers (blur unwatched episodes)', () => store.get('mediaNoSpoilers'), (v) => store.set('mediaNoSpoilers', v)),

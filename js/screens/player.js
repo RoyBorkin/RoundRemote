@@ -15,7 +15,7 @@ import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
 import { createVideoView } from '../views/video.js';
 import { createToneView } from '../views/tone.js';
 import { createFactsView } from '../views/facts.js';
-import { openLibrary, openSearch, openDevices, openVolume, openMore, openTvRemote, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
+import { openLibrary, openSearch, openDevices, openVolume, openMore, openTvRemote, openCustomizeControls, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
 
 const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone', 'facts'];
 const VIEW_NAMES = { info: 'Classic', vinyl: 'Vinyl', lyrics: 'Lyrics', video: 'Video', tone: 'Tone Visual', facts: 'Fun Facts' };
@@ -42,17 +42,17 @@ export function PlayerScreen() {
   const ringKnob = ring.querySelector('.ring-knob');
 
   // ---------- chrome ----------
-  const btnHome = onCircle(iconBtn('home', 'Services', () => go('home')), -55, 38.5);
-  const btnLib = onCircle(iconBtn('library', 'Playlists', () => openLibrary()), -20, 38.5);
-  const btnSearch = onCircle(iconBtn('search', 'Search', () => (player.caps.remote ? openTvRemote() : openSearch())), 20, 38.5);
-  const btnDev = onCircle(iconBtn('speaker', 'Devices', () => openDevices()), 55, 38.5);
+  const btnHome = onCircle(iconBtn('home', 'Services', () => go('home'), 'pp-home'), -55, 38.5);
+  const btnLib = onCircle(iconBtn('library', 'Playlists', () => openLibrary(), 'pp-playlists'), -20, 38.5);
+  const btnSearch = onCircle(iconBtn('search', 'Search', () => (player.caps.remote ? openTvRemote() : openSearch()), 'pp-search'), 20, 38.5);
+  const btnDev = onCircle(iconBtn('speaker', 'Devices', () => openDevices(), 'pp-devices'), 55, 38.5);
   const pill = h('button.device-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
     h('span.dot', { '--c': svc.color }), h('span.pill-text', svc.name));
-  const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume()), -118, 38.5);
-  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : view === 'tone' ? openToneStyles() : view === 'facts' ? openFactsOptions() : openMore(view))), 118, 38.5);
-  const btnPrev = iconBtn('prev', 'Previous', () => player.prev(), 'ctl');
-  const btnPlay = iconBtn('play', 'Play', () => player.toggle(), 'ctl play');
-  const btnNext = iconBtn('next', 'Next', () => player.next(), 'ctl');
+  const btnVol = onCircle(iconBtn('volume', 'Volume', () => openVolume(), 'pp-volume'), -118, 38.5);
+  const btnSide = onCircle(iconBtn('more', 'More', () => (view === 'lyrics' ? openLyricStyles() : view === 'tone' ? openToneStyles() : view === 'facts' ? openFactsOptions() : openMore(view)), 'pp-more'), 118, 38.5);
+  const btnPrev = iconBtn('prev', 'Previous', () => player.prev(), 'ctl pp-prev');
+  const btnPlay = iconBtn('play', 'Play', () => player.toggle(), 'ctl play pp-play');
+  const btnNext = iconBtn('next', 'Next', () => player.next(), 'ctl pp-next');
   const controls = h('div.controls', btnPrev, btnPlay, btnNext);
   const tCur = h('span.t-cur', '0:00'), tDur = h('span.t-dur', '0:00');
   const viewBtns = VIEWS.map((v) => {
@@ -152,6 +152,11 @@ export function PlayerScreen() {
   el.addEventListener('pointerup', endRing);
   el.addEventListener('pointercancel', endRing);
 
+  // hold the middle of the screen: show/hide parts of the controls (a way back if ⋯ is hidden)
+  let holdT = 0, holdXY = null;
+  stage.addEventListener('pointerdown', (e) => { if (current?.isInteractive) return; holdXY = [e.clientX, e.clientY]; clearTimeout(holdT); holdT = setTimeout(() => { holdXY = null; openCustomizeControls('player'); }, 900); });
+  stage.addEventListener('pointermove', (e) => { if (holdXY && Math.hypot(e.clientX - holdXY[0], e.clientY - holdXY[1]) > 12) clearTimeout(holdT); });
+  ['pointerup', 'pointercancel'].forEach((ev) => stage.addEventListener(ev, () => clearTimeout(holdT)));
   // ---------- swipe between views / tap to toggle chrome ----------
   let sw = null;
   stage.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, t: performance.now(), hidden: wasHidden }; });
@@ -238,10 +243,11 @@ export function PlayerScreen() {
     el.classList.toggle('video-noart', store.get('videoShowArt') === false);
     el.classList.toggle('video-hud', !!store.get('videoHud'));
     el.classList.toggle('no-pill', store.get('showDevicePill') === false);
+    el.dataset.hide = (store.get('playerHide') || []).join(' ');
   };
   applyArtMode();
   const offs = [
-    ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'videoHud', 'showDevicePill'].map((k) => store.on(`change:${k}`, applyArtMode)),
+    ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'videoHud', 'showDevicePill', 'playerHide'].map((k) => store.on(`change:${k}`, applyArtMode)),
     store.on('change:infoAutoHide', () => showChrome()),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),

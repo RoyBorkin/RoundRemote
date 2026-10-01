@@ -285,6 +285,28 @@ export class PlexMediaProvider extends PlexProvider {
   setStream(kind, id) {
     return this._player('playback/setStreams', kind === 'audio' ? { audioStreamID: id } : { subtitleStreamID: id ?? 0 });
   }
+  // ---------- subtitles from the internet (Plex's own subtitle search, OpenSubtitles) ----------
+  async searchSubtitles(entry, lang) {
+    const id = entry.itemId || entry.id;
+    const d = await this.pms(`/library/metadata/${id}/subtitles?${qs({ language: lang.id, hearingImpaired: 0, forced: 0 })}`);
+    const list = d?.MediaContainer?.Stream || d?.MediaContainer?.Metadata || [];
+    return list.map((s) => ({
+      id: s.key || s.sourceKey || String(s.id), name: s.displayTitle || s.title || s.extendedDisplayTitle || s.language || 'Subtitles',
+      provider: s.providerTitle || s.provider || 'OpenSubtitles', format: (s.codec || s.format || '').toUpperCase(),
+      score: s.score != null ? Math.round(+s.score) : null, hi: !!s.hearingImpaired, forced: !!s.forced, perfect: !!s.perfectMatch,
+    }));
+  }
+  async downloadSubtitle(entry, result) {
+    const id = entry.itemId || entry.id;
+    await this.pms(`/library/metadata/${id}/subtitles?${qs({ key: result.id })}`, { method: 'PUT' });
+    this.cache.delete(`det|${id}`);
+  }
+  /** Subtitle tracks of an item (fresh from the server). */
+  async subtitleTracks(entry) {
+    const id = entry.itemId || entry.id;
+    this.cache.delete(`det|${id}`);
+    return (await this.details({ id })).streams.subs;
+  }
   async markWatched(entry, on = true) {
     await this.pms(`/:/${on ? 'scrobble' : 'unscrobble'}?${qs({ key: entry.id, identifier: 'com.plexapp.plugins.library' })}`);
     this.cache.clear();

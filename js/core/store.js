@@ -27,6 +27,7 @@ export const DEFAULTS = Object.freeze({
   onlySignedIn: false,         // home: hide services that aren't signed in / reachable
   showDemo: true,              // home: show the Demo service tile
   typoRandomOff: [],           // Kinetic Type variants left out of Random (new variants are in by default)
+  playerHide: [],              // parts of the music player's controls to hide (see PLAYER_PARTS)
   showDevicePill: true,        // player: the "Service · Device" line near the top
   infoAutoHide: true,          // Classic view: hide the controls by themselves (with Auto-hide controls on)
   infoShowArt: true,           // Classic view: the round artwork in the middle
@@ -63,9 +64,13 @@ export const DEFAULTS = Object.freeze({
   mediaClock: false,           // the clock while the controls are hidden
   mediaIdleFacts: false,       // rotate fun facts while the controls are hidden
   mediaAutoHide: true,         // hide the controls by themselves
+  mediaLibView: 'list',        // library: list | posters | grid | flow | rings | watch | dvd | disc | dvddisc
   mediaHideWatched: false,     // library: hide what you've already watched
   mediaNoSpoilers: false,      // library: hide summaries and stills of episodes you haven't seen
+  mediaHide: [],               // parts of the Now playing controls to hide (see MEDIA_PARTS)
   mediaResume: 'resume',       // play from the library: resume | start | ask
+  mediaSubLangs: [],           // preferred subtitle languages for the online search (ISO 639-1), [] = this browser's + English
+  mediaSubAuto: true,          // switch to downloaded subtitles straight away
   // Home (smart home)
   haUrl: '',                   // Home Assistant address, e.g. http://homeassistant.local:8123
   haFavorites: [],             // entity ids on the Favourites tab (empty = suggestions)

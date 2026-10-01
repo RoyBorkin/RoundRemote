@@ -134,6 +134,9 @@ Tap one, or swipe sideways to move between Music, Media and Home. Each shows its
 | **Jellyfin** | The same for Jellyfin clients (Jellyfin on your TV, Android TV, Jellyfin Media Player, the web app, Kodi…), plus *Next up*. Same sign-in as the music Jellyfin tile. | ✅ |
 | **Chromecast** | Whatever is cast to a Chromecast or Google TV from any app: movie or show, season and episode, progress, skip, volume, stop. | Needs the bridge |
 | **AirPlay · Apple TV** | The Apple TV and whatever is playing on it — from any app or AirPlayed to it: title, series, season, episode, progress, skip, volume, a D-pad remote and your apps. Uses [pyatv](https://pyatv.dev); pair once with the code on the TV. | Needs the bridge |
+| **Netflix** | Follows Netflix wherever it's on: an **Apple TV** shows the title, series, season and episode; a **Chromecast** shows what Netflix sends; a **Google TV** knows Netflix is open. Adds the remote and **Open Netflix** on a Google TV or Apple TV. (Netflix has no public API, so there's no catalog to browse.) | Needs the bridge |
+| **Disney+** | The same for Disney+. | Needs the bridge |
+| **YouTube** | YouTube on your TV: **Library** searches YouTube and your playlists (YouTube API key / Google sign-in). *Play* sends the video to YouTube on your TV (linked with a TV code), a Google TV or an Apple TV, and you get the remote. | Needs the bridge |
 | **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. | Needs the bridge |
 
 ### Home (smart home)
@@ -490,12 +493,21 @@ The buttons are play/pause, skip back and forward (10 s and 30 s by default), an
 
 Tap a suggestion or a collection title to open its page in the Library tab.
 
+**Subtitles from the internet:** in **Audio & subtitles**, tap **Find subtitles online**. You can also tap **Subtitles** on a movie or episode page in the Library.
+- Pick a language (your languages come first; **More…** shows all of them) and tap a result.
+- The server downloads it, and when it's for what's playing, the app switches to it.
+- Plex uses its built-in subtitle search (OpenSubtitles). Jellyfin needs a subtitle plugin, such as *Open Subtitles*, installed on the server, and your user needs the *subtitle management* permission.
+
+**Customize the controls:** every part of the Now playing screen can be shown or hidden — the ring, tabs, each button, the title lines, times and the function buttons. Use **⋯ → Customize controls** or Settings. If you hide the ⋯ button, hold an empty part of the screen to get back. The music player has the same option (**⋯ → Customize controls**, or hold the middle of the player).
+
 **⋯ Options** chooses the background:
 - **Poster**;
 - **Photo** (the movie's backdrop);
 - **Blurred**;
 - **Black**;
 - **Slideshow** — the movie's backdrops, then pictures from its collection, show and suggestions, with a slow zoom.
+- **Content aware** — the background follows what you're looking at: the movie that's playing, or the movie, show or library page you've opened in the Library. It's graded by genre: dark red for horror, cool and scanned for sci-fi, teal for thrillers, orange-and-teal for action, warm for comedy and animation, golden dust for fantasy, film grain for documentaries, soft pink for romance and drama;
+- **Moving colours** — soft, slowly drifting blurs of colour taken from the poster of what you're watching or browsing.
 
 While you watch, the controls hide by themselves. The title and time left can stay on screen, and optionally the clock and rotating fun facts. Tap anywhere to bring the controls back.
 
@@ -508,6 +520,18 @@ While you watch, the controls hide by themselves. The title and time left can st
 - "More like this".
 
 *Play* starts it on the TV you picked under **Devices**. On a show, *Play next episode* picks up where you are.
+
+**Library views** (the ▦ button next to search, or Settings):
+- **List** and **Posters** (one big poster at a time);
+- **Grid**;
+- **Cover Flow** (swipe the covers like an old iPod or Mac);
+- **Rings** (one title at a time, full screen, with its watched progress as a ring — swipe sideways);
+- **Watch** (an Apple Watch–style honeycomb: drag around, the bubbles grow in the middle);
+- **DVD** (cases with spines);
+- **Disc** (discs printed with the artwork);
+- **DVD + disc** (the disc slides out of the case when you touch it).
+
+In the picture views, *Recently added* and *Collections* become chips at the top.
 
 ### Settings
 
@@ -539,6 +563,10 @@ While you watch, the controls hide by themselves. The title and time left can st
 | Movies & TV: while watching | Auto-hide controls, "Ends at" time, title & time left, clock, fun facts while the controls are hidden |
 | Movies & TV: library | Play button resumes or starts over; hide what you've watched; no spoilers (blurs summaries and stills of episodes you haven't seen — tap to reveal) |
 | Movies & TV: buttons | Now also *Seasons & episodes list* |
+| Movies & TV: library view | List, Posters, Grid, Cover Flow, Rings, Watch, DVD, Disc, DVD + disc |
+| Movies & TV: show these parts | Every part of the Now playing screen (also under ⋯ → Customize controls) |
+| Movies & TV: subtitles from the internet | Your subtitle languages (the first is the default) and whether to switch to downloaded subtitles straight away |
+| Music player: show these controls | Every button, the ring, the times and the view buttons (also under ⋯ → Customize controls) |
 | Profiles | Save all of these settings as a **profile** — on the bridge or as a file — and load it on another round display. *Include sign-ins* also copies your service accounts (keep such a file private). A new display can start with a profile straight away: open the app with `?profile=NAME` at the end of its address, or set `ROUNDREMOTE_PROFILE="NAME"` for `pi/kiosk.sh`. It's applied again whenever you re-save that profile on the bridge. |
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
@@ -573,6 +601,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 
 ## 7. Honest limits
 
+- **Netflix and Disney+** have no public API. The tiles show what the TV reports: full titles and episodes on an Apple TV, what the app casts on a Chromecast, and only the app's name on a Google TV. They can open the app, but can't search or start a particular title.
 - **Google Home** has no public web API for listing or directly controlling your devices, so the Google Home tile works through Google Assistant commands. For device-by-device control, the same devices usually have a Home Assistant integration (or can be shared to Home Assistant over Matter).
 - **Movies & TV control depends on the app on the TV.**
   - Plex: the Plex app must allow remote control ("Advertise as player", on by default in Plex for Android/Google TV, Apple TV and Plex HTPC). The Plex web app in a browser can't be controlled.
@@ -595,9 +624,9 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ```
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
-js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts), profiles (settings profiles)
-js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; homeassistant.js / googlehome.js are the Home services
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library), ha-controls (Home Assistant tiles & round controls)
+js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts), profiles (settings profiles), languages (subtitle languages)
+js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; streaming.js = Netflix / Disney+ / YouTube; homeassistant.js / googlehome.js are the Home services
+js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library) + media-views (the 9 library views), ha-controls (Home Assistant tiles & round controls)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), panels, connect, settings
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, airplay, cider, mpris, winmedia, mock) + settings profiles

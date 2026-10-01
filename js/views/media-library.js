@@ -6,6 +6,7 @@ import { openPanel, curve, spinner, emptyNote, toast } from '../ui/overlay.js';
 import { createKeyboard, wantsKeyboard } from '../ui/keyboard.js';
 import { store } from '../core/store.js';
 import { fmtTime, debounce } from '../core/util.js';
+import { createItemsView, LIB_VIEWS } from './media-views.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 const TYPE_ICON = { movie: 'film', show: 'tv', season: 'tv', episode: 'play', collection: 'stack', folder: 'library' };
@@ -70,18 +71,21 @@ export function openMediaSearch(provider, onPick) {
 /**
  * @param {{ provider, onPlayed?:Function, onNeedDevice?:Function }} opts
  */
-export function createMediaLibrary({ provider, onPlayed, onNeedDevice }) {
+export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext }) {
   const titleEl = h('div.mlib-title');
   const backBtn = iconBtn('back', 'Back', () => pop(), 'mlib-back small');
   const searchBtn = iconBtn('search', 'Search', () => openMediaSearch(provider, (e) => openDetail(e)), 'mlib-search small');
+  const viewBtn = iconBtn('apps', 'Library view', () => pickView(), 'mlib-view small');
   const pages = h('div.mlib-pages');
-  const el = h('div.mlib', h('div.mlib-head', backBtn, titleEl, searchBtn), pages);
+  const el = h('div.mlib', h('div.mlib-head', backBtn, titleEl, viewBtn, searchBtn), pages);
   const stack = [];
 
   function show() {
     const top = stack[stack.length - 1];
     [...pages.children].forEach((c) => { c.hidden = c !== top.el; });
     titleEl.textContent = top.title || '';
+    el.dataset.view = top.view || 'detail';
+    onContext?.(top.ctx || null);   // what this page is about (for the content-aware backgrounds)
     backBtn.style.visibility = stack.length > 1 ? 'visible' : 'hidden';
   }
   function push(page) { stack.push(page); pages.append(page.el); show(); }
@@ -90,27 +94,53 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice }) {
     const p = stack.pop(); p.el.remove(); p.destroy?.(); show();
   }
 
-  // ---------- list pages ----------
+  // ---------- list pages (drawn in the chosen library view) ----------
   function openNode(node, title = '') {
-    const list = h('div.list.mlib-list');
-    const page = { el: list, title };
+    const view = node.kind === 'root' ? 'list' : (store.get('mediaLibView') || 'list');
+    let start = 0, busy = false, done = false;
+    const v = createItemsView(view, { onPick: pick, onNeedMore: () => load(), row: mediaRow });
+    const page = { el: v.el, title, view, node, destroy: () => v.destroy() };
     push(page);
-    curve(list);
-    let start = 0;
-    const load = async () => {
-      const more = list.querySelector('.mlib-more'); more?.remove();
-      if (!start) list.append(spinner());
+    async function load() {
+      if (busy || done) return;
+      busy = true;
+      if (!start) v.loading(true);
       try {
         const res = await provider.browse(node, { start });
-        list.querySelector('.loading')?.remove();
-        if (!start && res.title && !title) { page.title = res.title; show(); }
-        if (!start && !res.items.length) { list.append(emptyNote(store.get('mediaHideWatched') ? 'Nothing unwatched here' : 'Nothing here')); return; }
-        for (const e of res.items) list.append(mediaRow(e, pick));
+        v.loading(false);
+        if (!start && res.title && !title) { page.title = res.title; if (stack[stack.length - 1] === page) show(); }
+        if (!start && !res.items.length) { v.empty(res.emptyText || (store.get('mediaHideWatched') ? 'Nothing unwatched here' : 'Nothing here')); done = true; return; }
+        v.add(res.items);
         start += res.items.length;
-        if (res.more) list.append(h('button.pill.mlib-more', { type: 'button', onclick: (ev) => { ev.stopPropagation(); load(); } }, 'Load more'));
-      } catch (e) { list.querySelector('.loading')?.remove(); list.append(emptyNote(errMsg(e), { label: 'Retry', onClick: () => { clear(list); start = 0; load(); } })); }
-    };
+        done = !res.more;
+        v.setMore(!!res.more);
+        if (!page.ctx) {
+          page.ctx = res.items.find((x) => x.type !== 'folder' && (x.backdrop || x.poster)) || null;
+          if (stack[stack.length - 1] === page) onContext?.(page.ctx);
+        }
+        // the honeycomb is one shape, so it loads everything (up to 400)
+        if (view === 'watch' && res.more && start < 400) setTimeout(() => load(), 0);
+      } catch (e) { v.loading(false); v.error(errMsg(e), () => { busy = false; load(); }); }
+      finally { busy = false; }
+    }
     load();
+  }
+  function pickView() {
+    openPanel({
+      title: 'Library view', className: 'opts-panel.libview-panel',
+      build(body, panel) {
+        const grid = h('div.libview-grid');
+        for (const v of LIB_VIEWS) {
+          grid.append(h(`button.libview-opt${(store.get('mediaLibView') || 'list') === v.id ? '.on' : ''}`, { type: 'button', onclick: (e) => {
+            e.stopPropagation(); store.set('mediaLibView', v.id); panel.close();
+            // redraw the page you're on in the new view
+            const top = stack[stack.length - 1];
+            if (top?.node && top.node.kind !== 'root') { stack.pop(); top.el.remove(); top.destroy?.(); openNode(top.node, top.title); }
+          } }, h(`span.lv-ic.lv-${v.id}`), h('span', v.name)));
+        }
+        body.append(grid);
+      },
+    });
   }
   function pick(e) {
     if (e.type === 'folder') return openNode(e.node, e.title);
@@ -120,10 +150,14 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice }) {
   // ---------- details ----------
   function openDetail(entry) {
     const box = h('div.list.mdet');
-    const page = { el: box, title: KIND[entry.type] || '' };
+    const page = { el: box, title: KIND[entry.type] || '', view: 'detail', ctx: entry };
     push(page);
     box.append(spinner());
-    provider.details(entry).then((d) => renderDetail(box, d)).catch((e) => { clear(box); box.append(emptyNote(errMsg(e))); });
+    provider.details(entry).then((d) => {
+      renderDetail(box, d);
+      page.ctx = d;
+      if (stack[stack.length - 1] === page) onContext?.(d);
+    }).catch((e) => { clear(box); box.append(emptyNote(errMsg(e))); });
   }
   async function play(d, fromStart) {
     try {
@@ -159,6 +193,9 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice }) {
         catch (err) { toast(errMsg(err), { kind: 'error' }); }
       };
       actions.append(w);
+    }
+    if (provider.searchSubtitles && ['movie', 'episode'].includes(d.type)) {
+      actions.append(h('button.pill', { type: 'button', onclick: (e) => { e.stopPropagation(); import('../screens/media-panels.js').then((m) => m.openSubtitleSearch(d)); } }, 'Subtitles'));
     }
     const summary = h(`div.mdet-summary${spoiler ? '.spoiler' : ''}`, d.summary || '');
     if (spoiler) summary.onclick = (e) => { e.stopPropagation(); summary.classList.remove('spoiler'); };

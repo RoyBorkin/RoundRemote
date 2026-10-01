@@ -268,6 +268,28 @@ export class JellyfinMediaProvider extends JellyfinProvider {
   setStream(kind, id) {
     return kind === 'audio' ? this._general('SetAudioStreamIndex', { Index: String(id) }) : this._general('SetSubtitleStreamIndex', { Index: String(id ?? -1) });
   }
+  // ---------- subtitles from the internet (Jellyfin's subtitle providers, e.g. the OpenSubtitles plugin) ----------
+  async searchSubtitles(entry, lang) {
+    const id = entry.itemId || entry.id;
+    let list;
+    try { list = await this.api(`/Items/${id}/RemoteSearch/Subtitles/${lang.iso3}`); }
+    catch (e) { throw Object.assign(e, { userMessage: e.status === 403 ? 'Your Jellyfin user isn’t allowed to manage subtitles' : 'Subtitle search failed — is a subtitle plugin (e.g. OpenSubtitles) installed in Jellyfin?' }); }
+    return (list || []).map((s) => ({
+      id: s.Id, name: s.Name || 'Subtitles', provider: s.ProviderName || '', format: (s.Format || '').toUpperCase(),
+      score: s.CommunityRating != null ? Math.round(s.CommunityRating * 10) / 10 : null, downloads: s.DownloadCount ?? null,
+      hi: !!s.HearingImpaired, forced: !!s.Forced, perfect: !!s.IsHashMatch,
+    }));
+  }
+  async downloadSubtitle(entry, result) {
+    const id = entry.itemId || entry.id;
+    await this.api(`/Items/${id}/RemoteSearch/Subtitles/${encodeURIComponent(result.id)}`, { method: 'POST' });
+    this.cache.delete(`det|${id}`);
+  }
+  async subtitleTracks(entry) {
+    const id = entry.itemId || entry.id;
+    this.cache.delete(`det|${id}`);
+    return (await this.details({ id })).streams.subs;
+  }
   async markWatched(entry, on = true) {
     await this.api(`/Users/${this.uid}/PlayedItems/${entry.id}`, { method: on ? 'POST' : 'DELETE' });
     this.cache.clear();

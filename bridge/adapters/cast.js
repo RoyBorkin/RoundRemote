@@ -31,7 +31,7 @@ export function create({ hub, setStatus }) {
     } : null;
     hub.upsert('cast', d.id, {
       name: d.name, model: d.model,
-      sourceApp: d.app?.displayName || '',
+      sourceApp: d.app?.displayName || d.running?.displayName || '',
       state: {
         track: hasMedia ? {
           id: d.media.contentId || md.title || '',
@@ -39,7 +39,7 @@ export function create({ hub, setStatus }) {
           artist: media?.show ? `S${media.season ?? '?'} · E${media.episode ?? '?'} · ${media.title}` : md.artist || md.albumArtist || md.subtitle || d.app?.displayName || '',
           album: md.albumName || '', durationMs: (d.media.duration || 0) * 1000, art: md.images?.[0]?.url || '',
           ...(media ? { media, notSong: true } : {}),
-        } : null,
+        } : d.running ? { id: d.running.appId, title: d.running.displayName || 'Casting', artist: d.running.statusText && d.running.statusText !== d.running.displayName ? d.running.statusText : d.name, album: '', durationMs: 0, art: '', notSong: true } : null,
         isPlaying: s.playerState === 'PLAYING' || s.playerState === 'BUFFERING',
         progressMs: (s.currentTime || 0) * 1000,
         volume: d.volume != null ? Math.round(d.volume * 100) : null, muted: !!d.muted,
@@ -69,6 +69,7 @@ export function create({ hub, setStatus }) {
     if (status.volume) { d.volume = status.volume.level; d.muted = status.volume.muted; }
     const app = (status.applications || []).find((a) => !BACKDROP.includes(a.appId) && (a.namespaces || []).some((n) => n.name === MEDIA_NS));
     d.app = app || null;
+    d.running = (status.applications || []).find((a) => !BACKDROP.includes(a.appId)) || null;   // e.g. Netflix, which may not use the media channel
     if (app) join(d, app);
     else { d.player = null; d.sessionId = null; d.media = null; d.status = null; }
     publish(d);

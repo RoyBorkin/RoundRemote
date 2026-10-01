@@ -118,6 +118,39 @@ export async function search(q, { music = false, max = 15 } = {}) {
   return [...tracks, ...pls];
 }
 
+// ---------- videos (the YouTube service in Movies & TV) ----------
+const isoMs = (d = '') => { const m = String(d).match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? ((+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0)) * 1000 : 0; };
+const bestThumb = (sn) => sn?.thumbnails?.maxres?.url || sn?.thumbnails?.standard?.url || sn?.thumbnails?.high?.url || thumb(sn);
+const videoEntry = (id, sn) => ({
+  id, type: 'video', title: decode(sn?.title || ''), subtitle: [decode(sn?.channelTitle || sn?.videoOwnerChannelTitle || ''), (sn?.publishedAt || '').slice(0, 4)].filter(Boolean).join(' · '),
+  poster: thumb(sn), backdrop: bestThumb(sn), wide: true, year: parseInt((sn?.publishedAt || '').slice(0, 4), 10) || null,
+});
+export async function videoSearch(q, max = 25) {
+  const d = await data('search', { part: 'snippet', type: 'video', q, maxResults: max });
+  return (d?.items || []).map((it) => videoEntry(it.id.videoId, it.snippet));
+}
+export async function playlistVideos(pl) {
+  if (pl.liked) {
+    const d = await data('videos', { part: 'snippet', myRating: 'like', maxResults: 50 }, { auth: true });
+    return (d?.items || []).map((v) => videoEntry(v.id, v.snippet));
+  }
+  const d = await data('playlistItems', { part: 'snippet,contentDetails', playlistId: pl.id, maxResults: 50 }, { auth: googleSignedIn() });
+  return (d?.items || []).filter((v) => v.snippet?.title !== 'Private video').map((v) => videoEntry(v.contentDetails.videoId, v.snippet));
+}
+export async function videoDetails(id) {
+  const d = await data('videos', { part: 'snippet,contentDetails,statistics', id });
+  const v = d?.items?.[0];
+  if (!v) throw Object.assign(new Error('not found'), { userMessage: 'Video not found' });
+  const e = videoEntry(v.id, v.snippet);
+  const views = +v.statistics?.viewCount || 0;
+  return {
+    ...e, summary: decode(v.snippet.description || '').slice(0, 900), durationMs: isoMs(v.contentDetails?.duration), studio: decode(v.snippet.channelTitle || ''),
+    originallyAvailableAt: (v.snippet.publishedAt || '').slice(0, 10), genres: (v.snippet.tags || []).slice(0, 4),
+    tagline: views ? `${views.toLocaleString()} views${v.statistics?.likeCount ? ` · ${(+v.statistics.likeCount).toLocaleString()} likes` : ''}` : '',
+    backdrops: [e.backdrop], cast: [], directors: [], writers: [],
+  };
+}
+
 export async function myPlaylists() {
   const d = await data('playlists', { part: 'snippet,contentDetails', mine: 'true', maxResults: 50 }, { auth: true });
   return [

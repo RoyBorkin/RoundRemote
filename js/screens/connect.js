@@ -20,6 +20,9 @@ const BRIDGE_TIPS = {
   airplay: 'Install shairport-sync on the Pi (pi/setup.sh does it). Then pick “Round Display” as the AirPlay speaker on your phone or Mac.',
   androidtv: 'Google TV / Android TV: pair once with the code the TV shows.',
   appletv: 'Apple TV: pair once with the code the TV shows.',
+  netflix: 'Follows Netflix on a Google TV or Apple TV you’ve paired (Media → Google TV / Apple TV), or cast to a Chromecast. Pick the TV under Devices.',
+  disney: 'Follows Disney+ on a Google TV or Apple TV you’ve paired (Media → Google TV / Apple TV), or cast to a Chromecast. Pick the TV under Devices.',
+  ytvideo: 'Plays on YouTube on your TV (link it under YouTube → “YouTube on your TV”), a Google TV or an Apple TV. Search needs a YouTube Data API key (Settings → Service keys).',
   castvideo: 'Chromecasts and Google TVs on the same network appear automatically. Cast a movie or show from any app (Netflix, Disney+, Plex, YouTube…).',
   upnp: 'UPnP/DLNA renderers on the same network appear automatically.',
   tidal: 'Play TIDAL through Roon, cast it from the TIDAL app, or send it to a UPnP renderer / AirPlay — this tile follows it.',
@@ -378,7 +381,7 @@ export function ConnectScreen({ id }) {
   }
 
   async function renderBridge() {
-    const adapter = ['tidal', 'qobuz'].includes(id) ? null : adapterOf(svc);
+    const adapter = ['tidal', 'qobuz'].includes(id) || svc.adapters ? null : adapterOf(svc);
     body.append(h('div.note', BRIDGE_TIPS[id] || ''), status);
     setStatus('Looking for the bridge…');
     const bf = field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto (http://localhost:8765)', onChange: async (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); await bridgeBase({ force: true }); render(); } });

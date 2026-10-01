@@ -7,12 +7,13 @@ import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { mediaFacts } from '../core/mediainfo.js';
 import { mediaRow, castStrip, runtimeOf } from '../views/media-library.js';
-import { chips, toggle, stepper } from './panels.js';
+import { chips, toggle, stepper, openCustomizeControls } from './panels.js';
+import { SUB_LANGS, langById, preferredSubLangs } from '../core/languages.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 export const MEDIA_BGS = [
   { id: 'poster', name: 'Poster' }, { id: 'backdrop', name: 'Photo' }, { id: 'blur', name: 'Blurred' },
-  { id: 'black', name: 'Black' }, { id: 'slides', name: 'Slideshow' },
+  { id: 'black', name: 'Black' }, { id: 'slides', name: 'Slideshow' }, { id: 'aware', name: 'Content aware' }, { id: 'aurora', name: 'Moving colours' },
 ];
 
 /** Details of what's playing: the provider's full details when it has them, else the now-playing fields. */
@@ -142,6 +143,8 @@ export function openMediaTracks() {
         if (audio.length) body.append(h('div.opt', h('div.opt-label', 'Audio'), chips(audio.map((s) => ({ id: s.id, name: s.name })), curA, (id) => set('audio', id))));
         body.append(h('div.opt', h('div.opt-label', 'Subtitles'), chips([{ id: 'off', name: 'Off' }, ...subs.map((s) => ({ id: s.id, name: s.name }))], curS, (id) => set('subs', id === 'off' ? null : id))));
         if (!audio.length && !subs.length) body.append(emptyNote('No other audio or subtitle tracks'));
+        const m = player.state.track?.media;
+        if (player.provider.searchSubtitles && m?.itemId) body.append(h('div.chips', h('button.pill.small', { type: 'button', onclick: (e) => { e.stopPropagation(); openSubtitleSearch({ id: m.itemId, itemId: m.itemId, title: m.title }, { playing: true }); } }, '🔍 Find subtitles online')));
       }).catch((e) => { clear(body); body.append(emptyNote(errMsg(e))); });
     },
   });
@@ -159,6 +162,7 @@ export function openMediaOptions({ onRemote } = {}) {
         toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),
       );
       const row = h('div.chips');
+      row.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); panel.close(); openCustomizeControls('media'); } }, 'Customize controls'));
       if (c.remote && onRemote) row.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); panel.close(); onRemote(); } }, 'TV remote'));
       if (c.stop) row.append(h('button.chip', { type: 'button', onclick: async (e) => { e.stopPropagation(); panel.close(); try { await player.provider.stopPlayback(); toast('Stopped'); } catch (err) { toast(errMsg(err), { kind: 'error' }); } } }, 'Stop playback'));
       const m = player.state.track?.media;
@@ -215,6 +219,70 @@ export function openMediaEpisodes() {
         showSeason(ss.find((s) => s.index === m.season) || ss[0]);
         setTimeout(() => seasons.querySelector('.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 60);
       }).catch((err) => { clear(list).append(emptyNote(errMsg(err))); });
+    },
+  });
+}
+
+/**
+ * Search the internet for subtitles in a language (the server's own subtitle providers — Plex: OpenSubtitles,
+ * Jellyfin: its subtitle plugins), download one, and switch to it when it's for what's playing.
+ */
+export function openSubtitleSearch(entry, { playing = false } = {}) {
+  const p = player.provider?.searchSubtitles ? player.provider : null;
+  if (!p) return toast('This service can’t search subtitles');
+  openPanel({
+    title: 'Find subtitles', className: 'list-panel.media-panel.sub-search',
+    build(body, panel) {
+      const langsRow = h('div.ep-seasons.sub-langs');
+      const list = h('div.list');
+      body.append(langsRow, list);
+      curve(list);
+      let showAll = false, current = null, seq = 0;
+      const fav = preferredSubLangs(store.get('mediaSubLangs'));
+      const paintLangs = () => {
+        clear(langsRow);
+        const langs = showAll ? SUB_LANGS : fav.map(langById);
+        for (const l of langs) langsRow.append(h(`button.chip${current?.id === l.id ? '.on' : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); search(l); } }, l.name));
+        if (!showAll) langsRow.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); showAll = true; paintLangs(); } }, 'More…'));
+      };
+      const search = async (lang) => {
+        current = lang; paintLangs();
+        const my = ++seq;
+        clear(list).append(spinner(`Searching ${lang.en || lang.name} subtitles…`));
+        try {
+          const res = await p.searchSubtitles(entry, lang);
+          if (my !== seq) return;
+          clear(list);
+          if (!res.length) { list.append(emptyNote(`No ${lang.en || lang.name} subtitles found`)); return; }
+          res.sort((a, b) => (b.perfect - a.perfect) || ((b.score ?? 0) - (a.score ?? 0)) || ((b.downloads ?? 0) - (a.downloads ?? 0)));
+          for (const r of res.slice(0, 40)) {
+            const sub = [r.provider, r.format, r.score != null ? `★ ${r.score}` : '', r.downloads != null ? `↓ ${r.downloads}` : '', r.hi ? 'SDH' : '', r.forced ? 'Forced' : '', r.perfect ? '✓ exact match' : ''].filter(Boolean).join(' · ');
+            list.append(listRow({ title: r.name, subtitle: sub, mono: lang.id.toUpperCase(), onClick: () => download(r, lang) }));
+          }
+        } catch (e) { if (my === seq) clear(list).append(emptyNote(errMsg(e))); }
+      };
+      const download = async (r, lang) => {
+        let before = [];
+        try { before = (await p.subtitleTracks(entry)).map((x) => x.id); } catch {}
+        toast('Downloading subtitles…');
+        panel.close();
+        try { await p.downloadSubtitle(entry, r); } catch (e) { toast(errMsg(e), { kind: 'error' }); return; }
+        // the server fetches it in the background: wait for the new track to show up
+        for (let i = 0; i < 10; i++) {
+          await new Promise((res) => setTimeout(res, 1500));
+          let now = [];
+          try { now = await p.subtitleTracks(entry); } catch { continue; }
+          const added = now.find((x) => !before.includes(x.id));
+          if (!added) continue;
+          if (playing && store.get('mediaSubAuto') !== false && p.setStream) {
+            try { await p.setStream('subs', added.id); toast(`Subtitles on: ${added.name}`); } catch { toast('Subtitles downloaded — pick them in Audio & subtitles'); }
+          } else toast(`Subtitles added: ${added.name}`);
+          return;
+        }
+        toast(`${lang.en || lang.name} subtitles downloaded`);
+      };
+      paintLangs();
+      search(langById(fav[0]));
     },
   });
 }

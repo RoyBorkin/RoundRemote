@@ -10,6 +10,7 @@ import { PlexMediaProvider } from './plex-media.js';
 import { JellyfinMediaProvider } from './jellyfin-media.js';
 import { HomeAssistantService } from './homeassistant.js';
 import { GoogleHomeService } from './googlehome.js';
+import { StreamingProvider, STREAMING_ADAPTERS } from './streaming.js';
 
 // section: 'media' = Movies & shows (the home screen's Media side); everything else is music.
 // signIn: shares the sign-in of another tile · bridgeAdapter: the bridge adapter behind a bridge tile (default: its id)
@@ -74,6 +75,15 @@ export const SERVICES = [
   { id: 'appletv', section: 'media', name: 'AirPlay · Apple TV', short: 'Apple TV', mono: 'tv', icon: 'appletv', color: '#e5e7eb', kind: 'bridge',
     blurb: 'Apple TV (and what is AirPlayed to it): the movie or show playing in any app, progress, skip, volume, a D-pad remote and your apps. Pairs once with a code on the TV.',
     make: (m) => new BridgeProvider(m, { adapter: 'appletv' }) },
+  { id: 'netflix', section: 'media', adapters: STREAMING_ADAPTERS, name: 'Netflix', mono: 'N', icon: 'netflix', color: '#e50914', kind: 'bridge',
+    blurb: 'Netflix on your TV: what’s playing (on Apple TV and Chromecast), the remote, and opening Netflix on a Google TV or Apple TV.',
+    make: (m) => new StreamingProvider(m, { app: 'netflix' }) },
+  { id: 'disney', section: 'media', adapters: STREAMING_ADAPTERS, name: 'Disney+', mono: 'D+', icon: 'disneyplus', color: '#2c6bff', kind: 'bridge',
+    blurb: 'Disney+ on your TV: the title, season and episode (on Apple TV and Chromecast), the remote, and opening Disney+ on a Google TV or Apple TV.',
+    make: (m) => new StreamingProvider(m, { app: 'disney' }) },
+  { id: 'ytvideo', section: 'media', adapters: STREAMING_ADAPTERS, name: 'YouTube', mono: 'YT', icon: 'youtube', color: '#ff0033', kind: 'bridge',
+    blurb: 'YouTube on your TV: search YouTube and your playlists, play videos on the TV (YouTube on your TV, Google TV or Apple TV), with the remote.',
+    make: (m) => new StreamingProvider(m, { app: 'youtube' }) },
   { id: 'androidtv', section: 'media', remote: true, name: 'Google TV', short: 'Google TV', mono: 'TV', glyph: 'tv', color: '#4285f4', kind: 'bridge',
     blurb: 'A remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): D-pad, Back, Home, power, volume, play/pause and your apps. Pairs once with a code on the TV.',
     make: (m) => new BridgeProvider(m, { adapter: 'androidtv' }) },
@@ -100,4 +110,6 @@ export function provider(id) {
 }
 export const inSection = (svc, section) => (svc.section || 'music') === section;
 export const adapterOf = (svc) => svc.bridgeAdapter || svc.id;
+/** Bridge adapters a tile needs (any one enabled is enough). */
+export const adaptersOf = (svc) => svc.adapters || (svc.id === 'computer' ? ['cider', 'winmedia', 'mpris'] : [adapterOf(svc)]);
 export function allProviders() { return SERVICES.map((s) => provider(s.id)); }

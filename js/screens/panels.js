@@ -322,6 +322,7 @@ export function openMore(view = 'info') {
           h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); player.seekBy(-15000); } }, '−15s'),
           h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); player.seekBy(15000); } }, '+15s'))));
       }
+      body.append(h('div.chips', h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); openCustomizeControls('player'); } }, 'Customize controls')));
       if (view === 'vinyl') {
         body.append(h('div.opt', h('div.opt-label', 'Record speed (spin + scratch)'), chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))));
       }
@@ -409,5 +410,42 @@ export function openTvRemote() {
   openPanel({
     title: 'TV remote', className: 'tv-panel',
     build(body, panel) { panel.onDestroy = buildTvRemote(body); },
+  });
+}
+
+// ---------------------------------------------------------------- show / hide parts of the controls
+export const PLAYER_PARTS = [
+  ['ring', 'Progress ring'], ['home', 'Services button'], ['playlists', 'Playlists button'], ['search', 'Search button'],
+  ['devices', 'Devices button'], ['volume', 'Volume button'], ['more', 'Options button (⋯)'], ['prev', 'Previous'], ['play', 'Play / pause'],
+  ['next', 'Next'], ['times', 'Time passed & length'], ['views', 'View buttons'],
+];
+export const MEDIA_PARTS = [
+  ['ring', 'Progress ring'], ['tabs', 'Now playing / Library tabs'], ['home', 'Home button'], ['devices', 'Devices button'],
+  ['pill', 'Service & device line'], ['volume', 'Volume button'], ['options', 'Options button (⋯)'], ['kicker', 'Season · episode / year line'],
+  ['title', 'Title'], ['subtitle', 'Episode title / tagline'], ['elapsed', 'Time passed'], ['remaining', 'Time left'], ['play', 'Play / pause'],
+];
+/** Toggles for a hide-list setting (key = 'playerHide' | 'mediaHide'). */
+export function partToggles(key, parts) {
+  const hidden = () => store.get(key) || [];
+  return parts.map(([id, label]) => toggle(label, () => !hidden().includes(id), (on) => store.set(key, on ? hidden().filter((x) => x !== id) : [...hidden(), id])));
+}
+export function openCustomizeControls(kind = 'player') {
+  openPanel({
+    title: 'Customize controls', className: 'opts-panel.customize-panel',
+    build(body) {
+      const list = h('div.list.customize-list');
+      body.append(list);
+      if (kind === 'media') {
+        list.append(h('div.opt-hint', 'Show on the Now playing screen'), ...partToggles('mediaHide', MEDIA_PARTS),
+          ...[['mediaEndsAt', '“Ends at” time'], ['mediaSkip', 'Skip back / forward'], ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes'], ['mediaInfo', 'Info'],
+            ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'More like this'], ['mediaCollection', 'Collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop']]
+            .map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
+          h('div.opt-hint', 'Hid the ⋯ button? Hold anywhere on an empty part of the screen to get back here.'));
+      } else {
+        list.append(h('div.opt-hint', 'Show on the player'), ...partToggles('playerHide', PLAYER_PARTS),
+          toggle('Service & device line', () => store.get('showDevicePill') !== false, (v) => store.set('showDevicePill', v)),
+          h('div.opt-hint', 'Hid the ⋯ button? Hold anywhere on the middle of the screen to get back here.'));
+      }
+    },
   });
 }

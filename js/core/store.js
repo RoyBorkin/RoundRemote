@@ -71,6 +71,8 @@ export const DEFAULTS = Object.freeze({
   mediaResume: 'resume',       // play from the library: resume | start | ask
   mediaSubLangs: [],           // preferred subtitle languages for the online search (ISO 639-1), [] = this browser's + English
   mediaSubAuto: true,          // switch to downloaded subtitles straight away
+  mediaSkipPop: true,          // "Skip intro" / "Skip credits" button while the TV shows one (Plex, Jellyfin)
+  mediaAutoSkip: false,        // skip intros and recaps by themselves
   // Home (smart home)
   haUrl: '',                   // Home Assistant address, e.g. http://homeassistant.local:8123
   haFavorites: [],             // entity ids on the Favourites tab (empty = suggestions)

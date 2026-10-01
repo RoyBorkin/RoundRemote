@@ -105,6 +105,8 @@ export function SettingsScreen() {
     h('div.opt-hint', 'While watching'),
     toggle('Auto-hide controls', () => store.get('mediaAutoHide'), (v) => store.set('mediaAutoHide', v)),
     toggle('“Ends at” time', () => store.get('mediaEndsAt'), (v) => store.set('mediaEndsAt', v)),
+    toggle('“Skip intro” / “Skip credits” button', () => store.get('mediaSkipPop') !== false, (v) => store.set('mediaSkipPop', v)),
+    toggle('Skip intros & recaps automatically', () => !!store.get('mediaAutoSkip'), (v) => store.set('mediaAutoSkip', v)),
     toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),
     toggle('Clock when hidden', () => store.get('mediaClock'), (v) => store.set('mediaClock', v)),
     toggle('Fun facts when hidden', () => store.get('mediaIdleFacts'), (v) => store.set('mediaIdleFacts', v)),

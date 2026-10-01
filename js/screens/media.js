@@ -156,7 +156,10 @@ export function MediaScreen() {
   const libBox = h('div.m-lib');
   const chrome = h('div.chrome.m-chrome', tabs, btnHome, btnDev, pill, btnVol, btnMore, meta, times, controls, funcs, cta);
   const bubble = h('div.scrub-bubble', h('div.sb-time'), h('div.sb-rem'));
-  const el = h('div.media', bg, hud, clock, idleFact, libBox, chrome, ring, bubble);
+  // "Skip intro" / "Skip credits": pops up here while the TV shows its own button (Plex markers, Jellyfin media segments)
+  const skipPop = h('button.m-skippop', { type: 'button', 'aria-live': 'polite', onclick: (e) => { e.stopPropagation(); doSkip(); } },
+    h('span.msp-fill'), h('span.msp-icon'), h('span.msp-label'));
+  const el = h('div.media', bg, hud, clock, idleFact, libBox, chrome, ring, bubble, skipPop);
   el.classList.toggle('has-lib', !!caps().library);
 
   // ---------- tabs ----------
@@ -173,6 +176,7 @@ export function MediaScreen() {
     if (t === tab && !(t === 'lib' && library)) { if (t === 'lib') library?.home(); }
     tab = t;
     el.dataset.tab = t;
+    lastSec = -1;   // re-check the skip button now
     tabNow.classList.toggle('on', t === 'now'); tabLib.classList.toggle('on', t === 'lib');
     if (t === 'lib') lib();
     refreshBgIfChanged();
@@ -201,6 +205,7 @@ export function MediaScreen() {
     drawRing(ms);
   };
   el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest?.('.m-skippop')) return;   // skipping shouldn't bring the controls back
     wasHidden = el.classList.contains('chrome-hidden');
     showChrome();
     if (tab !== 'now' || !caps().seek || !player.state.track || !player.duration()) return;
@@ -264,6 +269,61 @@ export function MediaScreen() {
     }
     if (store.get('mediaIdleFacts')) mediaFacts(d).then((f) => { if (key === detailsKey) { facts = f; factI = 0; } }).catch(() => {});
     renderFuncs();
+  }
+
+  // ---------- skip intro / credits ----------
+  let markers = [], markersKey, curMarker = null;
+  const skipped = new Set(), autoSkipped = new Set();
+  const SKIP_LABEL = { intro: 'Skip intro', recap: 'Skip recap', credits: 'Skip credits', preview: 'Skip preview', ad: 'Skip ad' };
+  const mkey = (mk) => `${markersKey}|${mk.kind}|${mk.startMs}`;
+  async function loadMarkers() {
+    const id = player.state.track?.media?.itemId || null;
+    if (id === markersKey) return;
+    markersKey = id; markers = []; paintSkip(null);
+    if (!id || !prov.markers) return;
+    try { const list = await prov.markers(id); if (markersKey === id) { markers = list || []; lastSec = -1; } } catch {}
+  }
+  /** What the button does: credits at the very end of an episode → next episode (like the TV), otherwise jump past. */
+  function skipAction(mk) {
+    const dur = player.duration();
+    const atEnd = mk.final || (dur && mk.endMs >= dur - 20000);
+    const nextEp = mk.kind === 'credits' && atEnd && player.state.track?.media?.type === 'episode' && caps().next && caps().adjacent;
+    return nextEp ? { next: true, label: 'Next episode', icon: 'next' } : { next: false, label: SKIP_LABEL[mk.kind] || 'Skip', icon: 'skip' };
+  }
+  function paintSkip(mk) {
+    if (mk === curMarker && mk) return;
+    curMarker = mk;
+    el.classList.toggle('skip-on', !!mk);
+    if (!mk) { skipPop.classList.remove('on'); return; }
+    const a = skipAction(mk);
+    skipPop.querySelector('.msp-label').textContent = a.label;
+    skipPop.querySelector('.msp-icon').innerHTML = icon(a.icon);
+    skipPop.setAttribute('aria-label', a.label);
+    skipPop.classList.remove('on'); void skipPop.offsetWidth; skipPop.classList.add('on');
+    navigator.vibrate?.(12);
+  }
+  async function doSkip(auto = false) {
+    const mk = curMarker;
+    if (!mk) return;
+    const k = mkey(mk), a = skipAction(mk);
+    skipped.add(k); paintSkip(null);
+    try {
+      if (a.next) await player.next();
+      else await player.seek(Math.min(mk.endMs + 250, Math.max(0, (player.duration() || Infinity) - 1000)));
+      if (auto) toast(a.label.replace(/^Skip /, 'Skipped '));
+    } catch (e) { skipped.delete(k); toast(e?.userMessage || e?.message || 'Couldn’t skip', { kind: 'error' }); }
+  }
+  /** Called every second with the position: show / hide the button, auto-skip intros and recaps if asked. */
+  function tickSkip(pos) {
+    const mk = markers.length && player.state.track && caps().seek && !ringDrag
+      ? markers.find((m) => pos >= m.startMs - 300 && pos < m.endMs - 1500) || null : null;
+    for (const k of [...skipped]) if (!mk || mkey(mk) !== k) skipped.delete(k);   // left the part: the button can come back
+    if (mk && store.get('mediaAutoSkip') && ['intro', 'recap'].includes(mk.kind) && player.state.isPlaying && !autoSkipped.has(mkey(mk))) {
+      autoSkipped.add(mkey(mk)); curMarker = mk; doSkip(true); return;
+    }
+    const show = mk && tab === 'now' && store.get('mediaSkipPop') !== false && !skipped.has(mkey(mk)) ? mk : null;
+    paintSkip(show);
+    if (show) skipPop.style.setProperty('--p', clamp((pos - mk.startMs) / Math.max(1, mk.endMs - mk.startMs), 0, 1).toFixed(3));
   }
 
   // ---------- state → UI ----------
@@ -334,6 +394,7 @@ export function MediaScreen() {
     else if (!t) app.style.setProperty('--accent', svc.color);
     refreshBgIfChanged();
     loadDetails();
+    loadMarkers();
     if (!s.isPlaying) { clearTimeout(hideT); hideT = null; el.classList.remove('chrome-hidden'); }
     else if (!hideT && !el.classList.contains('chrome-hidden')) showChrome();
   }
@@ -357,6 +418,7 @@ export function MediaScreen() {
     ...['mediaHide', 'mediaEpisodes', 'mediaHud', 'mediaClock', 'mediaIdleFacts', 'showDevicePill', 'mediaPrevNext', 'mediaSkip', 'mediaSkipBack', 'mediaSkipFwd',
       'mediaInfo', 'mediaCast', 'mediaFacts', 'mediaSuggest', 'mediaCollection', 'mediaTracks', 'mediaStop', 'mediaEndsAt'].map((k) => store.on(`change:${k}`, applyOpts)),
     store.on('change:mediaBg', () => { bgKey = null; refreshBgIfChanged(); }),
+    store.on('change:mediaSkipPop', () => { lastSec = -1; }),
     store.on('change:mediaSlideSec', () => { bgKey = null; refreshBgIfChanged(); }),
     store.on('change:mediaIdleFacts', () => { detailsKey = null; loadDetails(); }),
     store.on('change:mediaHideWatched', () => { if (library) { library.el.remove(); library = null; if (tab === 'lib') lib(); } }),
@@ -373,6 +435,7 @@ export function MediaScreen() {
     const sec = Math.floor(pos / 1000);
     if (sec === lastSec) return;
     lastSec = sec;
+    tickSkip(pos);
     tCur.textContent = fmtTime(pos);
     tRem.textContent = dur ? `-${fmtTime(Math.max(0, dur - pos))}` : '';
     const ends = dur && store.get('mediaEndsAt') ? `Ends ${timeOfDay(new Date(Date.now() + Math.max(0, dur - pos)))}` : '';

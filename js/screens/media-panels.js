@@ -264,28 +264,55 @@ export function openSubtitleSearch(entry, { playing = false } = {}) {
       };
       const download = async (r, lang) => {
         let before = [];
-        try { before = (await p.subtitleTracks(entry)).map((x) => x.id); } catch {}
+        try { before = await p.subtitleTracks(entry); } catch {}
         toast('Downloading subtitles…');
         panel.close();
         try { await p.downloadSubtitle(entry, r); } catch (e) { toast(errMsg(e), { kind: 'error' }); return; }
         // the server fetches it in the background: wait for the new track to show up
-        for (let i = 0; i < 10; i++) {
-          await new Promise((res) => setTimeout(res, 1500));
-          let now = [];
-          try { now = await p.subtitleTracks(entry); } catch { continue; }
-          const added = now.find((x) => !before.includes(x.id));
-          if (!added) continue;
-          if (playing && store.get('mediaSubAuto') !== false && p.setStream) {
-            try { await p.setStream('subs', added.id); toast(`Subtitles on: ${added.name}`); } catch { toast('Subtitles downloaded — pick them in Audio & subtitles'); }
-          } else toast(`Subtitles added: ${added.name}`);
+        const added = await waitForNewSub(p, entry, before, lang);
+        if (!added) { toast(`${lang.en || lang.name} subtitles downloaded — pick them in Audio & subtitles`); return; }
+        const isPlaying = String(player.state.track?.media?.itemId) === String(entry.itemId || entry.id);
+        if (store.get('mediaSubAuto') === false) { toast(`Subtitles added: ${added.name}`); return; }
+        if (!p.applySubtitle) {
+          if (isPlaying && p.setStream) { try { await p.setStream('subs', added.id); toast(`Subtitles on: ${added.name}`); } catch { toast('Subtitles downloaded — pick them in Audio & subtitles'); } }
+          else toast(`Subtitles added: ${added.name}`);
           return;
         }
-        toast(`${lang.en || lang.name} subtitles downloaded`);
+        if (isPlaying) toast(`Turning on ${added.name}…`);
+        try {
+          const res = await p.applySubtitle(entry, added);
+          if (res.applied) toast(res.reloaded ? `Subtitles on: ${added.name} (the video restarted at the same spot to load them)` : `Subtitles on: ${added.name}`);
+          else if (isPlaying) toast(res.saved ? `${added.name} saved for this video, but the TV app didn’t switch — it will use them when the video starts again` : 'Subtitles downloaded — pick them in Audio & subtitles', { kind: 'error' });
+          else toast(res.saved ? `Subtitles added and chosen for this video: ${added.name}` : `Subtitles added: ${added.name}`);
+        } catch (e) { toast(errMsg(e), { kind: 'error' }); }
       };
       paintLangs();
       search(langById(fav[0]));
     },
   });
+}
+
+// alternative ISO 639-2 codes servers use for the same language
+const ALT3 = { fre: 'fra', ger: 'deu', chi: 'zho', cze: 'ces', dut: 'nld', gre: 'ell', per: 'fas', rum: 'ron' };
+const sameLang = (code, lang) => {
+  const c = String(code || '').toLowerCase();
+  return !!c && (c === lang.id || c === lang.iso3 || c === ALT3[lang.iso3] || c.startsWith(`${lang.id}-`));
+};
+/** Poll the item's subtitle tracks until the downloaded one appears (by its details, not its number — numbers can shift). */
+async function waitForNewSub(p, entry, before, lang) {
+  const sig = (x) => `${x.id}|${x.name}|${x.lang || ''}|${x.external ? 1 : 0}`;
+  const old = new Set(before.map(sig));
+  for (let i = 0; i < 16; i++) {
+    await new Promise((res) => setTimeout(res, 1500));
+    let now = [];
+    try { now = await p.subtitleTracks(entry); } catch { continue; }
+    if (now.length <= before.length) continue;
+    const fresh = now.filter((x) => !old.has(sig(x)));
+    if (!fresh.length) continue;
+    return fresh.find((x) => x.external && sameLang(x.lang, lang)) || fresh.find((x) => x.external)
+      || fresh.find((x) => sameLang(x.lang, lang)) || fresh[fresh.length - 1];
+  }
+  return null;
 }
 
 /** Plex: which ways of reaching the player app work (through the server / straight to it), and the fixes. */

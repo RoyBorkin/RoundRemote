@@ -4,6 +4,7 @@
 import { JellyfinProvider } from './jellyfin.js';
 import { store } from '../core/store.js';
 import { qs, isMixed, lanImage } from '../core/util.js';
+import { positionOf } from './base.js';
 
 const T = 10000; // ticks per ms
 const PAGE = 60;
@@ -113,6 +114,33 @@ export class JellyfinMediaProvider extends JellyfinProvider {
     }, 60000);
   }
   stopPlayback() { return this._playing('Stop'); }
+  /**
+   * Intro / credits / recap / preview / ad segments: Jellyfin 10.10+ media segments (what the Jellyfin TV
+   * apps use for "Skip intro"), or the Intro Skipper plugin on older servers.
+   */
+  async markers(id) {
+    if (!id) return [];
+    return this._cached(`markers|${id}`, async () => {
+      const KIND = { intro: 'intro', introduction: 'intro', outro: 'credits', credits: 'credits', recap: 'recap', preview: 'preview', commercial: 'ad' };
+      const tidy = (list) => list.filter((x) => x.kind && x.endMs > x.startMs).sort((a, b) => a.startMs - b.startMs);
+      try {
+        const r = await this.api(`/MediaSegments/${id}`);
+        const list = tidy((r?.Items || []).map((x) => ({ kind: KIND[String(x.Type).toLowerCase()], startMs: (x.StartTicks || 0) / T, endMs: (x.EndTicks || 0) / T })));
+        if (list.length) return list;
+      } catch {}
+      try {   // Intro Skipper plugin
+        const r = await this.api(`/Episode/${id}/IntroSkipperSegments`);
+        const list = tidy(Object.entries(r || {}).filter(([, v]) => v?.Valid !== false && v?.IntroEnd > 0)
+          .map(([k, v]) => ({ kind: KIND[k.toLowerCase()], startMs: (v.IntroStart || 0) * 1000, endMs: v.IntroEnd * 1000 })));
+        if (list.length) return list;
+      } catch {}
+      try {
+        const v = await this.api(`/Episode/${id}/IntroTimestamps/v1`);
+        if (v?.Valid && v.IntroEnd > 0) return [{ kind: 'intro', startMs: (v.IntroStart || 0) * 1000, endMs: v.IntroEnd * 1000 }];
+      } catch {}
+      return [];
+    }, 10 * 60000);
+  }
 
   // ---------- library ----------
   async _entry(x) {
@@ -200,7 +228,7 @@ export class JellyfinMediaProvider extends JellyfinProvider {
         backdrops: await Promise.all((x.BackdropImageTags || []).slice(0, 8).map((t, i) => this._pic(x.Id, 'Backdrop', { tag: t, index: i, w: 1280, h: 720 }))),
         streams: {
           audio: st.filter((s) => s.Type === 'Audio').map((s) => ({ id: String(s.Index), name: label(s), selected: !!s.IsDefault })),
-          subs: st.filter((s) => s.Type === 'Subtitle').map((s) => ({ id: String(s.Index), name: label(s), selected: !!s.IsDefault })),
+          subs: st.filter((s) => s.Type === 'Subtitle').map((s) => ({ id: String(s.Index), name: label(s), selected: !!s.IsDefault, lang: s.Language || '', external: !!s.IsExternal })),
         },
       };
       if (e.type === 'show' || e.type === 'season' || e.type === 'collection') det.children = (await this.browse({ kind: 'children', id, type: e.type, showId: x.SeriesId })).items;
@@ -289,6 +317,22 @@ export class JellyfinMediaProvider extends JellyfinProvider {
     const id = entry.itemId || entry.id;
     this.cache.delete(`det|${id}`);
     return (await this.details({ id })).streams.subs;
+  }
+  /**
+   * Turn a just-downloaded subtitle on in the TV app. The app only knows the tracks that existed when it
+   * started playing, so "switch subtitles" can't reach the new file: restart at the same spot with it instead.
+   */
+  async applySubtitle(entry, track) {
+    const id = String(entry.itemId || entry.id);
+    if (String(this.state.track?.media?.itemId) !== id) return { applied: false, saved: false };
+    const ps = this.session?.PlayState || {};
+    const pos = Math.max(0, positionOf(this.state) - 3000);
+    await this.api(`/Sessions/${this._s()}/Playing?${qs({
+      playCommand: 'PlayNow', itemIds: id, startPositionTicks: Math.round(pos * T),
+      subtitleStreamIndex: track.id, mediaSourceId: ps.MediaSourceId || undefined,
+    })}`, { method: 'POST' });
+    this.subIndex = +track.id;
+    return { applied: true, reloaded: true, saved: false };
   }
   async markWatched(entry, on = true) {
     await this.api(`/Users/${this.uid}/PlayedItems/${entry.id}`, { method: on ? 'POST' : 'DELETE' });

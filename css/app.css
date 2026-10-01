@@ -1378,6 +1378,20 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 .m-idlefact.in { animation: fact-in .8s var(--ease) both; }
 .media.chrome-hidden.hud-on .m-hud, .media.chrome-hidden.clock-on .m-clock, .media.chrome-hidden.facts-on .m-idlefact:not(:empty) { opacity: 1; }
 .media.chrome-hidden .ring { opacity: .45; }
+/* "Skip intro" / "Skip credits" — pops up while the TV shows its own, also when the controls are hidden */
+.m-skippop { position: absolute; left: 50%; top: 91%; z-index: 11; display: flex; align-items: center; gap: 1.2cqmin; overflow: hidden;
+  padding: 1.5cqmin 3.4cqmin 1.5cqmin 2.6cqmin; border-radius: 99px; font-size: 2.7cqmin; font-weight: 800; letter-spacing: .01em; color: #111;
+  background: rgba(255,255,255,.92); box-shadow: 0 1cqmin 4cqmin rgba(0,0,0,.55); white-space: nowrap;
+  opacity: 0; pointer-events: none; transform: translate(-50%, -50%) translateY(3cqmin) scale(.9); transition: opacity .35s, transform .35s cubic-bezier(.2,1.4,.4,1); }
+.m-skippop.on { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.m-skippop:active { transform: translate(-50%, -50%) scale(.95); }
+.msp-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--p, 0)); background: color-mix(in srgb, var(--accent) 38%, transparent); transition: transform 1s linear; }
+.msp-icon, .msp-label { position: relative; }
+.msp-icon { display: flex; width: 3.2cqmin; height: 3.2cqmin; }
+.msp-icon svg { width: 100%; height: 100%; fill: currentColor; }
+.media[data-tab="lib"] .m-skippop { display: none; }
+.m-hud { transition: opacity .6s, bottom .35s; }
+.media.skip-on .m-hud { bottom: 15.5%; }
 
 /* Library tab */
 .m-lib { position: absolute; inset: 0; z-index: 9; display: none; }

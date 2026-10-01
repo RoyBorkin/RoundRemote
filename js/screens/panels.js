@@ -458,7 +458,7 @@ export function openCustomizeControls(kind = 'player') {
       body.append(list);
       if (kind === 'media') {
         list.append(h('div.opt-hint', 'Show on the Now playing screen'), ...partToggles('mediaHide', MEDIA_PARTS),
-          ...[['mediaEndsAt', '“Ends at” time'], ['mediaSkip', 'Skip back / forward'], ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes'], ['mediaInfo', 'Info'],
+          ...[['mediaEndsAt', '“Ends at” time'], ['mediaSkipPop', '“Skip intro” / “Skip credits”'], ['mediaSkip', 'Skip back / forward'], ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes'], ['mediaInfo', 'Info'],
             ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'More like this'], ['mediaCollection', 'Collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop']]
             .map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
           h('div.opt-hint', 'Hid the ⋯ button? Hold anywhere on an empty part of the screen to get back here.'));

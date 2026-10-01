@@ -508,9 +508,14 @@ The buttons are play/pause, skip back and forward (10 s and 30 s by default), an
 
 Tap a suggestion or a collection title to open its page in the Library tab.
 
+**Skip intro / Skip credits:** when the TV shows *Skip intro*, the app shows it too, at the bottom of Now playing (also while the controls are hidden). A bar inside it fills up until the intro ends. Tap it to jump past the intro, recap, credits or ad. Credits at the end of an episode become **Next episode**.
+- Plex uses its intro and credits markers (Plex Pass: *Skip intro* / *Skip credits* detection in the server settings).
+- Jellyfin uses media segments (Jellyfin 10.10 or newer, with intros detected by a plugin such as *Intro Skipper*). Older servers with the Intro Skipper plugin work too.
+- Settings → Movies & TV can hide the button, or **skip intros & recaps automatically**.
+
 **Subtitles from the internet:** in **Audio & subtitles**, tap **Find subtitles online**. You can also tap **Subtitles** on a movie or episode page in the Library.
 - Pick a language (your languages come first; **More…** shows all of them) and tap a result.
-- The server downloads it, and when it's for what's playing, the app switches to it.
+- The server downloads it, and when it's for what's playing, the app turns it on on the TV. The TV app only knows the subtitle tracks that existed when the video started, so if it doesn't switch by itself, the video restarts at the same spot (3 seconds back) with the new subtitles. Plex also saves them as this video's subtitles, so they're used the next time it plays.
 - Plex uses its built-in subtitle search (OpenSubtitles). Jellyfin needs a subtitle plugin, such as *Open Subtitles*, installed on the server, and your user needs the *subtitle management* permission.
 
 **Customize the controls:** every part of the Now playing screen can be shown or hidden — the ring, tabs, each button, the title lines, times and the function buttons. Use **⋯ → Customize controls** or Settings. If you hide the ⋯ button, hold an empty part of the screen to get back. The music player has the same option (**⋯ → Customize controls**, or hold the middle of the player).
@@ -575,7 +580,7 @@ In the picture views, *Recently added* and *Collections* become chips at the top
 | Movies & TV: background / slideshow speed | Poster, Photo, Blurred, Black or Slideshow; seconds per picture |
 | Movies & TV: skip back / skip forward | 5–30 s back, 10–60 s forward |
 | Movies & TV: buttons | Turn on or off: previous / next episode, skip, info, cast, fun facts, suggestions from your library, more from the collection, audio & subtitles, stop |
-| Movies & TV: while watching | Auto-hide controls, "Ends at" time, title & time left, clock, fun facts while the controls are hidden |
+| Movies & TV: while watching | Auto-hide controls, "Ends at" time, the *Skip intro / Skip credits* button, skip intros & recaps automatically, title & time left, clock, fun facts while the controls are hidden |
 | Movies & TV: library | Play button resumes or starts over; hide what you've watched; no spoilers (blurs summaries and stills of episodes you haven't seen — tap to reveal) |
 | Movies & TV: buttons | Now also *Seasons & episodes list* |
 | Movies & TV: library view | List, Posters, Grid, Cover Flow, Rings, Watch, DVD, Disc, DVD + disc |

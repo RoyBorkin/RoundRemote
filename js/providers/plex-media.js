@@ -14,6 +14,7 @@
 import { PlexProvider } from './plex.js';
 import { store } from '../core/store.js';
 import { qs } from '../core/util.js';
+import { positionOf } from './base.js';
 
 const VIDEO = ['movie', 'episode', 'clip'];
 const LIB_TYPES = ['movie', 'show'];
@@ -113,6 +114,18 @@ export class PlexMediaProvider extends PlexProvider {
     }, 60000);
   }
   stopPlayback() { return this._player('playback/stop'); }
+  /** Intro / credits / ad markers Plex found for this item (the same ones the TV's "Skip intro" uses). */
+  async markers(id) {
+    if (!id) return [];
+    return this._cached(`markers|${id}`, async () => {
+      const d = await this.pms(`/library/metadata/${id}?${qs({ includeMarkers: 1 })}`);
+      const m = d?.MediaContainer?.Metadata?.[0];
+      const kind = { intro: 'intro', credits: 'credits', commercial: 'ad' };
+      return (m?.Marker || []).filter((x) => kind[x.type]).map((x) => ({
+        kind: kind[x.type], startMs: +x.startTimeOffset || 0, endMs: +x.endTimeOffset || 0, final: x.final === true || x.final === 1 || x.final === '1',
+      })).filter((x) => x.endMs > x.startMs);
+    }, 10 * 60000);
+  }
 
   // ---------- library ----------
   _entry(x) {
@@ -209,7 +222,7 @@ export class PlexMediaProvider extends PlexProvider {
         season: x.type === 'episode' ? x.parentIndex : x.type === 'season' ? x.index : null, episode: x.type === 'episode' ? x.index : null,
         showId: x.grandparentRatingKey || (x.type === 'season' ? x.parentRatingKey : null), seasonId: x.parentRatingKey,
         posterShow: this._poster(x.grandparentThumb || x.parentThumb), backdrop: this._backdrop(x.art || x.grandparentArt || x.thumb),
-        streams: this._streamsOf(x),
+        streams: this._streamsOf(x), partId: x.Media?.[0]?.Part?.[0]?.id || null,
       };
       if (x.type === 'show' || x.type === 'season') det.children = (await this.browse({ kind: 'children', id, type: x.type })).items;
       if (x.type === 'collection') det.children = (await this.browse({ kind: 'children', id, type: 'collection' })).items;
@@ -221,7 +234,7 @@ export class PlexMediaProvider extends PlexProvider {
     const label = (s) => s.displayTitle || s.extendedDisplayTitle || s.language || `Track ${s.index}`;
     return {
       audio: st.filter((s) => s.streamType === 2).map((s) => ({ id: String(s.id), name: label(s), selected: !!s.selected })),
-      subs: st.filter((s) => s.streamType === 3).map((s) => ({ id: String(s.id), name: label(s), selected: !!s.selected })),
+      subs: st.filter((s) => s.streamType === 3).map((s) => ({ id: String(s.id), name: label(s), selected: !!s.selected, lang: s.languageTag || s.languageCode || '', external: !!s.key })),
     };
   }
   async related(entry) {
@@ -307,6 +320,31 @@ export class PlexMediaProvider extends PlexProvider {
     const id = entry.itemId || entry.id;
     this.cache.delete(`det|${id}`);
     return (await this.details({ id })).streams.subs;
+  }
+  /**
+   * Turn a (just downloaded) subtitle track on. It's saved as the chosen subtitles for that video on the
+   * server, then switched on in the Plex app; an app that started playing before the file existed doesn't
+   * know it yet, so if it doesn't switch, playback restarts at the same spot with the new subtitles.
+   */
+  async applySubtitle(entry, track) {
+    const id = String(entry.itemId || entry.id);
+    const det = await this.details({ id }).catch(() => null);
+    let saved = false;
+    if (det?.partId) {
+      try { await this.pms(`/library/parts/${det.partId}?${qs({ subtitleStreamID: track.id, allParts: 1 })}`, { method: 'PUT' }); saved = true; } catch {}
+    }
+    if (String(this.state.track?.media?.itemId) !== id) return { applied: false, saved };
+    try {
+      await this.setStream('subs', track.id);
+      await new Promise((r) => setTimeout(r, 2500));
+      await this._pollTimeline();
+      if (String(this.timeline.subtitleStreamID ?? '') === String(track.id)) return { applied: true, saved };
+    } catch {}
+    const pos = positionOf(this.state);
+    try {
+      await this._playQueue({ uri: `server://${this.server.id}/com.plexapp.plugins.library/library/metadata/${id}` }, Math.max(0, pos - 3000));
+      return { applied: true, reloaded: true, saved };
+    } catch { return { applied: false, saved }; }
   }
   async markWatched(entry, on = true) {
     await this.pms(`/:/${on ? 'scrobble' : 'unscrobble'}?${qs({ key: entry.id, identifier: 'com.plexapp.plugins.library' })}`);

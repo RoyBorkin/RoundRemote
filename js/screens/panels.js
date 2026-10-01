@@ -2,7 +2,8 @@
 import { h, iconBtn, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { openPanel, curve, listRow, spinner, emptyNote, toast } from '../ui/overlay.js';
-import { createKeyboard, wantsKeyboard } from '../ui/keyboard.js';
+import { createKeyboard, wantsKeyboard, editText } from '../ui/keyboard.js';
+import { directType, directAssistant } from '../core/tvapp.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, clamp, debounce, throttle } from '../core/util.js';
@@ -104,10 +105,16 @@ export function openDevices() {
       const list = h('div.list');
       body.append(list);
       curve(list);
+      const isTv = ['androidtv', 'appletv'].includes(player.provider?.id);
+      const addTv = () => listRow({
+        title: 'Add a TV…', subtitle: player.provider.id === 'androidtv' ? 'Pair through the bridge, or control it directly' : 'Pair through the bridge', mono: '+',
+        onClick: () => { panel.close(); import('../core/nav.js').then((m) => m.openService(player.provider.id, { forceSetup: true })); },
+      });
       const load = () => {
         clear(list); list.append(spinner('Looking for devices…'));
         player.provider.getDevices().then((devs) => {
           clear(list);
+          if (!devs.length && isTv) { list.append(addTv()); return; }
           if (!devs.length) { list.append(emptyNote('No devices found. Open the music app on a device and try again.', { label: 'Refresh', onClick: load })); return; }
           for (const d of devs) {
             list.append(listRow({
@@ -119,6 +126,7 @@ export function openDevices() {
               },
             }));
           }
+          if (isTv) list.append(addTv());
         }).catch((e) => { clear(list); list.append(emptyNote(errMsg(e), { label: 'Retry', onClick: load })); });
       };
       load();
@@ -384,6 +392,16 @@ export function buildTvRemote(body, { showApps = true } = {}) {
   }
   const ok = hold(h('button.tv-ok', { type: 'button', 'aria-label': 'OK' }, 'OK'), 'ok', false);
   const now = h('div.tv-now');
+  // direct control (TV Remote app on the TV, no bridge): typing and Google Assistant
+  const direct = () => player.provider?.zone?.direct ? player.provider.zone : null;
+  const typeBtn = iconBtn('keyboard', 'Type on the TV', async () => {
+    const z = direct(); if (!z) return;
+    const text = await editText({ title: 'Type on the TV', placeholder: 'Text for the search box on the TV' });
+    if (!text) return;
+    try { const r = await directType(z, text); if (r.skipped) toast(`${r.skipped} character${r.skipped > 1 ? 's' : ''} can’t be typed this way (letters, digits and basic symbols only)`); }
+    catch (e) { toast(errMsg(e), { kind: 'error' }); }
+  }, 'tvk tv-type');
+  const micBtn = iconBtn('mic', 'Google Assistant', () => { const z = direct(); if (z) directAssistant(z).catch((e) => toast(errMsg(e), { kind: 'error' })); }, 'tvk tv-mic');
   body.append(
     svg, ok,
     key('power', 'Power', 'power', 'tv-power'),
@@ -394,11 +412,14 @@ export function buildTvRemote(body, { showApps = true } = {}) {
     key('minus', 'Volume down', 'voldown', 'tv-vdown', true),
     key('play', 'Play / pause', 'playpause', 'tv-pp'),
     key('plus', 'Volume up', 'volup', 'tv-vup', true),
+    typeBtn, micBtn,
     now,
   );
   const paint = (st) => {
     const t = st.track;
-    now.textContent = t ? `${t.media?.show || t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : (st.device ? 'TV off' : 'No TV');
+    const d = direct();
+    now.textContent = t ? `${t.media?.show || t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : d ? 'Direct · no bridge' : (st.device ? 'TV off' : 'No TV');
+    typeBtn.hidden = micBtn.hidden = !d;
     body.querySelector('.tv-mute')?.classList.toggle('on', !!st.muted);
   };
   paint(player.state);

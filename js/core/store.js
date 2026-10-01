@@ -82,6 +82,7 @@ export const DEFAULTS = Object.freeze({
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)
   bridgeKnown: false,          // a bridge was found before → OK to probe for it in the background
+  tvDirect: [],                // Google TVs controlled without the bridge (TV Remote app): [{ host, port, name }]
   spotifyClientId: DEFAULT_SPOTIFY_CLIENT_ID,
   spotifyWebPlayer: true,      // make this display a Spotify Connect speaker (Web Playback SDK)
   youtubeApiKey: '',           // YouTube Data API v3 key: YouTube search + music videos for the Video view

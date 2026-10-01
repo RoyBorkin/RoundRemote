@@ -20,7 +20,8 @@ const stack = [];
 export function openPanel({ title = '', build, onClose, className = '', closeIcon = 'close' }) {
   const body = h('div.panel-body');
   const titleEl = h('div.panel-title', title);
-  const el = h(`div.panel${className ? '.' + className : ''}`, { role: 'dialog', 'aria-label': title },
+  const cls = String(className || '').trim().split(/[\s.]+/).filter(Boolean).join('.');   // 'a b' and 'a.b' both work
+  const el = h(`div.panel${cls ? '.' + cls : ''}`, { role: 'dialog', 'aria-label': title },
     titleEl, body);
   const panel = {
     el, body,

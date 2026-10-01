@@ -137,7 +137,7 @@ Tap one, or swipe sideways to move between Music, Media and Home. Each shows its
 | **Netflix** | Follows Netflix wherever it's on: an **Apple TV** shows the title, series, season and episode; a **Chromecast** shows what Netflix sends; a **Google TV** knows Netflix is open. Adds the remote and **Open Netflix** on a Google TV or Apple TV. (Netflix has no public API, so there's no catalog to browse.) | Needs the bridge |
 | **Disney+** | The same for Disney+. | Needs the bridge |
 | **YouTube** | YouTube on your TV: **Library** searches YouTube and your playlists (YouTube API key / Google sign-in). *Play* sends the video to YouTube on your TV (linked with a TV code), a Google TV or an Apple TV, and you get the remote. | Needs the bridge |
-| **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. | Needs the bridge |
+| **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. **Or skip the bridge** with the free TV Remote app on the TV (remote, apps, typing, Assistant; no now playing). | Bridge, or the TV Remote app on the TV |
 
 ### Home (smart home)
 
@@ -337,6 +337,21 @@ Controls the TV itself, like the Google TV app on a phone. Works with anything r
 The screen is the remote: a round D-pad with OK around the middle, Back and Home on the sides, Power, Mute and **Apps** (YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex, Twitch) at the top, and volume and play/pause at the bottom. Hold an arrow or a volume key to repeat it. Tap the TV's name at the top to pick another TV.
 
 The protocol reports which app is open, but not the song or video. For what's playing in YouTube on that TV, also link it under **YouTube → YouTube on your TV** (above).
+
+#### Google TV without the bridge
+
+A web page can't talk the TV's remote protocol or ADB itself (browsers can't open raw network sockets), but it can call a small web server running *on the TV*. The free **TV Remote** app ([Legvan/tv-remote](https://github.com/Legvan/tv-remote), `com.porter.tvremote` on [Google Play](https://play.google.com/store/apps/details?id=com.porter.tvremote)) is that server: it turns web requests into key presses through the TV's own Network debugging. No root and no computer needed.
+
+1. On the TV install **TV Remote** from Google Play.
+2. Turn on Developer options: TV Settings → System → About → press **Android TV OS build** 7 times. Then in Developer options turn on **Network debugging** (also called *ADB over network*) and leave it on.
+3. Open TV Remote on the TV and press **Start Server**. When the TV asks to *Allow debugging*, choose **Allow** and tick **Always allow**. The ADB light in the app turns green.
+4. In Round Remote open **Google TV**. Under **Without the bridge**, type the TV's IP address (port `8080` unless you changed it in the app) and tap **Add TV**, then **Test**: the TV should jump to its Home screen. Tap **Control**.
+
+What works: the D-pad, OK, Back, Home, power, volume, mute, play/pause, the **Apps** launcher, **Type** (letters, digits and basic symbols into the TV's search box) and the **Google Assistant** button. The Netflix, Disney+ and YouTube tiles can open their app on that TV. If the Plex app on the TV ignores remote control, play/pause and skip go through this remote.
+
+What doesn't: the TV app doesn't let web pages read its replies, so there's no "which app is open" and no now playing. YouTube's *Play* opens the YouTube app but can't start a particular video. For those, use the bridge (or YouTube on your TV, Chromecast, Plex, Jellyfin).
+
+On the GitHub Pages address, Chrome asks once to allow **local network access**. Choose **Allow**. The TV's address is saved with the settings, so a settings profile copies it to your other displays. Keep the TV Remote app on your home network only: like ADB, it has no password.
 
 ### Apple TV (Media → AirPlay · Apple TV)
 

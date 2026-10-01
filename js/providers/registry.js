@@ -85,8 +85,8 @@ export const SERVICES = [
     blurb: 'YouTube on your TV: search YouTube and your playlists, play videos on the TV (YouTube on your TV, Google TV or Apple TV), with the remote.',
     make: (m) => new StreamingProvider(m, { app: 'youtube' }) },
   { id: 'androidtv', section: 'media', remote: true, name: 'Google TV', short: 'Google TV', mono: 'TV', glyph: 'tv', color: '#4285f4', kind: 'bridge',
-    blurb: 'A remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): D-pad, Back, Home, power, volume, play/pause and your apps. Pairs once with a code on the TV.',
-    make: (m) => new BridgeProvider(m, { adapter: 'androidtv' }) },
+    blurb: 'A remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Philips, Shield…): D-pad, Back, Home, power, volume, play/pause and your apps. Pairs once with a code on the TV — or works with no bridge at all through the free TV Remote app on the TV.',
+    make: (m) => new BridgeProvider(m, { adapter: 'androidtv', direct: true }) },
 
   // ---------------- Home (smart home) ----------------
   { id: 'homeassistant', section: 'home', name: 'Home Assistant', short: 'Home Assistant', mono: 'HA', icon: 'homeassistant', color: '#18bcf2', kind: 'hass',

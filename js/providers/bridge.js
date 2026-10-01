@@ -5,6 +5,7 @@
 import { Provider } from './base.js';
 import { store } from '../core/store.js';
 import { http, qs } from '../core/util.js';
+import { directZones, directTvs, directKey, directLaunch, DIRECT_APPS } from '../core/tvapp.js';
 
 let detected = null;       // cached bridge base URL
 let detecting = null;
@@ -74,8 +75,10 @@ const SOURCE_MATCH = {
 
 export class BridgeProvider extends Provider {
   /** @param meta  @param {{adapter?:string, source?:string}} opts */
-  constructor(meta, { adapter = null, source = null, prefer = null } = {}) {
+  constructor(meta, { adapter = null, source = null, prefer = null, direct = false } = {}) {
     super(meta);
+    this.direct = direct;       // also offer Google TVs controlled straight from this page (TV Remote app, no bridge)
+    if (direct) store.on('change:tvDirect', () => this._ingest(this.zones.filter((z) => !z.direct)));
     this.prefer = prefer;       // zones to pick first when none was chosen (e.g. video for the Chromecast media tile)
     this.adapter = adapter;      // 'roon' | 'upnp' | 'airplay' | 'cast' | null (any)
     this.source = source;        // 'tidal' | 'qobuz' | null
@@ -85,7 +88,9 @@ export class BridgeProvider extends Provider {
     this.pollT = null;
     this.base = null;
   }
-  isAuthed() { return true; }            // the bridge handles sign-in/pairing itself
+  isAuthed() { return !this.direct || mayProbe() || directTvs().length > 0; }  // the bridge handles sign-in/pairing itself
+  /** Zones that don't come from the bridge: Google TVs reached directly (see core/tvapp.js). */
+  _extraZones() { return this.direct ? directZones().filter((z) => this._mine(z)) : []; }
   setupHint() { return ''; }
 
   _mine(z) {
@@ -126,11 +131,11 @@ export class BridgeProvider extends Provider {
       shuffle: s.shuffle ?? null, repeat: s.repeat ?? null,
       device: { id: z.id, name: z.name, type: z.adapter },
       status: t ? 'ok' : 'nodevice',
-      message: t ? '' : `${z.name} is idle`,
+      message: t ? '' : z.direct ? `${z.name} · direct, no bridge` : `${z.name} is idle`,
     });
   }
   _ingest(list) {
-    this.zones = list || [];
+    this.zones = [...(list || []), ...this._extraZones()];
     this._publishZone();
   }
   _ingestOne(z) {
@@ -142,8 +147,11 @@ export class BridgeProvider extends Provider {
   async start() {
     const saved = store.getZone(this.id); // a device picked on the setup screen since this provider was made
     if (saved) this.zoneId = saved;
-    this.publish({ status: 'loading', message: 'Looking for the bridge…' });
-    this.base = await bridgeBase();
+    const extra = this._extraZones().length > 0;
+    if (extra) this._ingest(this.zones.filter((z) => !z.direct));   // direct TVs work straight away
+    else this.publish({ status: 'loading', message: 'Looking for the bridge…' });
+    this.base = extra && !mayProbe() ? null : await bridgeBase();
+    if (!this.base && extra) { this.pollT = setTimeout(() => this.start(), 30000); return; }
     if (!this.base) {
       this.publish({ status: 'error', message: 'Bridge not found. Run the bridge on your Pi (see README), or set its address in Settings.' });
       // keep retrying quietly
@@ -165,12 +173,18 @@ export class BridgeProvider extends Provider {
   }
   stop() { this.es?.close(); this.es = null; clearTimeout(this.pollT); }
   async refresh() {
+    if (!this.base && this._extraZones().length) { this._ingest([]); return; }
     const list = await bridgeFetch('/api/zones');
     this._ingest(list);
   }
 
   _cmd(cmd, value) {
     if (!this.zone) throw Object.assign(new Error('No zone'), { userMessage: 'Pick a device first' });
+    if (this.zone.direct) {
+      const key = { play: 'play', pause: 'pause', next: 'next', prev: 'prev', stop: 'stop' }[cmd];
+      if (!key) return Promise.reject(Object.assign(new Error('Needs the bridge'), { userMessage: 'Use the volume keys on the remote (direct control can’t set an exact level)' }));
+      return directKey(this.zone, key);
+    }
     return bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/command`, { method: 'POST', json: { cmd, value } });
   }
   play() { return this._cmd('play'); }
@@ -181,18 +195,25 @@ export class BridgeProvider extends Provider {
   setVolume(v) { return this._cmd('volume', Math.round(v)); }
   stopPlayback() { return this._cmd('stop'); }
   /** TV remote key (up/down/left/right/ok/back/home/power/mute/volup/voldown/playpause) for adapters with a D-pad. */
-  remoteKey(key) { return bridgeFetch(`/api/adapters/${this.zone.adapter}/key`, { method: 'POST', json: { id: this.zone.id, key } }); }
+  remoteKey(key) {
+    if (this.zone?.direct) return directKey(this.zone, key);
+    return bridgeFetch(`/api/adapters/${this.zone.adapter}/key`, { method: 'POST', json: { id: this.zone.id, key } });
+  }
   setShuffle(on) { return this._cmd('shuffle', !!on); }
   setRepeat(m) { return this._cmd('repeat', m); }
 
   async getPlaylists() {
     if (!this.zone) return [];
+    if (this.zone.direct) return DIRECT_APPS.map((a) => ({ kind: 'app', id: a.id, name: a.name, subtitle: 'Open on the TV', mono: a.name.slice(0, 2) }));
     const list = await bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/playlists`);
     return (list || []).map((p) => ({ ...p, art: p.art && p.art.startsWith('/') ? this.base + p.art : p.art }));
   }
-  playPlaylist(pl) { return bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/play`, { method: 'POST', json: { item: pl } }); }
+  playPlaylist(pl) {
+    if (this.zone?.direct) return directLaunch(this.zone, pl.id);
+    return bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/play`, { method: 'POST', json: { item: pl } });
+  }
   async search(q) {
-    if (!this.zone) return [];
+    if (!this.zone || this.zone.direct) return [];
     const list = await bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/search?${qs({ q })}`);
     return (list || []).map((p) => ({ ...p, art: p.art && p.art.startsWith('/') ? this.base + p.art : p.art }));
   }
@@ -202,7 +223,7 @@ export class BridgeProvider extends Provider {
     const re = this.source && SOURCE_MATCH[this.source];
     return this.zones.filter((z) => this._mine(z)).map((z) => ({
       id: z.id, name: z.name,
-      type: `${z.adapter}${z.sourceApp ? ' · ' + z.sourceApp : ''}${re && re.test(z.sourceApp || '') ? ' ✓' : ''}`,
+      type: z.direct ? `Google TV · direct (${z.localId})` : `${z.adapter}${z.sourceApp ? ' · ' + z.sourceApp : ''}${re && re.test(z.sourceApp || '') ? ' ✓' : ''}`,
       active: this.zone?.id === z.id, volume: z.state?.volume,
     }));
   }

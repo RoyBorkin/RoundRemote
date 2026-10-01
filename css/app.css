@@ -533,6 +533,9 @@ input { font: inherit; color: inherit; }
 .tv-vdown { left: 31%; top: 78%; }
 .tv-pp { left: 50%; top: 80%; }
 .tv-vup { left: 69%; top: 78%; }
+.tv-type { left: 17%; top: 69%; }
+.tv-mic { left: 83%; top: 69%; }
+.tvk[hidden] { display: none; }
 .tv-now { position: absolute; left: 50%; top: 71.5%; transform: translateX(-50%); max-width: 30%; font-size: 2.3cqmin; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* options */

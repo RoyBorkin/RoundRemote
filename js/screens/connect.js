@@ -9,6 +9,7 @@ import { googleSignIn, googleSignOut, googleSignedIn } from '../core/youtube.js'
 import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
+import { directTvs, directId, saveDirectTv, forgetDirectTv, pingDirect, directKey, TV_APP_PORT } from '../core/tvapp.js';
 import { go } from '../core/router.js';
 
 const err = (e) => e?.userMessage || e?.message || String(e);
@@ -245,10 +246,19 @@ export function ConnectScreen({ id }) {
   async function renderTvPairing() {
     const ad = adapterOf(svc), conf = TV_PAIRING[ad];
     const api = (a) => `/api/adapters/${ad}/${a}`;
+    if (ad === 'androidtv') renderTvDirect();
     body.append(status);
     setStatus('Looking for the bridge…');
     const info = await bridgeInfo();
+    if (!info && ad === 'androidtv') {
+      setStatus('');
+      body.append(h('div.section', 'With the bridge'),
+        h('div.note.dim', 'The bridge pairs with the TV’s own remote protocol (no app on the TV) and also shows which app is open. Run start-bridge.bat / start-bridge.sh on a computer or the Pi, then come back here.'),
+        h('div.actions', btn('Look again', async () => { await bridgeBase({ force: true }); render(); })));
+      return;
+    }
     if (!info) { clear(body); body.append(...header()); return renderBridge(); }
+    if (ad === 'androidtv') body.append(h('div.section', 'With the bridge'));
     const a = info.adapters?.[ad];
     if (!a?.enabled) setStatus(a?.status?.startsWith('not installed') ? conf.missing : `${svc.name} is ${a?.status || 'disabled'} in the bridge.`, 'warn');
     else setStatus(a.status || '', 'ok');
@@ -319,6 +329,55 @@ export function ConnectScreen({ id }) {
     if (a?.enabled) search();
   }
 
+
+  // Google TV with no bridge: the free "TV Remote" app (Legvan/tv-remote) runs a small web server on the TV
+  // that this page can send key presses to (see core/tvapp.js).
+  function renderTvDirect() {
+    const list = h('div.stack'), st = h('div.status-line');
+    const say = (text, kind = '') => { st.className = `status-line${kind ? ' ' + kind : ''}`; st.textContent = text; };
+    const paint = () => {
+      clear(list);
+      for (const t of directTvs()) {
+        const zid = directId(t);
+        list.append(h('div.actions', h('span.note', `📺 ${t.name} · ${t.host}${t.port !== TV_APP_PORT ? `:${t.port}` : ''}`),
+          btn('Control', () => { store.setZone(id, zid); p.selectDevice?.({ id: zid }); openService(id); }, 'primary'),
+          btn('Test', async () => {
+            say(`Checking ${t.name}…`);
+            if (!(await pingDirect(t))) { say(`No answer from ${t.host}:${t.port}. Is the TV on, and the server started in the TV Remote app?`, 'error'); return; }
+            try { await directKey({ tv: t }, 'home'); say(`${t.name} answered — the TV should now show its Home screen. If it doesn’t, check that the ADB light in the TV Remote app is green.`, 'ok'); }
+            catch (e) { say(err(e), 'error'); }
+          }),
+          btn('Forget', () => { forgetDirectTv(zid); if (store.getZone(id) === zid) store.setZone(id, null); paint(); })));
+      }
+    };
+    let ipV = '', portV = String(TV_APP_PORT), nameV = '';
+    const ipF = field({ label: 'TV IP address', placeholder: '192.168.1.50', onChange: (v) => { ipV = v; } });
+    const portF = field({ label: 'Port', value: portV, placeholder: String(TV_APP_PORT), onChange: (v) => { portV = v; } });
+    const nameF = field({ label: 'Name (optional)', placeholder: 'Living room TV', onChange: (v) => { nameV = v; } });
+    const val = (f, v) => (f.querySelector('input').value || v || '').trim();
+    body.append(
+      h('div.section', 'Without the bridge'),
+      h('div.note', '1. On the TV install “TV Remote” (com.porter.tvremote) from Google Play.'),
+      h('div.note', '2. TV Settings → System → About → press “Android TV OS build” 7 times; then Developer options → turn on Network debugging (ADB over network).'),
+      h('div.note', '3. Open TV Remote on the TV, press Start Server and choose Allow (tick Always allow) when the TV asks about debugging.'),
+      h('div.note', '4. Type the TV’s IP address here (TV Settings → Network → About).'),
+      list,
+      ipF, portF, nameF,
+      h('div.actions', btn('Add TV', async () => {
+        const host = val(ipF, ipV);
+        if (!host) { say('Enter the TV’s IP address', 'error'); return; }
+        const t = saveDirectTv({ host, port: val(portF, portV), name: val(nameF, nameV) });
+        store.setZone(id, directId(t));
+        paint();
+        say(`Checking ${t.host}:${t.port}…`);
+        if (await pingDirect(t)) { say(`Found the TV Remote app on ${t.name}. Tap Control.`, 'ok'); toast(`${t.name} added`); }
+        else say(`Saved, but ${t.host}:${t.port} didn’t answer yet — make sure the TV is on and the server is started in the TV Remote app, then tap Test.`, 'warn');
+      }, 'primary')),
+      st,
+      h('div.note.dim', 'Keys, apps, typing and Google Assistant work this way. What’s playing isn’t shown (the TV app doesn’t let web pages read it) — use the bridge for that. On the GitHub Pages address Chrome asks once to allow local network access: choose Allow.'),
+    );
+    paint();
+  }
 
   // ---------- Home Assistant: address + long-lived access token ----------
   function renderHass() {

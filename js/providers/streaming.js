@@ -6,6 +6,7 @@
 //   • YouTube on your TV (linked with a TV code), for YouTube
 // YouTube also gets a Library tab: search YouTube and your playlists, and play a video on the TV.
 import { BridgeProvider, bridgeFetch } from './bridge.js';
+import { directLaunch } from '../core/tvapp.js';
 import { videoSearch, playlistVideos, videoDetails, myPlaylists, googleSignedIn } from '../core/youtube.js';
 
 const APPS = {
@@ -19,7 +20,7 @@ const err = (m) => Object.assign(new Error(m), { userMessage: m });
 
 export class StreamingProvider extends BridgeProvider {
   constructor(meta, { app }) {
-    super(meta, { adapter: STREAMING_ADAPTERS });
+    super(meta, { adapter: STREAMING_ADAPTERS, direct: true });
     this.appId = app;
     this.app = APPS[app];
     if (app === 'youtube') this.caps.library = true;
@@ -58,6 +59,7 @@ export class StreamingProvider extends BridgeProvider {
   async launch(link) {
     const z = this.zone;
     if (!z) throw err('Pick a TV in Devices first');
+    if (z.direct) return directLaunch(z, this.appId);   // the TV Remote app opens the app (no deep links)
     if (z.adapter === 'androidtv') return bridgeFetch('/api/adapters/androidtv/app', { method: 'POST', json: { id: z.id, link: link || this.app.androidLink } });
     if (z.adapter === 'appletv') return bridgeFetch('/api/adapters/appletv/app', { method: 'POST', json: { id: z.id, bundle: link || this.app.appleBundle } });
     throw err(`${z.name} can’t open apps — open ${this.name} on the TV itself`);
@@ -86,6 +88,10 @@ export class StreamingProvider extends BridgeProvider {
     const id = entry.itemId || entry.id;
     if (!z) throw err('Pick a TV in Devices first');
     if (z.adapter === 'youtubetv') return bridgeFetch(`/api/zones/${encodeURIComponent(z.id)}/play`, { method: 'POST', json: { item: { id, kind: 'track' } } });
+    if (z.direct) {
+      await this.launch();
+      throw err('Opened YouTube on the TV. To start a chosen video, link the TV under YouTube → “YouTube on your TV” (or pair it through the bridge).');
+    }
     if (LAUNCH.includes(z.adapter)) return this.launch(`https://www.youtube.com/watch?v=${id}`);
     throw err('Pick a TV linked under YouTube → “YouTube on your TV”, a Google TV or an Apple TV in Devices');
   }

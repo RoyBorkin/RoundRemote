@@ -5,6 +5,7 @@ import { Provider } from './base.js';
 import { store } from '../core/store.js';
 import { http, qs, uid, sleep } from '../core/util.js';
 import { bridgeBase, bridgeFetch, bridgeZones } from './bridge.js';
+import { directZones, directKey } from '../core/tvapp.js';
 
 const PLEX_TV = 'https://plex.tv/api/v2';
 const PRODUCT = 'Round Remote';
@@ -254,7 +255,7 @@ export class PlexProvider extends Provider {
   }
   /** The paired Google TV / Apple TV that is this Plex player (same address, or same name). */
   async _matchTv() {
-    const zones = await bridgeZones((z) => z.adapter === 'androidtv' || z.adapter === 'appletv');
+    const zones = [...await bridgeZones((z) => z.adapter === 'androidtv' || z.adapter === 'appletv'), ...directZones()];
     if (!zones.length) return null;
     const p = (this.sessionsCache || []).find((m) => m.Player?.machineIdentifier === this.playerId)?.Player || {};
     const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9א-ת]/g, '');
@@ -270,7 +271,8 @@ export class PlexProvider extends Provider {
     if (!key) return false;
     const tv = await this._matchTv();
     if (!tv) return false;
-    await bridgeFetch(`/api/adapters/${tv.adapter}/key`, { method: 'POST', json: { id: tv.id, key } });
+    if (tv.direct) await directKey(tv, key);
+    else await bridgeFetch(`/api/adapters/${tv.adapter}/key`, { method: 'POST', json: { id: tv.id, key } });
     if (!this.fallbackNoted) {
       this.fallbackNoted = true;
       this.emit('notice', `Using the ${tv.name} remote — for full control turn on “Advertise as player” in the Plex app on the TV`);

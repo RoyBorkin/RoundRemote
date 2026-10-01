@@ -137,13 +137,13 @@ Tap one, or swipe sideways to move between Music, Media and Home. Each shows its
 | **Netflix** | Follows Netflix wherever it's on: an **Apple TV** shows the title, series, season and episode; a **Chromecast** shows what Netflix sends; a **Google TV** knows Netflix is open. Adds the remote and **Open Netflix** on a Google TV or Apple TV. (Netflix has no public API, so there's no catalog to browse.) | Needs the bridge |
 | **Disney+** | The same for Disney+. | Needs the bridge |
 | **YouTube** | YouTube on your TV: **Library** searches YouTube and your playlists (YouTube API key / Google sign-in). *Play* sends the video to YouTube on your TV (linked with a TV code), a Google TV or an Apple TV, and you get the remote. | Needs the bridge |
-| **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. **Or skip the bridge** with the free TV Remote app on the TV (remote, apps, typing, Assistant; no now playing). | Bridge, or the TV Remote app on the TV |
+| **Google TV** | A full-screen remote for Google TV / Android TV (Chromecast with Google TV, Sony, TCL, Hisense, Philips, Shield…): D-pad, OK, Back, Home, power, volume, mute, play/pause and an app launcher, through the protocol the Google TV phone app uses. Pair once with the code on the TV. **Or skip the bridge** through Home Assistant's Android TV Remote integration, or the free TV Remote app on the TV. | Bridge, Home Assistant, or the TV Remote app |
 
 ### Home (smart home)
 
 | Service | What you get | Works from GitHub Pages? |
 |---|---|---|
-| **Home Assistant** | Your whole Home Assistant, live:<br>• **Favourites** (you pick them), **Rooms** (your HA areas) and **Scenes** (scenes, scripts, automations, buttons).<br>• Round controls: brightness and colours for lights, a temperature dial and modes for climate, position for blinds, speed for fans, locks, speakers (volume, play/pause, what's playing), cameras (live snapshots), vacuums, alarms, and big readings for sensors. | ✅ with an https address; an http address works through the bridge |
+| **Home Assistant** | Your whole Home Assistant, live:<br>• **Favourites** (you pick them), **Rooms** (your HA areas) and **Scenes** (scenes, scripts, automations, buttons).<br>• Round controls: brightness and colours for lights, a temperature dial and modes for climate, position for blinds, speed for fans, locks, speakers (volume, play/pause, what's playing), cameras (live snapshots), vacuums, alarms, and big readings for sensors. | ✅ with an https address; an http address works with `cors_allowed_origins` (or through the bridge) |
 | **Google Home** | Your own command tiles for Google Assistant ("Turn off the kitchen lights", "Good night", "Set the thermostat to 22"), **Ask Google** anything, and **Broadcast** a message to your speakers. Answers show on screen and can be spoken. The **Speakers** tab has volume, play/pause and stop for your Google / Nest speakers and displays. | Needs the bridge (and a one-time Google sign-in for commands) |
 
 On the home screen:
@@ -340,18 +340,28 @@ The protocol reports which app is open, but not the song or video. For what's pl
 
 #### Google TV without the bridge
 
-A web page can't talk the TV's remote protocol or ADB itself (browsers can't open raw network sockets), but it can call a small web server running *on the TV*. The free **TV Remote** app ([Legvan/tv-remote](https://github.com/Legvan/tv-remote), `com.porter.tvremote` on [Google Play](https://play.google.com/store/apps/details?id=com.porter.tvremote)) is that server: it turns web requests into key presses through the TV's own Network debugging. No root and no computer needed.
+A web page can't talk the TV's remote protocol or ADB itself (browsers can't open raw network sockets). So without the bridge, something else has to hold that connection. There are two ways.
 
-1. On the TV install **TV Remote** from Google Play.
-2. Turn on Developer options: TV Settings → System → About → press **Android TV OS build** 7 times. Then in Developer options turn on **Network debugging** (also called *ADB over network*) and leave it on.
-3. Open TV Remote on the TV and press **Start Server**. When the TV asks to *Allow debugging*, choose **Allow** and tick **Always allow**. The ADB light in the app turns green.
-4. In Round Remote open **Google TV**. Under **Without the bridge**, type the TV's IP address (port `8080` unless you changed it in the app) and tap **Add TV**, then **Test**: the TV should jump to its Home screen. Tap **Control**.
+**A. Home Assistant (nothing to install on the TV).** Home Assistant has an official [Android TV Remote](https://www.home-assistant.io/integrations/androidtv_remote) integration. It pairs with the TV the same way the Google TV phone app does, and Round Remote controls the TV through it.
 
-What works: the D-pad, OK, Back, Home, power, volume, mute, play/pause, the **Apps** launcher, **Type** (letters, digits and basic symbols into the TV's search box) and the **Google Assistant** button. The Netflix, Disney+ and YouTube tiles can open their app on that TV. If the Plex app on the TV ignores remote control, play/pause and skip go through this remote.
+1. Set up **Home → Home Assistant** in Round Remote (see below).
+2. In Home Assistant: **Settings → Devices & services → Add integration → Android TV Remote**. Enter the TV's IP address and the code the TV shows.
+3. For typing on the TV, open the integration's **Configure** and turn on **Enable IME**.
+4. Open **Google TV** in Round Remote. The TV is listed under **Without the bridge: Home Assistant**. Tap **Control**.
 
-What doesn't: the TV app doesn't let web pages read its replies, so there's no "which app is open" and no now playing. YouTube's *Play* opens the YouTube app but can't start a particular video. For those, use the bridge (or YouTube on your TV, Chromecast, Plex, Jellyfin).
+You get the full remote, the Apps launcher (by app link), typing, the Assistant button, the volume dial, and which app is open. The Netflix, Disney+ and YouTube tiles follow the app that's open, and YouTube's *Play* opens the chosen video on the TV.
 
-On the GitHub Pages address, Chrome asks once to allow **local network access**. Choose **Allow**. The TV's address is saved with the settings, so a settings profile copies it to your other displays. Keep the TV Remote app on your home network only: like ADB, it has no password.
+**B. The TV Remote app on the TV.** The free **TV Remote** app ([Legvan/tv-remote](https://github.com/Legvan/tv-remote), `com.porter.tvremote`) runs a small web server on the TV and turns web requests into key presses through the TV's Network debugging. It isn't in every TV's Play Store, so install it from its download link:
+
+1. On the TV install **Downloader** (by AFTVnews) from the Play Store. Allow it to install apps: **TV Settings → Apps → Security & restrictions → Unknown sources → Downloader**.
+2. In Downloader type `https://github.com/Legvan/tv-remote/releases/download/v1.6/tv-remote-v1.6.apk` and install it. You can also send the file from your phone with *Send files to TV*.
+3. Turn on Developer options: TV Settings → System → About → press **Android TV OS build** 7 times. Then in Developer options turn on **Network debugging** (also called *ADB over network*).
+4. Open TV Remote on the TV and press **Start Server**. When the TV asks to *Allow debugging*, choose **Allow** and tick **Always allow**.
+5. In Round Remote open **Google TV**. Under **Without the bridge: an app on the TV**, type the TV's IP address (port `8080`), tap **Add TV**, then **Test**: the TV should jump to its Home screen. Tap **Control**.
+
+This way you get the remote, the Apps launcher, typing (letters, digits and basic symbols) and the Assistant button. The page can't read the app's replies, so it shows no app name and no now playing. Keep it on your home network only: like ADB, it has no password.
+
+On the GitHub Pages address, Chrome asks once to allow **local network access**. Choose **Allow**. Both ways are saved with the settings, so a settings profile copies them to your other displays.
 
 ### Apple TV (Media → AirPlay · Apple TV)
 
@@ -368,7 +378,17 @@ You get the title, series, season and episode, the app, the artwork, the progres
 1. In Home Assistant, open your **profile** (bottom left) → **Security** → **Long-lived access tokens** → **Create token**, and copy it.
 2. Tap **Home Assistant**, type its address (for example `http://homeassistant.local:8123`, or your `https://…ui.nabu.casa` address), paste the token, and tap **Connect**.
 
-With an `https://` address the app connects straight to Home Assistant over its WebSocket API, so changes show instantly. From the GitHub Pages app, an `http://` address is reached through the bridge and refreshed every couple of seconds. On the Pi the app is served by the bridge over `http`, so it connects directly.
+With an `https://` address the app connects straight to Home Assistant over its WebSocket API, so changes show instantly. On the Pi the app is served by the bridge over `http`, so it connects directly too.
+
+From the GitHub Pages app, an `http://` Home Assistant can be reached **without the bridge** once Home Assistant allows the page's address. Add this to Home Assistant's `configuration.yaml` and restart it:
+
+```yaml
+http:
+  cors_allowed_origins:
+    - https://YOUR-NAME.github.io
+```
+
+Chrome then asks once to allow local network access; choose **Allow**. The app talks to Home Assistant's REST API and refreshes every couple of seconds. Without that setting, an `http://` address goes through the bridge.
 
 Using it:
 - **Tap a circle** for the quick action: lights, switches and fans toggle; blinds open or close; scenes and scripts run; locks lock or unlock; speakers play or pause.

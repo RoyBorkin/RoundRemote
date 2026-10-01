@@ -5,7 +5,7 @@
 import { Provider } from './base.js';
 import { store } from '../core/store.js';
 import { http, qs } from '../core/util.js';
-import { directZones, directTvs, directKey, directLaunch, DIRECT_APPS } from '../core/tvapp.js';
+import { directZones, directTvs, directKey, directLaunch, directApps, directVolume, watchHaTvs, haReady } from '../core/tvapp.js';
 
 let detected = null;       // cached bridge base URL
 let detecting = null;
@@ -88,7 +88,7 @@ export class BridgeProvider extends Provider {
     this.pollT = null;
     this.base = null;
   }
-  isAuthed() { return !this.direct || mayProbe() || directTvs().length > 0; }  // the bridge handles sign-in/pairing itself
+  isAuthed() { return !this.direct || mayProbe() || directTvs().length > 0 || haReady(); }  // the bridge handles sign-in/pairing itself
   /** Zones that don't come from the bridge: Google TVs reached directly (see core/tvapp.js). */
   _extraZones() { return this.direct ? directZones().filter((z) => this._mine(z)) : []; }
   setupHint() { return ''; }
@@ -131,7 +131,7 @@ export class BridgeProvider extends Provider {
       shuffle: s.shuffle ?? null, repeat: s.repeat ?? null,
       device: { id: z.id, name: z.name, type: z.adapter },
       status: t ? 'ok' : 'nodevice',
-      message: t ? '' : z.direct ? `${z.name} · direct, no bridge` : `${z.name} is idle`,
+      message: t ? '' : z.via === 'ha' ? (z.unavailable ? `${z.name} isn’t reachable in Home Assistant` : `${z.name} is off`) : z.direct ? `${z.name} · direct, no bridge` : `${z.name} is idle`,
     });
   }
   _ingest(list) {
@@ -147,6 +147,10 @@ export class BridgeProvider extends Provider {
   async start() {
     const saved = store.getZone(this.id); // a device picked on the setup screen since this provider was made
     if (saved) this.zoneId = saved;
+    if (this.direct && !this._offHa && haReady()) {   // Google TVs paired in Home Assistant
+      this._offHa = watchHaTvs(() => this._ingest(this.zones.filter((z) => !z.direct)));
+      if (this._offHa) await Promise.race([this._offHa.ready, new Promise((r) => setTimeout(r, 6000))]);
+    }
     const extra = this._extraZones().length > 0;
     if (extra) this._ingest(this.zones.filter((z) => !z.direct));   // direct TVs work straight away
     else this.publish({ status: 'loading', message: 'Looking for the bridge…' });
@@ -171,7 +175,7 @@ export class BridgeProvider extends Provider {
     };
     this.pollT = setTimeout(poll, 4000);
   }
-  stop() { this.es?.close(); this.es = null; clearTimeout(this.pollT); }
+  stop() { this.es?.close(); this.es = null; clearTimeout(this.pollT); this._offHa?.(); this._offHa = null; }
   async refresh() {
     if (!this.base && this._extraZones().length) { this._ingest([]); return; }
     const list = await bridgeFetch('/api/zones');
@@ -181,6 +185,7 @@ export class BridgeProvider extends Provider {
   _cmd(cmd, value) {
     if (!this.zone) throw Object.assign(new Error('No zone'), { userMessage: 'Pick a device first' });
     if (this.zone.direct) {
+      if (cmd === 'volume') return directVolume(this.zone, value);
       const key = { play: 'play', pause: 'pause', next: 'next', prev: 'prev', stop: 'stop' }[cmd];
       if (!key) return Promise.reject(Object.assign(new Error('Needs the bridge'), { userMessage: 'Use the volume keys on the remote (direct control can’t set an exact level)' }));
       return directKey(this.zone, key);
@@ -204,7 +209,7 @@ export class BridgeProvider extends Provider {
 
   async getPlaylists() {
     if (!this.zone) return [];
-    if (this.zone.direct) return DIRECT_APPS.map((a) => ({ kind: 'app', id: a.id, name: a.name, subtitle: 'Open on the TV', mono: a.name.slice(0, 2) }));
+    if (this.zone.direct) return directApps(this.zone).map((a) => ({ kind: 'app', id: a.id, name: a.name, subtitle: 'Open on the TV', mono: a.name.slice(0, 2) }));
     const list = await bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/playlists`);
     return (list || []).map((p) => ({ ...p, art: p.art && p.art.startsWith('/') ? this.base + p.art : p.art }));
   }
@@ -223,7 +228,7 @@ export class BridgeProvider extends Provider {
     const re = this.source && SOURCE_MATCH[this.source];
     return this.zones.filter((z) => this._mine(z)).map((z) => ({
       id: z.id, name: z.name,
-      type: z.direct ? `Google TV · direct (${z.localId})` : `${z.adapter}${z.sourceApp ? ' · ' + z.sourceApp : ''}${re && re.test(z.sourceApp || '') ? ' ✓' : ''}`,
+      type: z.via === 'ha' ? `Google TV · Home Assistant${z.sourceApp ? ` · ${z.sourceApp}` : ''}` : z.direct ? `Google TV · direct (${z.localId})` : `${z.adapter}${z.sourceApp ? ' · ' + z.sourceApp : ''}${re && re.test(z.sourceApp || '') ? ' ✓' : ''}`,
       active: this.zone?.id === z.id, volume: z.state?.volume,
     }));
   }

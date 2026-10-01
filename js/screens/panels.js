@@ -418,7 +418,7 @@ export function buildTvRemote(body, { showApps = true } = {}) {
   const paint = (st) => {
     const t = st.track;
     const d = direct();
-    now.textContent = t ? `${t.media?.show || t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : d ? 'Direct · no bridge' : (st.device ? 'TV off' : 'No TV');
+    now.textContent = t ? `${t.media?.show || t.title}${st.volume != null ? ` · vol ${st.volume}` : ''}` : d ? (d.via === 'ha' ? (d.unavailable ? 'Not reachable' : 'TV off · via Home Assistant') : 'Direct · no bridge') : (st.device ? 'TV off' : 'No TV');
     typeBtn.hidden = micBtn.hidden = !d;
     body.querySelector('.tv-mute')?.classList.toggle('on', !!st.muted);
   };

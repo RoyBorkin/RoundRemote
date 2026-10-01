@@ -1,4 +1,10 @@
-// Google TV / Android TV without the bridge.
+// Google TV / Android TV without the bridge. Two ways:
+//
+// 1. Home Assistant — its built-in "Android TV Remote" integration pairs with the TV (code on the TV, the
+//    same protocol as the Google TV phone app). Round Remote already talks to Home Assistant directly,
+//    so it sends keys / text / app links through HA's remote.* actions. Nothing to install on the TV.
+//
+// 2. The "TV Remote" app on the TV (below).
 //
 // A web page can't speak the TV's own remote protocol (TLS on port 6466/6467) or ADB — browsers
 // don't open raw sockets. What a page *can* do is call a small web server running on the TV
@@ -15,6 +21,8 @@ import { lanOpts } from './util.js';
 
 export const TV_APP_PORT = 8080;
 export const TV_APP_URL = 'https://play.google.com/store/apps/details?id=com.porter.tvremote';
+// not in every TV's Play Store: the same app from its GitHub release, for Downloader / Send files to TV
+export const TV_APP_APK = 'https://github.com/Legvan/tv-remote/releases/download/v1.6/tv-remote-v1.6.apk';
 
 // Android key codes (KeyEvent.KEYCODE_*) for the remote's key names (same names the bridge uses)
 export const KEYCODES = {
@@ -40,6 +48,74 @@ export const DIRECT_APPS = [
 ];
 // what the streaming tiles ask for → the TV Remote app's names
 const APP_ALIASES = { ytvideo: 'youtube', ytmusic: 'com.google.android.youtube.tvmusic', plex: 'com.plexapp.android', jellyfin: 'org.jellyfin.androidtv' };
+// Home Assistant opens apps with app links (launching by package name doesn't work for most apps there)
+export const HA_APPS = [
+  { id: 'youtube', name: 'YouTube', link: 'https://www.youtube.com' },
+  { id: 'ytmusic', name: 'YouTube Music', link: 'https://music.youtube.com' },
+  { id: 'netflix', name: 'Netflix', link: 'https://www.netflix.com/title' },
+  { id: 'disney', name: 'Disney+', link: 'https://www.disneyplus.com' },
+  { id: 'prime', name: 'Prime Video', link: 'https://app.primevideo.com' },
+  { id: 'spotify', name: 'Spotify', link: 'spotify://' },
+  { id: 'plex', name: 'Plex', link: 'plex://' },
+  { id: 'twitch', name: 'Twitch', link: 'twitch://home' },
+];
+/** A link or app id → the TV Remote app's app name (it can only open apps, not links). */
+function appName(app) {
+  if (!String(app).includes('://')) return APP_ALIASES[app] || app;
+  const l = String(app).toLowerCase();
+  if (/music\.youtube/.test(l)) return APP_ALIASES.ytmusic;
+  for (const k of ['youtube', 'netflix', 'disney', 'spotify', 'plex']) if (l.includes(k)) return APP_ALIASES[k] || k;
+  if (/prime|amazon/.test(l)) return 'prime';
+  return app;
+}
+const haLink = (app) => (String(app).includes('://') ? app : HA_APPS.find((a) => a.id === (app === 'ytvideo' ? 'youtube' : app))?.link || null);
+
+// ---------------------------------------------------------------- Home Assistant
+let ha = null;
+import('../providers/registry.js').then((m) => { ha = m.provider('homeassistant'); }).catch(() => {});
+export const haReady = () => !!ha && ha.isAuthed?.() && !ha.setupHint?.();
+const KEYNAMES = {
+  up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME', menu: 'MENU',
+  power: 'POWER', mute: 'VOLUME_MUTE', volup: 'VOLUME_UP', voldown: 'VOLUME_DOWN',
+  playpause: 'MEDIA_PLAY_PAUSE', play: 'MEDIA_PLAY', pause: 'MEDIA_PAUSE', stop: 'MEDIA_STOP', next: 'MEDIA_NEXT', prev: 'MEDIA_PREVIOUS',
+  rewind: 'MEDIA_REWIND', forward: 'MEDIA_FAST_FORWARD', settings: 'SETTINGS', input: 'TV_INPUT', guide: 'GUIDE', captions: 'CAPTIONS',
+  search: 'SEARCH', enter: 'ENTER', del: 'DEL',
+};
+/** Google TVs paired in Home Assistant (Android TV Remote integration), as zones. Empty until HA is connected. */
+export function haTvZones() {
+  if (!haReady() || ha.status !== 'ready') return [];
+  const remotes = ha.entitiesOf('androidtv_remote').filter((e) => e.startsWith('remote.') && ha.entity(e));
+  return remotes.map((rid) => {
+    const r = ha.entity(rid);
+    const obj = rid.slice(7), dev = ha.deviceOf.get(rid);
+    const mpId = ha.entitiesOf('androidtv_remote').find((e) => e.startsWith('media_player.') && ((dev && ha.deviceOf.get(e) === dev) || e.slice(13) === obj));
+    const mp = mpId ? ha.entity(mpId) : null;
+    const on = r.state === 'on';
+    const app = mp?.attributes?.app_name || r.attributes?.current_activity || '';
+    const vol = mp?.attributes?.volume_level;
+    return {
+      id: `ha:${rid}`, name: r.attributes?.friendly_name || obj, adapter: 'androidtv', direct: true, via: 'ha', remoteId: rid, mpId,
+      caps: { remote: true, next: true, prev: true, stop: true, playlists: true, volume: !!mp && vol != null, seek: false, search: false },
+      sourceApp: on ? app : '', unavailable: r.state === 'unavailable',
+      state: { isPlaying: mp?.state === 'playing', track: on && app ? { title: app, artist: '', notSong: true } : null, volume: vol != null ? Math.round(vol * 100) : null, muted: !!mp?.attributes?.is_volume_muted },
+    };
+  });
+}
+/** Connect to Home Assistant (if set up) and call back whenever its TVs change. Returns an unsubscribe function. */
+export function watchHaTvs(cb) {
+  if (!haReady()) return null;
+  const off = ha.on('change', (id) => { if (!id || ha.platformOf.get(id) === 'androidtv_remote') cb(); });
+  const offS = ha.on('status', (s) => { if (s === 'ready') cb(); });
+  const ready = ha.connect().then(cb).catch(() => {});
+  const stop = () => { off?.(); offS?.(); ha.release?.(); };
+  stop.ready = ready;
+  return stop;
+}
+const haErr = (e) => Object.assign(new Error(e?.message || 'Home Assistant error'), { userMessage: `Home Assistant: ${e?.userMessage || e?.message || 'didn’t take the command'}` });
+async function haKey(z, name) {
+  try { await ha.call('remote', 'send_command', z.remoteId, { command: name }); } catch (e) { throw haErr(e); }
+}
+
 
 /** TVs added for direct control: [{ host, port, name }] */
 export function directTvs() { return (store.get('tvDirect') || []).filter((t) => t?.host); }
@@ -54,8 +130,9 @@ export function saveDirectTv(t) {
 }
 export function forgetDirectTv(id) { store.set('tvDirect', directTvs().filter((t) => directId(t) !== id)); }
 
-/** Direct TVs dressed as bridge zones, so every screen treats them like a paired Google TV. */
-export function directZones() {
+/** Direct TVs (TV Remote app + Home Assistant) dressed as bridge zones, so every screen treats them like a paired Google TV. */
+export function directZones() { return [...appZones(), ...haTvZones()]; }
+function appZones() {
   return directTvs().map((t) => ({
     id: directId(t), localId: t.host, name: t.name, adapter: 'androidtv', direct: true, tv: t,
     caps: { remote: true, next: true, prev: true, stop: true, playlists: true, volume: false, seek: false, search: false },
@@ -85,16 +162,36 @@ async function post(t, path, timeout = 4000) {
 const tvOf = (zoneOrTv) => zoneOrTv?.tv || zoneOrTv;
 
 export function directKey(zone, key) {
+  if (zone?.via === 'ha') {
+    if (key === 'mute' && zone.mpId) return ha.call('media_player', 'volume_mute', zone.mpId, { is_volume_muted: !zone.state?.muted }).catch((e) => { throw haErr(e); });
+    const name = typeof key === 'number' ? key : KEYNAMES[key];
+    if (name == null) return Promise.reject(Object.assign(new Error('Unknown key'), { userMessage: `The TV can’t do “${key}”` }));
+    return haKey(zone, name);
+  }
   const code = typeof key === 'number' ? key : KEYCODES[key];
   if (code == null) return Promise.reject(Object.assign(new Error('Unknown key'), { userMessage: `The TV can’t do “${key}”` }));
   return post(tvOf(zone), `/api/key/${code}`);
 }
 /** Open an app: a name the TV Remote app knows (youtube, netflix…), a package name, or 'home'. */
 export function directLaunch(zone, app) {
-  const name = APP_ALIASES[app] || app;
-  return post(tvOf(zone), `/api/launch/${encodeURIComponent(name)}`);
+  if (zone?.via === 'ha') {
+    const link = haLink(app);
+    if (!link) return Promise.reject(Object.assign(new Error('No link'), { userMessage: 'Home Assistant can only open apps it has a link for' }));
+    return ha.call('remote', 'turn_on', zone.remoteId, { activity: link }).catch((e) => { throw haErr(e); });
+  }
+  return post(tvOf(zone), `/api/launch/${encodeURIComponent(appName(app))}`);
 }
-export function directAssistant(zone) { return post(tvOf(zone), '/api/assistant'); }
+export async function directAssistant(zone) {
+  if (zone?.via === 'ha') { try { return await haKey(zone, 'ASSIST'); } catch { return haKey(zone, 'SEARCH'); } }
+  return post(tvOf(zone), '/api/assistant');
+}
+/** Volume 0–100 (Home Assistant only — the TV Remote app has just up / down). */
+export function directVolume(zone, v) {
+  if (zone?.via !== 'ha' || !zone.mpId) return Promise.reject(Object.assign(new Error('no volume'), { userMessage: 'Use the volume keys on the remote' }));
+  return ha.call('media_player', 'volume_set', zone.mpId, { volume_level: Math.max(0, Math.min(1, v / 100)) }).catch((e) => { throw haErr(e); });
+}
+/** Apps for the launcher. */
+export const directApps = (zone) => (zone?.via === 'ha' ? HA_APPS : DIRECT_APPS);
 
 // Typing: /api/text wants a JSON body (which a no-cors request can't send), so type with key presses.
 const CHAR_KEYS = { ' ': 62, '.': 56, ',': 55, '-': 69, '=': 70, '/': 76, '@': 77, "'": 75, ';': 74, '[': 71, ']': 72, '\\': 73, '`': 68, '+': 81, '#': 18, '*': 17, '\n': 66 };
@@ -105,6 +202,10 @@ export function charKey(ch) {
   return CHAR_KEYS[c] ?? null;
 }
 export async function directType(zone, text) {
+  if (zone?.via === 'ha') {   // needs "Enable IME" in the integration's options
+    await haKey(zone, `text:${text}`);
+    return { skipped: 0 };
+  }
   const t = tvOf(zone);
   let skipped = 0;
   for (const ch of String(text)) {

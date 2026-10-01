@@ -59,7 +59,7 @@ export class StreamingProvider extends BridgeProvider {
   async launch(link) {
     const z = this.zone;
     if (!z) throw err('Pick a TV in Devices first');
-    if (z.direct) return directLaunch(z, this.appId);   // the TV Remote app opens the app (no deep links)
+    if (z.direct) return directLaunch(z, z.via === 'ha' ? link || this.app.androidLink : this.appId);   // HA opens links; the TV Remote app only apps
     if (z.adapter === 'androidtv') return bridgeFetch('/api/adapters/androidtv/app', { method: 'POST', json: { id: z.id, link: link || this.app.androidLink } });
     if (z.adapter === 'appletv') return bridgeFetch('/api/adapters/appletv/app', { method: 'POST', json: { id: z.id, bundle: link || this.app.appleBundle } });
     throw err(`${z.name} can’t open apps — open ${this.name} on the TV itself`);
@@ -88,7 +88,7 @@ export class StreamingProvider extends BridgeProvider {
     const id = entry.itemId || entry.id;
     if (!z) throw err('Pick a TV in Devices first');
     if (z.adapter === 'youtubetv') return bridgeFetch(`/api/zones/${encodeURIComponent(z.id)}/play`, { method: 'POST', json: { item: { id, kind: 'track' } } });
-    if (z.direct) {
+    if (z.direct && z.via !== 'ha') {
       await this.launch();
       throw err('Opened YouTube on the TV. To start a chosen video, link the TV under YouTube → “YouTube on your TV” (or pair it through the bridge).');
     }

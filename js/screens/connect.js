@@ -9,7 +9,7 @@ import { googleSignIn, googleSignOut, googleSignedIn } from '../core/youtube.js'
 import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
-import { directTvs, directId, saveDirectTv, forgetDirectTv, pingDirect, directKey, TV_APP_PORT } from '../core/tvapp.js';
+import { directTvs, directId, saveDirectTv, forgetDirectTv, pingDirect, directKey, haTvZones, TV_APP_PORT, TV_APP_APK } from '../core/tvapp.js';
 import { go } from '../core/router.js';
 
 const err = (e) => e?.userMessage || e?.message || String(e);
@@ -355,12 +355,16 @@ export function ConnectScreen({ id }) {
     const portF = field({ label: 'Port', value: portV, placeholder: String(TV_APP_PORT), onChange: (v) => { portV = v; } });
     const nameF = field({ label: 'Name (optional)', placeholder: 'Living room TV', onChange: (v) => { nameV = v; } });
     const val = (f, v) => (f.querySelector('input').value || v || '').trim();
+    renderTvHa();
     body.append(
-      h('div.section', 'Without the bridge'),
-      h('div.note', '1. On the TV install “TV Remote” (com.porter.tvremote) from Google Play.'),
-      h('div.note', '2. TV Settings → System → About → press “Android TV OS build” 7 times; then Developer options → turn on Network debugging (ADB over network).'),
-      h('div.note', '3. Open TV Remote on the TV, press Start Server and choose Allow (tick Always allow) when the TV asks about debugging.'),
-      h('div.note', '4. Type the TV’s IP address here (TV Settings → Network → About).'),
+      h('div.section', 'Without the bridge: an app on the TV'),
+      h('div.note', 'The free “TV Remote” app (Legvan/tv-remote) runs a tiny web server on the TV. If it isn’t in your TV’s Play Store, install it from its download link:'),
+      h('div.note', `1. On the TV install “Downloader” (by AFTVnews) from the Play Store, open it and allow it to install apps (TV Settings → Apps → Security & restrictions → Unknown sources → Downloader).`),
+      h('code.uri', TV_APP_APK),
+      h('div.note', '2. Type that address into Downloader and install the app. (Or send the file from your phone with “Send files to TV”.)'),
+      h('div.note', '3. TV Settings → System → About → press “Android TV OS build” 7 times; then Developer options → turn on Network debugging (ADB over network).'),
+      h('div.note', '4. Open TV Remote on the TV, press Start Server and choose Allow (tick Always allow) when the TV asks about debugging.'),
+      h('div.note', '5. Type the TV’s IP address here (TV Settings → Network → About).'),
       list,
       ipF, portF, nameF,
       h('div.actions', btn('Add TV', async () => {
@@ -377,6 +381,35 @@ export function ConnectScreen({ id }) {
       h('div.note.dim', 'Keys, apps, typing and Google Assistant work this way. What’s playing isn’t shown (the TV app doesn’t let web pages read it) — use the bridge for that. On the GitHub Pages address Chrome asks once to allow local network access: choose Allow.'),
     );
     paint();
+  }
+
+  // Google TV through Home Assistant's own "Android TV Remote" integration: nothing to install on the TV
+  function renderTvHa() {
+    const box = h('div.stack');
+    body.append(h('div.section', 'Without the bridge: Home Assistant'), box);
+    const ha = provider('homeassistant');
+    const howTo = () => [
+      h('div.note', 'In Home Assistant: Settings → Devices & services → Add integration → “Android TV Remote”. Enter the TV’s IP address and the code the TV shows. That’s the same pairing as the Google TV phone app — nothing to install on the TV.'),
+      h('div.note.dim', 'For typing, open the integration’s Configure and turn on “Enable IME”. Then tap Look again.'),
+    ];
+    if (!ha?.isAuthed() || ha.setupHint()) {
+      box.append(h('div.note', 'If you use Home Assistant, it can pair with the TV and Round Remote controls it through Home Assistant.'),
+        h('div.actions', btn('Set up Home Assistant', () => openService('homeassistant', { forceSetup: true }))));
+      return;
+    }
+    box.append(h('div.note.dim', 'Connecting to Home Assistant…'));
+    const paint = () => {
+      clear(box);
+      if (ha.status !== 'ready') { box.append(h('div.note', ha.statusMsg || 'Home Assistant isn’t connected'), h('div.actions', btn('Look again', () => { ha.connect().then(paint, paint); }))); return; }
+      const tvs = haTvZones();
+      if (!tvs.length) { box.append(h('div.note', 'No Google TV in Home Assistant yet.'), ...howTo(), h('div.actions', btn('Look again', () => { ha.disconnect(); ha.connect().then(paint, paint); }))); return; }
+      for (const z of tvs) {
+        box.append(h('div.actions', h('span.note', `${z.unavailable ? '○' : '●'} ${z.name}${z.sourceApp ? ` · ${z.sourceApp}` : ''}`),
+          btn('Control', () => { store.setZone(id, z.id); p.selectDevice?.({ id: z.id }); openService(id); }, 'primary')));
+      }
+      box.append(h('div.note.dim', 'Typing on the TV needs “Enable IME” in the integration’s options.'));
+    };
+    ha.connect().then(paint, paint);
   }
 
   // ---------- Home Assistant: address + long-lived access token ----------

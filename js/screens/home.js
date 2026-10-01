@@ -3,7 +3,7 @@ import { h, badge, iconBtn } from '../ui/dom.js';
 import { SERVICES, provider, inSection, adaptersOf } from '../providers/registry.js';
 import { icon } from '../ui/icons.js';
 import { bridgeInfo } from '../providers/bridge.js';
-import { directTvs } from '../core/tvapp.js';
+import { directTvs, haReady } from '../core/tvapp.js';
 import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
 import { go } from '../core/router.js';
@@ -99,7 +99,7 @@ export function HomeScreen() {
       const ok = it.svc.id === 'tidal' || it.svc.id === 'qobuz'
         ? Object.values(ad).some((a) => a.enabled && a.id !== 'mock')
         : adaptersOf(it.svc).some((k) => ad[k]?.enabled);
-      const direct = it.svc.id === 'androidtv' && directTvs().length > 0;   // Google TV through the TV Remote app
+      const direct = it.svc.id === 'androidtv' && (directTvs().length > 0 || haReady());   // Google TV through the TV Remote app
       it.ready = !!ok || direct;
       it.btn.classList.toggle('ready', it.ready);
       if (info && !it.ready) it.btn.classList.add('off');

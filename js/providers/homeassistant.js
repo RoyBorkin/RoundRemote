@@ -2,7 +2,7 @@
 // HA profile page), with areas (rooms), and service calls to control everything.
 // When the app runs on https (GitHub Pages) and Home Assistant is plain http on your network, the browser
 // can't open ws:// — then it talks REST through the bridge's LAN proxy and refreshes every 2 seconds.
-import { Emitter, http, isMixed, qs } from '../core/util.js';
+import { Emitter, http, isMixed, qs, HttpError } from '../core/util.js';
 import { store } from '../core/store.js';
 import { bridgeBase } from './bridge.js';
 
@@ -21,6 +21,8 @@ export class HomeAssistantService extends Emitter {
     this.areas = [];               // [{ id, name }]
     this.areaOf = new Map();       // entity_id → area id
     this.hidden = new Set();       // hidden / config / diagnostic entities
+    this.platformOf = new Map();   // entity_id → integration (e.g. androidtv_remote)
+    this.deviceOf = new Map();     // entity_id → device id
     this.config = {};
     this.mode = null;              // 'ws' | 'rest'
     this.status = 'idle';
@@ -115,8 +117,10 @@ export class HomeAssistantService extends Emitter {
     this.config = { ...this.config, ...config };
     this.areas = (areas || []).map((a) => ({ id: a.area_id, name: a.name, icon: a.icon })).sort((a, b) => a.name.localeCompare(b.name));
     const devArea = new Map((devs || []).map((d) => [d.id, d.area_id]));
-    this.areaOf.clear(); this.hidden.clear();
+    this.areaOf.clear(); this.hidden.clear(); this.platformOf.clear(); this.deviceOf.clear();
     for (const e of ents || []) {
+      if (e.platform) this.platformOf.set(e.entity_id, e.platform);
+      if (e.device_id) this.deviceOf.set(e.entity_id, e.device_id);
       const area = e.area_id || devArea.get(e.device_id);
       if (area) this.areaOf.set(e.entity_id, area);
       if (e.hidden_by || e.disabled_by || e.entity_category) this.hidden.add(e.entity_id);
@@ -134,12 +138,20 @@ export class HomeAssistantService extends Emitter {
   async _rest(path, { method = 'GET', json } = {}) {
     const full = this.url + path;
     let target = full;
+    const opts = { method, json, headers: { Authorization: `Bearer ${this.token}`, Accept: 'application/json' } };
+    // An https page can still call http:// Home Assistant on your network directly (Chrome's local network
+    // access) when HA allows this page's address (http: cors_allowed_origins). Otherwise: the bridge.
+    if (isMixed(full) && this.restRoute !== 'proxy') {
+      try { const r = await http(full, opts); this.restRoute = 'direct'; return r; }
+      catch (e) { if (e instanceof HttpError || this.restRoute === 'direct') throw e; }
+    }
     if (isMixed(full)) {
       const b = this.proxy || (this.proxy = await bridgeBase());
-      if (!b) throw Object.assign(new Error('mixed'), { userMessage: 'Your browser blocks http:// Home Assistant from this https page. Run the bridge, or use an https:// address (e.g. Nabu Casa).' });
+      if (!b) throw Object.assign(new Error('mixed'), { userMessage: `This https page can’t reach http:// Home Assistant yet. Add ${location.origin} to cors_allowed_origins in Home Assistant (see README), use an https:// address (e.g. Nabu Casa), or run the bridge.` });
       target = `${b}/api/proxy?${qs({ url: full })}`;
+      this.restRoute = 'proxy';
     }
-    return http(target, { method, json, headers: { Authorization: `Bearer ${this.token}`, Accept: 'application/json' } });
+    return http(target, opts);
   }
   async _openRest() {
     const cfg = await this._rest('/api/config').catch((e) => { throw Object.assign(e, { userMessage: e.status === 401 ? 'Home Assistant refused the token' : e.userMessage || 'Couldn’t reach Home Assistant' }); });
@@ -153,6 +165,11 @@ export class HomeAssistantService extends Emitter {
       this.areas = list.map((a) => ({ id: a.id, name: a.name })).sort((a, b) => a.name.localeCompare(b.name));
       this.areaOf.clear();
       for (const a of list) for (const e of a.entities || []) this.areaOf.set(e, a.id);
+    } catch {}
+    try {   // integrations the app uses directly (Google TV through Android TV Remote)
+      const tpl = "{% set ns = namespace(out=[]) %}{% for e in integration_entities('androidtv_remote') %}{% set ns.out = ns.out + [[e, device_id(e)]] %}{% endfor %}{{ ns.out | tojson }}";
+      const raw = await this._rest('/api/template', { method: 'POST', json: { template: tpl } });
+      for (const [e, dev] of (typeof raw === 'string' ? JSON.parse(raw) : raw) || []) { this.platformOf.set(e, 'androidtv_remote'); if (dev) this.deviceOf.set(e, dev); }
     } catch {}
     this._setStatus('ready');
     this.emit('change', null);
@@ -188,6 +205,8 @@ export class HomeAssistantService extends Emitter {
 
   // ---------- model helpers ----------
   entity(id) { return this.states.get(id) || null; }
+  /** Entity ids from one integration, e.g. 'androidtv_remote'. */
+  entitiesOf(platform) { return [...this.platformOf].filter(([, p]) => p === platform).map(([e]) => e); }
   visible(filter = () => true) {
     return [...this.states.values()].filter((s) => DOMAINS.includes(domainOf(s.entity_id)) && !this.hidden.has(s.entity_id)
       && !s.attributes?.hidden && filter(s));

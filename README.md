@@ -587,6 +587,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 | "This browser can't play Spotify audio" | The browser lacks Widevine DRM. Remote control still works. On the Pi, install `libwidevinecdm0`. |
 | YouTube: "That code wasn't accepted" | Codes expire after a few minutes. Get a new one from the TV (YouTube → Settings → Link with TV code) and enter it straight away. |
 | A bridge tile says **Bridge not found** | Start the bridge (`start-bridge.bat` / `.sh`, or the Pi service). In Chrome, allow *local network access*. If you blocked it, re-enable it via the lock icon → *Site settings*. |
+| Plex (Movies & TV): "… didn't take the command" while the TV is playing | Open **⋯ → Test the player**: it tries reaching the Plex app through your server and directly (through the bridge) and shows which way works. If neither does, open the Plex app on the TV → **Settings → Advanced** and turn on **Advertise as player** (called *Remote control* / *Network discovery* in some versions), then restart the Plex app. Meanwhile, if the TV is paired under Media → Google TV (or Apple TV), play/pause, next/previous and skip go through the TV's own remote. |
 | Jellyfin/Plex on `http://` doesn't connect from GitHub Pages | Use Chrome/Edge and allow local network access, use an `https://` address, or run the bridge. |
 | YouTube: "Add a YouTube API key" | See [YouTube](#youtube-and-youtube-music). |
 | YouTube: "quota used up" | The free daily quota resets at midnight Pacific time. |

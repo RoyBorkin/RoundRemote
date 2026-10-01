@@ -279,7 +279,7 @@ async function proxy(req, res, url) {
     res.writeHead(r.status, out);
     if (r.body) { for await (const chunk of r.body) res.write(chunk); }
     res.end();
-  } catch (e) { json(res, 502, { error: e.message }); }
+  } catch (e) { log('proxy', `${req.method} ${target.host}${target.pathname}: ${e.cause?.code || e.message}`); json(res, 502, { error: e.cause?.code || e.message }); }
 }
 
 const server = http.createServer(async (req, res) => {

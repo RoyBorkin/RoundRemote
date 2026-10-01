@@ -4,7 +4,7 @@
 import { Provider } from './base.js';
 import { store } from '../core/store.js';
 import { http, qs, uid, sleep } from '../core/util.js';
-import { bridgeBase } from './bridge.js';
+import { bridgeBase, bridgeFetch, bridgeZones } from './bridge.js';
 
 const PLEX_TV = 'https://plex.tv/api/v2';
 const PRODUCT = 'Round Remote';
@@ -149,6 +149,7 @@ export class PlexProvider extends Provider {
     const wantId = store.getZone(this.id);
     this.playerId = m?.Player?.machineIdentifier || wantId || null;
     if (this.playerId && this.tick++ % 2 === 0) this._pollTimeline().catch(() => {});
+    if (this.tick % 15 === 1) this.pms('/clients').then((d) => { this.clientsCache = d?.MediaContainer?.Server || []; }).catch(() => {});
     if (!m) {
       this.publish({ track: null, isPlaying: false, status: 'nodevice', device: this.playerId ? { id: this.playerId, name: this._playerName(this.playerId) } : null,
         message: 'Start Plexamp (or pick a player in Devices)' });
@@ -169,8 +170,9 @@ export class PlexProvider extends Provider {
     });
   }
   _playerName(id) {
+    const p = (this.sessionsCache || []).find((m) => m.Player?.machineIdentifier === id)?.Player;
     const r = (this.resources || []).find((x) => x.clientIdentifier === id);
-    return r?.name || 'Plex player';
+    return p?.title || r?.name || 'The Plex player';
   }
   async _pollTimeline() {
     const xml = await this._player('timeline/poll', { wait: 0 }, true);
@@ -189,23 +191,110 @@ export class PlexProvider extends Provider {
   }
 
   // ---------- commands ----------
-  /** Send a Plex Companion command to the selected player, proxied through the server;
-   *  falls back to the player's own connection (e.g. Plexamp headless on :32500). */
+  /**
+   * Where Plex Companion commands can go, best first: through your Plex server (it relays to the app), or
+   * straight to the player app on the TV (port 32500 — through the bridge, which avoids browser blocks).
+   */
+  _routes(id) {
+    const routes = [];
+    const add = (name, base, token) => { if (base && !routes.some((r) => r.base === base)) routes.push({ name, base: base.replace(/\/$/, ''), token }); };
+    add('server', this.server.uri, this.server.token);
+    const p = (this.sessionsCache || []).find((m) => m.Player?.machineIdentifier === id)?.Player;
+    if (p?.address && p.local !== false) add('player', `http://${p.address}:32500`, this.server.token);
+    const cl = (this.clientsCache || []).find((c) => c.machineIdentifier === id);
+    if (cl) add('player', `${cl.protocol || 'http'}://${cl.address || cl.host}:${cl.port || 32500}`, this.server.token);
+    const res = (this.resources || []).find((r) => r.clientIdentifier === id);
+    for (const c of res?.connections || []) add('player', c.uri, res.accessToken || this.token);
+    const good = this.goodRoute?.[id];
+    if (good) routes.sort((a, b) => (b.base === good) - (a.base === good));
+    return routes;
+  }
+  /** URLs to try for a route: a LAN player goes through the bridge first (no browser blocks), then directly. */
+  async _routeUrls(r, path) {
+    const full = `${r.base}${path}`;
+    if (r.name === 'player' && full.startsWith('http:')) {
+      if (this.proxyBase === undefined) this.proxyBase = await bridgeBase();
+      const out = this.proxyBase ? [`${this.proxyBase}/api/proxy?${qs({ url: full })}`] : [];
+      if (location.protocol !== 'https:') out.push(full);
+      return out.length ? out : [await this._url(full)];
+    }
+    return [await this._url(full)];
+  }
+  async _send(r, path, timeout) {
+    let last;
+    for (const u of await this._routeUrls(r, path)) {
+      try { return await http(u, { headers: { ...baseHeaders(r.token), 'X-Plex-Target-Client-Identifier': this.playerId }, timeout }); }
+      catch (e) { last = e; if (e.status && e.status !== 502) throw e; }   // the player answered with an error: no point trying the other way
+    }
+    throw last;
+  }
+  /** Send a Plex Companion command to the selected player, trying each route until one answers. */
   async _player(cmd, params = {}, raw = false) {
     const id = this.playerId;
     if (!id) throw Object.assign(new Error('No player'), { userMessage: 'Pick a Plex player in Devices' });
     const q = qs({ type: this.ctype, ...params, commandID: this.cmdId++ });
-    const hdrs = { ...baseHeaders(this.server.token), 'X-Plex-Target-Client-Identifier': id };
-    try {
-      return await http(await this._url(`${this.server.uri}/player/${cmd}?${q}`), { headers: hdrs, timeout: 6000 });
-    } catch (e) {
-      const res = (this.resources || []).find((r) => r.clientIdentifier === id);
-      for (const c of res?.connections || []) {
-        try { return await http(await this._url(`${c.uri}/player/${cmd}?${q}`), { headers: { ...baseHeaders(this.token), 'X-Plex-Target-Client-Identifier': id }, timeout: 5000 }); } catch {}
-      }
-      if (raw) return null;
-      throw Object.assign(e, { userMessage: 'Plex player did not respond' });
+    const routes = this._routes(id);
+    const tried = [];
+    // the timeline poll runs in the background: only the route that worked (or the server), and quickly
+    for (const r of raw ? routes.slice(0, 1) : routes) {
+      try {
+        const out = await this._send(r, `/player/${cmd}?${q}`, raw ? 3000 : r.name === 'server' ? 6000 : 4000);
+        (this.goodRoute ||= {})[id] = r.base;
+        return out;
+      } catch (e) { tried.push(`${r.name === 'server' ? 'via the server' : `direct ${r.base.replace(/^https?:\/\//, '')}`}: ${e.status ? `HTTP ${e.status}` : e.name === 'AbortError' ? 'no answer' : e.message}`); }
     }
+    if (raw) return null;
+    this.lastFailure = { cmd, tried, at: Date.now() };
+    console.warn('[plex] command failed', cmd, tried);
+    // the Plex app ignores remote control: use the TV's own remote (Google TV / Apple TV) for the basics
+    if (await this._tvFallback(cmd, params).catch(() => false)) return null;
+    throw Object.assign(new Error('Plex player did not respond'), {
+      tried, userMessage: `${this._playerName(id)} didn’t take the command. In the Plex app on the TV turn on Settings → Advanced → “Advertise as player”.`,
+    });
+  }
+  /** The paired Google TV / Apple TV that is this Plex player (same address, or same name). */
+  async _matchTv() {
+    const zones = await bridgeZones((z) => z.adapter === 'androidtv' || z.adapter === 'appletv');
+    if (!zones.length) return null;
+    const p = (this.sessionsCache || []).find((m) => m.Player?.machineIdentifier === this.playerId)?.Player || {};
+    const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9א-ת]/g, '');
+    const name = norm(p.title || this._playerName(this.playerId));
+    return zones.find((z) => p.address && z.localId === p.address)
+      || zones.find((z) => name && norm(z.name) && (norm(z.name).includes(name) || name.includes(norm(z.name))))
+      || (zones.length === 1 ? zones[0] : null);
+  }
+  async _tvFallback(cmd, params) {
+    const keys = { 'playback/play': 'play', 'playback/pause': 'pause', 'playback/skipNext': 'next', 'playback/skipPrevious': 'prev', 'playback/stop': 'stop', 'playback/stepForward': 'forward', 'playback/stepBack': 'rewind' };
+    let key = keys[cmd];
+    if (cmd === 'playback/seekTo') key = params.offset >= (this.state.progressMs || 0) ? 'forward' : 'rewind';
+    if (!key) return false;
+    const tv = await this._matchTv();
+    if (!tv) return false;
+    await bridgeFetch(`/api/adapters/${tv.adapter}/key`, { method: 'POST', json: { id: tv.id, key } });
+    if (!this.fallbackNoted) {
+      this.fallbackNoted = true;
+      this.emit('notice', `Using the ${tv.name} remote — for full control turn on “Advertise as player” in the Plex app on the TV`);
+    }
+    return true;
+  }
+  /** Try every route with a harmless command and report what answered (Options → Test the player). */
+  async testPlayer() {
+    const id = this.playerId;
+    if (!id) return { name: '', results: [], tv: null };
+    try { this.clientsCache = (await this.pms('/clients'))?.MediaContainer?.Server || this.clientsCache; } catch {}
+    const results = [];
+    for (const r of this._routes(id)) {
+      const t0 = performance.now();
+      try {
+        await this._send(r, `/player/timeline/poll?${qs({ wait: 0, type: this.ctype, commandID: this.cmdId++ })}`, 5000);
+        results.push({ route: r.name === 'server' ? 'Through your Plex server' : `Straight to ${r.base.replace(/^https?:\/\//, '')}`, ok: true, detail: `${Math.round(performance.now() - t0)} ms` });
+        (this.goodRoute ||= {})[id] ||= r.base;
+      } catch (e) {
+        results.push({ route: r.name === 'server' ? 'Through your Plex server' : `Straight to ${r.base.replace(/^https?:\/\//, '')}`, ok: false, detail: e.status ? `HTTP ${e.status}` : e.name === 'AbortError' ? 'no answer' : e.message });
+      }
+    }
+    const tv = await this._matchTv().catch(() => null);
+    return { name: this._playerName(id), results, tv: tv?.name || null };
   }
   play() { return this._player('playback/play'); }
   pause() { return this._player('playback/pause'); }
@@ -268,6 +357,7 @@ export class PlexProvider extends Provider {
     }
     try {
       const d = await this.pms('/clients');
+      this.clientsCache = d?.MediaContainer?.Server || [];
       for (const c of d?.MediaContainer?.Server || []) if (!seen.has(c.machineIdentifier)) seen.set(c.machineIdentifier, { id: c.machineIdentifier, name: c.name, type: c.product });
     } catch {}
     return [...seen.values()].map((d) => ({ ...d, active: d.id === this.playerId }));

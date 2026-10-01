@@ -58,6 +58,7 @@ export class PlexMediaProvider extends PlexProvider {
     const wantId = store.getZone(this.id);
     this.playerId = m?.Player?.machineIdentifier || wantId || null;
     if (this.playerId && this.tick++ % 2 === 0) this._pollTimeline().catch(() => {});
+    if (this.tick % 15 === 1) this.pms('/clients').then((d) => { this.clientsCache = d?.MediaContainer?.Server || []; }).catch(() => {});
     if (!m) {
       this.publish({ track: null, isPlaying: false, status: 'nodevice', device: this.playerId ? { id: this.playerId, name: this._playerName(this.playerId) } : null,
         message: this.playerId ? 'Nothing playing — pick something in Library' : 'Start a Plex app on your TV (or pick a player in Devices)' });

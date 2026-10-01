@@ -28,7 +28,7 @@ const require = createRequire(import.meta.url);
 // Android KeyEvent codes (the Remote protocol uses the same numbers) — fallbacks if the library's enum differs
 const KEYS = {
   playpause: ['KEYCODE_MEDIA_PLAY_PAUSE', 85], play: ['KEYCODE_MEDIA_PLAY', 126], pause: ['KEYCODE_MEDIA_PAUSE', 127],
-  next: ['KEYCODE_MEDIA_NEXT', 87], prev: ['KEYCODE_MEDIA_PREVIOUS', 88], rewind: ['KEYCODE_MEDIA_REWIND', 89], forward: ['KEYCODE_MEDIA_FAST_FORWARD', 90],
+  next: ['KEYCODE_MEDIA_NEXT', 87], prev: ['KEYCODE_MEDIA_PREVIOUS', 88], rewind: ['KEYCODE_MEDIA_REWIND', 89], forward: ['KEYCODE_MEDIA_FAST_FORWARD', 90], stop: ['KEYCODE_MEDIA_STOP', 86],
   up: ['KEYCODE_DPAD_UP', 19], down: ['KEYCODE_DPAD_DOWN', 20], left: ['KEYCODE_DPAD_LEFT', 21], right: ['KEYCODE_DPAD_RIGHT', 22], ok: ['KEYCODE_DPAD_CENTER', 23],
   back: ['KEYCODE_BACK', 4], home: ['KEYCODE_HOME', 3], power: ['KEYCODE_POWER', 26], mute: ['KEYCODE_VOLUME_MUTE', 164],
   volup: ['KEYCODE_VOLUME_UP', 24], voldown: ['KEYCODE_VOLUME_DOWN', 25], menu: ['KEYCODE_MENU', 82], settings: ['KEYCODE_SETTINGS', 176],

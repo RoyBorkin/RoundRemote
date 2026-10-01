@@ -165,6 +165,7 @@ export function openMediaOptions({ onRemote } = {}) {
       row.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); panel.close(); openCustomizeControls('media'); } }, 'Customize controls'));
       if (c.remote && onRemote) row.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); panel.close(); onRemote(); } }, 'TV remote'));
       if (c.stop) row.append(h('button.chip', { type: 'button', onclick: async (e) => { e.stopPropagation(); panel.close(); try { await player.provider.stopPlayback(); toast('Stopped'); } catch (err) { toast(errMsg(err), { kind: 'error' }); } } }, 'Stop playback'));
+      if (player.provider?.testPlayer) row.append(h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); panel.close(); openPlayerTest(); } }, 'Test the player'));
       const m = player.state.track?.media;
       if (m?.itemId && player.provider?.markWatched) row.append(h('button.chip', { type: 'button', onclick: async (e) => { e.stopPropagation(); try { await player.provider.markWatched({ id: m.itemId }, true); toast('Marked as watched'); } catch (err) { toast(errMsg(err), { kind: 'error' }); } } }, 'Mark watched'));
       if (row.children.length) body.append(row);
@@ -283,6 +284,32 @@ export function openSubtitleSearch(entry, { playing = false } = {}) {
       };
       paintLangs();
       search(langById(fav[0]));
+    },
+  });
+}
+
+/** Plex: which ways of reaching the player app work (through the server / straight to it), and the fixes. */
+export function openPlayerTest() {
+  openPanel({
+    title: 'Test the player', className: 'list-panel.media-panel.player-test',
+    build(body) {
+      const list = h('div.list');
+      body.append(list);
+      list.append(spinner('Trying each way to reach the player…'));
+      player.provider.testPlayer().then(({ name, results, tv }) => {
+        clear(list);
+        if (!results.length) { list.append(emptyNote('No Plex player selected — pick one in Devices')); return; }
+        list.append(h('div.mdet-sec', name));
+        for (const r of results) list.append(listRow({ title: r.route, subtitle: r.detail, mono: r.ok ? '✓' : '✕', color: r.ok ? 'var(--ok)' : 'var(--danger)' }));
+        const ok = results.some((r) => r.ok);
+        list.append(h('div.mdet-summary', ok
+          ? 'The player answers — controls should work. If a command still fails, try again in a few seconds.'
+          : `The Plex app on ${name} doesn’t accept remote control yet. On the TV open Plex → Settings → Advanced and turn on “Advertise as player” (on some versions: “Remote control” / “Network discovery”), then restart the Plex app.`));
+        if (!ok) list.append(h('div.mdet-summary', tv
+          ? `Until then, play / pause / next / skip go through the ${tv} remote.`
+          : 'Tip: pair the TV under Media → Google TV (or Apple TV), and play / pause / skip will work through the TV remote meanwhile.'));
+        list.append(h('div.spacer'));
+      }).catch((e) => { clear(list); list.append(emptyNote(errMsg(e))); });
     },
   });
 }

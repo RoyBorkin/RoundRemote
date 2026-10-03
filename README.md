@@ -157,7 +157,9 @@ The platform logos come from the free [Simple Icons](https://simpleicons.org) se
 
 ### Games
 
-Tap **Games** on the home screen. The games sit on a ring: tap one (or drag around the ring, scroll, or use ← →) to see it in the middle, then tap **Play**. Every game keeps a **top-5 chart** for each of its modes. It shows after every round and under **Top 5** on its start card. The scores are saved with your settings, so a settings profile copies them to another display.
+Tap **Games** on the home screen. The games sit on a ring: tap one (or drag around the ring, scroll, or use ← →) to see it in the middle, then tap **Play**. Every game keeps a **top-5 chart** for each of its modes and options (like difficulty). It shows after every round and under **Top 5** on its start card. When a score makes the chart you're asked for your name; the last name is filled in next time and you can tap it to change it. Each place shows the name and the date. The scores are saved with your settings, so a settings profile copies them to another display.
+
+**Pause (⏸ at the top):** Resume, Restart and Quit, sound on/off, and a mini player for whatever is playing in Music or Movies & TV: previous, play/pause, next and volume.
 
 | Game | How it plays |
 |---|---|
@@ -165,7 +167,7 @@ Tap **Games** on the home screen. The games sit on a ring: tap one (or drag arou
 | **Marble Chain** | A Zuma-style marble shooter with 6 paths: 4 with the shooter in the centre, 2 with it near the edge. Drag to aim, let go to shoot, tap the shooter to swap. 3 of a colour pop. |
 | **Perfect Circle** | Draw a circle in one go and get a score for how perfect it is. |
 | **Ring Invaders** | Space Invaders in a circle. Your ship flies around the rim and shoots inward at invaders spreading out from the core. |
-| **Circle Pong** | Keep the ball inside the circle with a paddle on the rim. *Classic* or *Two balls*. |
+| **Circle Pong** | Keep the ball inside the circle with a paddle on the rim. Modes:<br>• *Classic*.<br>• *Two balls*.<br>• *Power-ups*: wide or shrinking paddle, slow-mo, multi-ball, shield, sticky paddle, ×2 points, fast ball, reversed controls.<br>• *Against*: the rim is split into 2, 3 or 4 sectors and you play against computer blockers on Easy, Normal or Hard. 3 lives each; a knocked-out sector becomes a wall.<br>• *2 players*: two halves on one screen, one finger each. |
 | **Tic Tac Toe** | 1P vs COM (Easy / Normal / Hard) or 2 players. |
 | **Stack** | Tap to drop each sliding block on the tower. Overhang is cut off; perfect drops keep it whole. |
 | **2048** | Swipe to slide and join the tiles. |
@@ -179,8 +181,11 @@ Tap **Games** on the home screen. The games sit on a ring: tap one (or drag arou
 | **Jetpack Dash** | Hold to fly. Dodge zappers, missiles and lasers, and collect coins. |
 | **Temple Dash** | Run an ancient path. Swipe to turn at corners and to change lanes, swipe up to jump and down to slide. |
 | **Rail Rush** | Three rail lanes. Swipe to switch lanes, jump and roll, and ride the train roofs. |
+| **Bricks Breaker** | Aim and fire a volley of balls from the centre at numbered bricks on the rings. Every turn the rings move inward. Power-ups: +1 ball, ring and line lasers, bombs, double damage, fire balls, ×2 balls and a shield. |
+| **Block Destroyer** | Breakout on a round screen: a paddle on the rim and 12 block layouts, with strong, metal, explosive and spinning blocks, looping faster. Power-ups: wide paddle, multi-ball, fireball, laser, sticky, slow, extra life and shield, plus shrink and fast. |
+| **Rush Hour** | Slide the cars and trucks to get the red car out. 48 puzzles in 4 packs, from Beginner (3 moves) to Expert (up to 49 moves), with stars, unlocking, Undo and Restart. |
 
-Every game works with touch, and also with the keyboard: arrows, space and Enter. Games that turn something around the circle also take a rotary knob (←/→ or the scroll wheel). The ⏸ button at the top pauses the game; you can also turn the sound on or off there and on the Games ring. The names, characters and art are original; several games are round takes on well-known arcade classics.
+Every game works with touch, and also with the keyboard: arrows, space and Enter. Games that turn something around the circle also take a rotary knob (←/→ or the scroll wheel). The ⏸ button at the top pauses the game; you can also turn the sound on or off there and on the Games ring. Circles and balls are drawn flat: solid colours, no gloss. The names, characters and art are original; several games are round takes on well-known arcade classics.
 
 ---
 

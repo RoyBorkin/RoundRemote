@@ -42,6 +42,12 @@ export const GAMES = [
     icon: 'M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z' },
   { id: 'subway', file: './subway.js', name: 'Rail Rush', color: '#34d399', blurb: 'Dash along the tracks. Swipe to switch lanes, jump and roll.',
     icon: 'M12 2c-4 0-8 .5-8 4v9.5C4 17.43 5.57 19 7.5 19L6 20.5v.5h2.23l2-2H14l2 2h2v-.5L16.5 19c1.93 0 3.5-1.57 3.5-3.5V6c0-3.5-3.58-4-8-4zM7.5 17c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm3.5-7H6V6h5v4zm2 0V6h5v4h-5zm3.5 7c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z' },
+  { id: 'bricks', file: './bricks.js', name: 'Bricks Breaker', color: '#f97316', blurb: 'Aim and fire a volley of balls at numbered bricks before they reach the core.',
+    icon: 'M3 3h5v5H3zM10 3h5v5h-5zM17 3h4v5h-4zM3 10h5v5H3zM17 10h4v5h-4z' + c(12, 18.5, 2.2) + c(7, 19.5, 1.4) },
+  { id: 'blocks', file: './blocks.js', name: 'Block Destroyer', color: '#c084fc', blurb: 'Bounce the ball off your paddle on the rim and break every block. Catch the power-ups.',
+    icon: 'M7 4h10v3H7zM4 9h7v3H4zM13 9h7v3h-7zM8 14h8v3H8z' + c(12, 20.2, 1.8) },
+  { id: 'rushhour', file: './rushhour.js', name: 'Rush Hour', color: '#ef4444', blurb: 'Slide the cars and trucks to get the red car out. 40+ puzzles, easy to expert.',
+    icon: 'M3 9h12v6H3zM17 3h4v12h-4zM9 17h12v4H9z' + c(6, 12, 1.2, true) },
 ];
 
 export const gameById = (id) => GAMES.find((g) => g.id === id) || null;

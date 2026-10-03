@@ -531,10 +531,7 @@ export default {
     function drawPower(o) {
       if (o.got || !proj(o.x, 0.85 + Math.sin(g.time * 3) * 0.08, o.z0)) return;
       const r = 0.36 * SK, col = o.kind === 'magnet' ? '#ff4fa3' : '#ffc83d';
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.55; ctx.drawImage(glowSpr, SX - r * 2.6, SY - r * 2.6, r * 5.2, r * 5.2); ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-      g.draw.circle(SX, SY, r, g.draw.alpha(col, 0.85), { stroke: '#fff', lw: Math.max(1.5, r * 0.12) });
+      g.draw.circle(SX, SY, r, col, { stroke: '#fff', lw: Math.max(1.5, r * 0.12) });   // flat orb: solid fill, white rim
       drawPowerIcon(o.kind, SX, SY, r * 0.62);
     }
     function drawPowerIcon(kind, cx, cy, s) {
@@ -614,7 +611,7 @@ export default {
       list.forEach(([kind, frac, col], i) => {
         const cx = g.cx + (i - (list.length - 1) / 2) * R * 0.15, cy = g.cy - R * 0.44, r = R * 0.05;
         g.draw.circle(cx, cy, r, 'rgba(10,10,20,.6)', { stroke: 'rgba(255,255,255,.14)', lw: R * 0.006 });
-        g.draw.arc(cx, cy, r, 0, TAU * frac, col, R * 0.012, { glow: frac < 0.25 && Math.sin(g.time * 14) > 0 ? 0 : 8 });
+        g.draw.arc(cx, cy, r, 0, TAU * frac, frac < 0.25 && Math.sin(g.time * 14) > 0 ? g.draw.alpha(col, 0.35) : col, R * 0.012);
         ctx.save(); ctx.globalAlpha = 0.95;
         if (kind === 'magnet') { ctx.translate(0, r * 0.15); drawPowerIcon(kind, cx, cy, r * 0.62); }
         else g.draw.text('2×', cx, cy + r * 0.05, r * 0.8, { color: '#fff', weight: 800 });

@@ -76,13 +76,13 @@ export default {
 
       // ---- draw ----
       g.draw.bg({ glow: 0.14 + (phase === 'growing' ? 0.06 : 0) });
-      // the arena edge: a dashed danger ring that glows when the bubble gets close
+      // the arena edge: a dashed danger ring that turns red when the bubble gets close
       const close = phase === 'growing' ? clamp(bubble.r / Math.max(1, bubble.max), 0, 1) : 0;
       ctx.save();
       ctx.setLineDash([g.R * 0.02, g.R * 0.025]); ctx.lineDashOffset = -t * 20;
       ctx.beginPath(); ctx.arc(cx, cy, arenaR(), 0, TAU);
       ctx.strokeStyle = close > 0.75 ? `rgba(255,90,106,${0.4 + 0.6 * (close - 0.75) / 0.25})` : 'rgba(255,255,255,.22)';
-      ctx.lineWidth = g.R * 0.008; ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = close > 0.75 ? 14 : 0; ctx.stroke();
+      ctx.lineWidth = g.R * (close > 0.75 ? 0.011 : 0.008); ctx.stroke();
       ctx.restore();
       // spikes
       for (const s of spikes) {
@@ -98,11 +98,9 @@ export default {
         const k = phase === 'banked' ? Math.max(0, wait / 1.1) : 1;
         const r = bubble.r * (phase === 'banked' ? 0.85 + 0.15 * k : 1);
         ctx.save(); ctx.globalAlpha = phase === 'banked' ? k : 1;
-        const gr = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.05, x, y, r);
-        gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(0.35, g.draw.alpha(g.color, 0.45)); gr.addColorStop(1, g.draw.alpha(g.color, 0.85));
-        ctx.shadowColor = g.color; ctx.shadowBlur = g.R * 0.08;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = gr; ctx.fill();
-        ctx.shadowBlur = 0; ctx.lineWidth = g.R * 0.008; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.stroke();
+        // flat bubble: one solid fill and a thin solid rim
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = g.color; ctx.fill();
+        ctx.lineWidth = g.R * 0.008; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.stroke();
         ctx.restore();
         if (phase === 'growing') g.draw.text(`${Math.round((bubble.r / arenaR()) ** 2 * 100)}%`, x, y, clamp(r * 0.5, g.R * 0.04, g.R * 0.14), { color: '#fff' });
       }

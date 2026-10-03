@@ -159,11 +159,10 @@ export default {
         for (const k of [1, -1]) { ctx.beginPath(); ctx.arc(cx, cy, ringR * (1 + k * ease.out(rp.t) * 0.14), 0, TAU); ctx.stroke(); }
       }
       // the ring
-      ctx.save();
-      ctx.shadowColor = accent; ctx.shadowBlur = R * (0.03 + pulse * 0.05);
+      ctx.save();   // flat: a solid stroke with a thin lighter core line, no glow
       ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, TAU);
       ctx.strokeStyle = accent; ctx.lineWidth = LINE * R * (1 + pulse * 0.9); ctx.stroke();
-      ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = LINE * R * 0.3; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = LINE * R * 0.3; ctx.stroke();
       ctx.restore();
 
       // obstacles: fully-grown ones share one glowing path, growing/fading ones are drawn one by one
@@ -219,9 +218,8 @@ export default {
         const [x, y] = P(o.at, ringR + o.side * OFF * R);
         const s = R * 0.024 * k;
         ctx.save(); ctx.globalAlpha = al; ctx.translate(x, y); ctx.rotate(t * 2);
-        ctx.shadowColor = GEM; ctx.shadowBlur = R * 0.03;
         ctx.beginPath(); ctx.moveTo(0, -s * 1.3); ctx.lineTo(s, 0); ctx.lineTo(0, s * 1.3); ctx.lineTo(-s, 0); ctx.closePath();
-        ctx.fillStyle = GEM; ctx.fill(); ctx.shadowBlur = 0;
+        ctx.fillStyle = GEM; ctx.fill();
         ctx.beginPath(); ctx.moveTo(0, -s * 0.7); ctx.lineTo(s * 0.45, 0); ctx.lineTo(0, s * 0.2); ctx.closePath();
         ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill();
         ctx.restore();
@@ -241,8 +239,8 @@ export default {
         }
         ctx.globalAlpha = 1;
         const hop = Math.sin(Math.PI * flipT) * 0.28;          // swells a little mid-hop
-        g.draw.circle(bx, by, BALL * R * (1 + hop) * 1.15, g.draw.alpha(accent, 0.25), { glow: accent });
-        g.draw.ball(bx, by, BALL * R * (1 + hop), '#ffffff');
+        g.draw.ball(bx, by, BALL * R * (1 + hop) * 1.22, accent);      // flat: a solid accent rim…
+        g.draw.ball(bx, by, BALL * R * (1 + hop), '#ffffff');           // …around a solid white ball
       } else {
         // shockwave where it crashed
         const k = clamp(deadT / 0.6, 0, 1);

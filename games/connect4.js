@@ -6,6 +6,7 @@ import { TAU, clamp, ease, rand, pick } from './kit.js';
 const W = 7, H = 6;                       // columns × rows; cell index = col * H + row (row 0 = bottom)
 const P1 = 1, P2 = 2;
 const COL = { [P1]: '#ff5a6a', [P2]: '#ffc857' };   // THEME.pieces red & yellow
+const RING = { [P1]: '#d9404f', [P2]: '#e0a53a' };  // the flat inner ring, a shade darker
 const NAME = { [P1]: 'Red', [P2]: 'Yellow' };
 const DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
 const ORDER = [3, 2, 4, 1, 5, 0, 6];      // centre first: better moves first = faster pruning
@@ -280,19 +281,14 @@ export default {
     newRound();
 
     // ---- drawing ----
-    function disc(x, y, r, p, alpha = 1, glow = false) {
+    // flat token: one solid colour with a flat, slightly darker inner ring (like a pressed token)
+    function disc(x, y, r, p, alpha = 1) {
       const { ctx } = g;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      draw.ball(x, y, r, COL[p], { glow });
-      // a pressed inner ring, like a real token, and a glossy highlight
-      ctx.beginPath(); ctx.arc(x, y, r * 0.68, 0, TAU);
-      ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = r * 0.1; ctx.stroke();
-      ctx.beginPath(); ctx.arc(x, y + r * 0.05, r * 0.68, Math.PI * 0.15, Math.PI * 0.85);
-      ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = r * 0.06; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.42, r * 0.34, r * 0.17, -0.45, 0, TAU);
-      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fill();
-      ctx.restore();
+      if (alpha !== 1) { ctx.save(); ctx.globalAlpha = alpha; }
+      draw.ball(x, y, r, COL[p]);
+      ctx.beginPath(); ctx.arc(x, y, r * 0.66, 0, TAU);
+      ctx.strokeStyle = RING[p]; ctx.lineWidth = r * 0.1; ctx.stroke();
+      if (alpha !== 1) ctx.restore();
     }
 
     g.loop((dt, t) => {
@@ -392,7 +388,6 @@ export default {
         const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
         ctx.save();
         ctx.globalAlpha = fade; ctx.lineCap = 'round';
-        ctx.shadowColor = winCol; ctx.shadowBlur = g.R * 0.05;
         for (const [x, y] of pts) {
           ctx.beginPath(); ctx.arc(x, y, dr * (1.05 + 0.05 * Math.sin(t * 6)), -Math.PI / 2, -Math.PI / 2 + TAU * k);
           ctx.strokeStyle = '#fff'; ctx.lineWidth = c * 0.06; ctx.stroke();
@@ -424,7 +419,7 @@ export default {
         const py = ty + g.R * 0.075;
         for (const p of [P1, P2]) for (let k = 0; k < 3; k++) {
           const x = cx + (p === P1 ? -1 : 1) * (g.R * 0.07 + k * g.R * 0.045);
-          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)', { glow: k < tally[p] ? g.R * 0.03 : 0 });
+          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)');
         }
       }
       draw.particles(dt);

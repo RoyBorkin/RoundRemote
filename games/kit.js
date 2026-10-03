@@ -78,7 +78,8 @@ const SFX = {
   tick: [{ f: 1800, d: 0.02, type: 'square', v: 0.03 }],
 };
 /** Play a named effect: tap click pop hit bounce score coin jump flap laser boom whoosh drop place perfect win over tick. */
-export function sfx(name, { pitch = 1, volume = 1 } = {}) {
+export function sfx(name, opts) {
+  const { pitch = 1, volume = 1 } = opts || {};
   const a = audio();
   const parts = SFX[name];
   if (!a || !parts) return;
@@ -127,15 +128,10 @@ export function makeDraw(g) {
       if (stroke) { ctx.shadowBlur = 0; ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
       ctx.restore();
     },
-    /** A glossy ball (marbles, bubbles): base colour with a light spot. */
-    ball(x, y, r, col, { glow = false } = {}) {
+    /** A ball / disc (marbles, bubbles…) in the flat style: one solid colour, no gloss or shadow. */
+    ball(x, y, r, col) {
       const { ctx } = g;
-      ctx.save();
-      if (glow) { ctx.shadowColor = col; ctx.shadowBlur = r * 0.9; }
-      const gr = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-      gr.addColorStop(0, d.shade(col, 0.55)); gr.addColorStop(0.45, col); gr.addColorStop(1, d.shade(col, -0.45));
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-      ctx.restore();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, TAU); ctx.fill();
     },
     /** Arc along a circle (angles: 0 = top, clockwise), with round caps like the progress ring. */
     arc(cx, cy, r, a0, a1, color, width, { glow = 0, cap = 'round' } = {}) {

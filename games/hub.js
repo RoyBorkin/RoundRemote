@@ -10,10 +10,10 @@ import { sfx } from './kit.js';
 /** Best score for a game in the mode last played (formatted text saved with the score). */
 function bestText(id) {
   const all = store.get('gameScores') || {};
-  const mode = (store.get('gameModes') || {})[id] || null;
-  const list = all[`${id}:${mode || 'default'}`] || Object.entries(all).find(([k]) => k.startsWith(`${id}:`))?.[1] || [];
+  const key = (store.get('gameKeys') || {})[id] || (store.get('gameModes') || {})[id] || 'default';
+  const list = all[`${id}:${key}`] || Object.entries(all).find(([k]) => k.startsWith(`${id}:`))?.[1] || [];
   const b = list[0];
-  return b ? (b.text || Math.round(b.score).toLocaleString()) : '';
+  return b ? `${b.text || Math.round(b.score).toLocaleString()}${b.name ? ` · ${b.name}` : ''}` : '';
 }
 
 export function GamesHubScreen() {

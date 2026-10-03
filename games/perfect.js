@@ -147,12 +147,12 @@ export default {
       if (n < 2) return;
       ctx.save();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.globalAlpha = alpha; ctx.lineWidth = g.R * 0.022; ctx.shadowBlur = g.R * 0.03;
+      ctx.globalAlpha = alpha; ctx.lineWidth = g.R * 0.022;
       const neutral = devs.length < n || devs[0] < 0;
       if (neutral) {
         ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
         for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-        ctx.strokeStyle = ctx.shadowColor = g.color; ctx.stroke();
+        ctx.strokeStyle = g.color; ctx.stroke();
       } else {
         for (let b = 0; b < HEAT.length; b++) {
           ctx.beginPath(); let open = false;
@@ -161,7 +161,7 @@ export default {
             if (k === b) { if (!open) { ctx.moveTo(pts[i - 1][0], pts[i - 1][1]); open = true; } ctx.lineTo(pts[i][0], pts[i][1]); }
             else open = false;
           }
-          ctx.strokeStyle = ctx.shadowColor = HEAT[b]; ctx.stroke();
+          ctx.strokeStyle = HEAT[b]; ctx.stroke();
         }
       }
       ctx.restore();
@@ -184,7 +184,7 @@ export default {
         ctx.setLineDash([R * 0.012, R * 0.035]); ctx.lineDashOffset = -t * R * 0.03;
         ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, TAU); ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = R * 0.006; ctx.stroke();
         ctx.restore();
-        g.draw.circle(cx, cy, R * (0.012 + 0.003 * Math.sin(pulse * 3)), g.draw.alpha(g.color, 0.7 * hintA), { glow: R * 0.04 });
+        g.draw.circle(cx, cy, R * (0.012 + 0.003 * Math.sin(pulse * 3)), g.draw.alpha(g.color, 0.8 * hintA));
         if (phase !== 'drawing') {
           g.draw.text('Draw a circle', cx, cy - R * 0.11, R * 0.07, { color: '#fff', alpha: 0.85 * hintA });
           g.draw.text('in one go', cx, cy + R * 0.11, R * 0.045, { color: THEME.muted, weight: 500, alpha: hintA });
@@ -214,7 +214,7 @@ export default {
         }
         strokeHeat();
         const l = pts[pts.length - 1];
-        g.draw.circle(l[0], l[1], R * 0.018, '#fff', { glow: R * 0.05 });
+        g.draw.circle(l[0], l[1], R * 0.018, '#fff', { stroke: g.color, lw: R * 0.006 });
         if (live) {
           g.draw.text(`${live.pct.toFixed(1)}%`, cx, cy, R * 0.13, { color: '#fff', alpha: 0.9, glow: 12 });
         }
@@ -230,9 +230,9 @@ export default {
         const a0 = Math.atan2(pts[0][1] - c.y, pts[0][0] - c.x);
         ctx.save();
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, a0, a0 + a.dir * TAU * k, a.dir < 0);
-        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = R * 0.008; ctx.shadowColor = '#fff'; ctx.shadowBlur = R * 0.03; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = R * 0.008; ctx.stroke();
         ctx.restore();
-        g.draw.circle(c.x, c.y, R * 0.012, '#fff', { glow: R * 0.03 });
+        g.draw.circle(c.x, c.y, R * 0.012, '#fff');
         // the score counts up
         const shown = a.pct * ease.out(clamp((phaseT - 0.2) / 0.9, 0, 1));
         const word = wordFor(a.pct);

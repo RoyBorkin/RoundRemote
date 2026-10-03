@@ -83,6 +83,9 @@ export const DEFAULTS = Object.freeze({
   // Games
   gameScores: {},              // top 5 per game + mode: { 'pong:default': [{ score, label, at, text }] }
   gameModes: {},               // last mode picked per game
+  gameOpts: {},                // last options picked per game (e.g. difficulty)
+  gameKeys: {},                // which top 5 was last used per game (mode + options)
+  gamePlayer: '',              // the name last entered for a top-5 score
   gameSound: true,             // sound effects in the games
   lastGame: null,              // the game selected on the Games ring
   dimAfterMin: 10,             // 0 = never

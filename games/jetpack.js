@@ -299,10 +299,8 @@ export default {
         const w = Math.max(0.2, Math.abs(Math.cos(t * 3.2 + c.x * 6)));
         ctx.fillStyle = '#e09a1c';
         ctx.beginPath(); ctx.ellipse(sx, c.y, 0.022 * w, 0.022, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#ffc857';
-        ctx.beginPath(); ctx.ellipse(sx - 0.002 * w, c.y - 0.002, 0.016 * w, 0.016, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.75)';
-        ctx.beginPath(); ctx.ellipse(sx - 0.006 * w, c.y - 0.008, 0.004 * w, 0.004, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffc857';   // flat: a solid rim tone and a solid face, no shine
+        ctx.beginPath(); ctx.ellipse(sx, c.y, 0.016 * w, 0.016, 0, 0, TAU); ctx.fill();
       }
 
       // zappers
@@ -396,7 +394,6 @@ export default {
           ctx.fillStyle = 'rgba(255,255,255,.75)';
           for (let s = 0; s < 3; s++) { const a = k * 1.7 + s * 2.1; ctx.fillRect(x + Math.cos(a) * 0.05, -0.1 + Math.sin(a * 1.3) * 0.05, 0.005, 0.005); }
           ctx.strokeStyle = '#2a3042'; ctx.lineWidth = 0.016; ctx.beginPath(); ctx.arc(x, -0.1, 0.1, 0, TAU); ctx.stroke();
-          ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 0.004; ctx.beginPath(); ctx.arc(x, -0.1, 0.11, Math.PI * 1.1, Math.PI * 1.6); ctx.stroke();
         } else {
           // a bubbling tank
           ctx.fillStyle = '#0a0c12'; ctx.beginPath(); ctx.roundRect(x - 0.055, -0.3, 0.11, 0.5, 0.05); ctx.fill();
@@ -554,7 +551,6 @@ export default {
       ctx.beginPath(); ctx.moveTo(0.0, -0.018); ctx.lineTo(Math.sin(arm + 0.6) * 0.03, -0.018 + Math.cos(arm + 0.6) * 0.03); ctx.lineTo(Math.sin(arm + 1.4) * 0.03 + Math.sin(arm + 0.6) * 0.03, -0.018 + Math.cos(arm + 0.6) * 0.03 + Math.cos(arm + 1.4) * 0.024); ctx.stroke();
       // head: round helmet with a visor
       ctx.fillStyle = '#fb923c'; ctx.beginPath(); ctx.arc(0.004, -0.064, 0.034, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#ffb877'; ctx.beginPath(); ctx.arc(-0.006, -0.076, 0.012, 0, TAU); ctx.fill();
       ctx.fillStyle = dead ? '#38415a' : '#1c2333'; ctx.beginPath(); ctx.roundRect(0.006, -0.077, 0.034, 0.024, 0.011); ctx.fill();
       ctx.fillStyle = dead ? 'rgba(255,255,255,.25)' : '#67e8f9'; ctx.beginPath(); ctx.roundRect(0.012, -0.072, 0.024, 0.008, 0.004); ctx.fill();
       ctx.restore();

@@ -220,11 +220,10 @@ export default {
       const c = document.createElement('canvas'); c.width = c.height = size;
       const x = c.getContext('2d'); x.scale(g.dpr, g.dpr);
       const m = r + pad;
-      const gr = x.createRadialGradient(m - r * 0.35, m - r * 0.4, r * 0.08, m, m, r);
-      gr.addColorStop(0, g.draw.shade(col, 0.6)); gr.addColorStop(0.45, col); gr.addColorStop(1, g.draw.shade(col, -0.5));
-      x.fillStyle = gr; x.beginPath(); x.arc(m, m, r, 0, TAU); x.fill();
-      x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = 1; x.beginPath(); x.arc(m, m, r - 0.5, 0, TAU); x.stroke();
-      x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.ellipse(m - r * 0.38, m - r * 0.42, r * 0.2, r * 0.12, -0.7, 0, TAU); x.fill();
+      // flat bubble: one solid colour and a thin darker rim so neighbours stay apart
+      x.fillStyle = col; x.beginPath(); x.arc(m, m, r, 0, TAU); x.fill();
+      const lw = Math.max(1, r * 0.1);
+      x.strokeStyle = g.draw.shade(col, -0.35); x.lineWidth = lw; x.beginPath(); x.arc(m, m, r - lw / 2, 0, TAU); x.stroke();
       s = { c, m }; sprites.set(id, s);
       return s;
     }
@@ -266,7 +265,6 @@ export default {
       const flash = phase === 'over' ? 0.5 + 0.5 * Math.sin((now - overT) * 18) : dangerHot * (0.6 + 0.4 * Math.sin(t * 6));
       ctx.strokeStyle = g.draw.alpha('#ff5a6a', 0.38 + 0.6 * flash);
       ctx.lineWidth = R * (0.007 + 0.004 * flash); ctx.lineCap = 'round';
-      if (flash > 0.05) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = R * 0.04 * flash; }
       ctx.stroke();
       ctx.restore();
 
@@ -307,12 +305,9 @@ export default {
       }
       // the core
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
-      ctx.save();
-      ctx.shadowColor = g.color; ctx.shadowBlur = R * (0.06 + 0.03 * pulse);
-      const gr = ctx.createRadialGradient(cx - B * R * 0.3, cy - B * R * 0.35, B * R * 0.1, cx, cy, B * R * 1.08);
-      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.45, g.draw.shade(g.color, 0.35)); gr.addColorStop(1, g.draw.shade(g.color, -0.35));
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, B * R * 1.02, 0, TAU); ctx.fill();
-      ctx.restore();
+      // flat core: a soft solid ring that breathes, a solid disc, white arcs spinning on it
+      g.draw.circle(cx, cy, B * R * (1.02 + 0.18 * pulse), g.draw.alpha(g.color, 0.18));
+      g.draw.ball(cx, cy, B * R * 1.02, g.color);
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1.2, R * 0.004);
       for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(0, 0, B * R * 0.62, i * TAU / 3, i * TAU / 3 + 1.2); ctx.stroke(); }
@@ -359,7 +354,7 @@ export default {
       // the shooter on the rim
       if (phase !== 'over' || gameOverFade < 1) {
         const [gx, gy] = gunXY();
-        g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim - 0.13, aim + 0.13, g.draw.alpha(g.color, 0.9), R * 0.012, { glow: R * 0.03 });
+        g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim - 0.13, aim + 0.13, g.draw.alpha(g.color, 0.9), R * 0.012);
         g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim + 0.19, aim + 0.32, 'rgba(255,255,255,.18)', R * 0.008);
         const ks = clamp((now - swapT) / 0.2, 0, 1), kf = clamp((now - fireT) / 0.18, 0, 1);
         if (cur) bubble(gx, gy, cur, ease.back(Math.min(ks, kf)) * 1.0);

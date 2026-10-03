@@ -4,12 +4,14 @@
 // A game file (games/<name>.js) default-exports:
 //   {
 //     howTo: 'One or two lines on how to play',
-//     modes: [{ id, name, scoring?, unit?, format? }],   // optional; each mode has its own top 5
+//     modes: [{ id, name, scoring?, unit?, format?,     // optional; each mode has its own top 5
+//               options?: [{ id, name, choices: [{ id, name }], default? }] }],  // sub-choices of a mode
+//                                                     // (e.g. difficulty) — every combination has its own top 5
 //     scoring: 'high' | 'low',                           // bigger or smaller is better (default 'high')
 //     unit: 'pts',                                       // shown after the score (optional)
 //     format: (score) => string,                         // optional score formatting
 //     hud: true,                                         // show the score at the top while playing
-//     create(g, { mode }) { …; return { destroy() {} } } // start a new round
+//     create(g, { mode, opts }) { …; return { destroy() {} } } // start a new round (opts = chosen options)
 //   }
 // The `g` object a game gets:
 //   g.canvas g.ctx           canvas + 2D context (already scaled — work in CSS pixels)
@@ -21,16 +23,20 @@
 //                            r = distance from the centre / R, a = angle (0 = 12 o'clock, clockwise, 0…2π)
 //                            'swipe' adds { dir: 'left'|'right'|'up'|'down' }; 'key' gives { key }
 //   g.score(n)  g.add(n)     set / add to the score shown at the top        g.scoreValue
+//   g.pauseAt(x, y)          move the pause button (−1…1) if it would cover something important
 //   g.sub(text)              small line under the score (lives, level…)   g.hud(show)
 //   g.toast(text, ms)        short message in the middle
 //   g.over(score, { title, label, note, win, delay, record })  end the round (score null = no chart entry)
-//   g.sfx(name)  g.vibrate(ms)  g.draw.*  (see kit.js)   g.mode  g.time (seconds this round)
+//   g.sfx(name)  g.vibrate(ms)  g.draw.*  (see kit.js)   g.mode  g.opts  g.time (seconds this round)
+// A new top-5 score asks for the player's name (kept for next time). Pause also has music / media controls.
 import { h, iconBtn, clear } from '../js/ui/dom.js';
+import { editText } from '../js/ui/keyboard.js';
+import { player } from '../js/core/player.js';
 import { icon } from '../js/ui/icons.js';
 import { go } from '../js/core/router.js';
 import { store } from '../js/core/store.js';
 import { loadGame, iconSvg, gameById } from './index.js';
-import { topScores, addScore, PLACES } from './scores.js';
+import { topScores, addScore, updateEntry, PLACES } from './scores.js';
 import { THEME, makeDraw, sfx, vibrate, TAU } from './kit.js';
 
 const fmtDate = (t) => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
@@ -47,7 +53,7 @@ export function scoreChart(list, { color, format, unit = '', scoring = 'high', h
     box.append(h(`div.g-row${e === highlight || (highlight && e.at === highlight.at && e.score === highlight.score) ? '.me' : ''}`,
       h('span.g-rank', String(i + 1)),
       h('span.g-bar-wrap', h('span.g-bar', { style: { width: `${Math.max(6, Math.round(frac * 100))}%` } }),
-        h('span.g-meta', [e.label, fmtDate(e.at)].filter(Boolean).join(' · '))),
+        h('span.g-meta', [e.name, e.label, fmtDate(e.at)].filter(Boolean).join(' · '))),
       h('span.g-val', `${e.text || format(e.score)}${unit && !e.text ? ` ${unit}` : ''}`)));
   }
   return box;
@@ -65,8 +71,14 @@ export function GameScreen({ id }) {
   const el = h('div.game-screen', { '--gc': meta.color }, canvas, hudEl, toastEl, btnPause, ov);
 
   let def = null, inst = null, state = 'loading', frameFn = null, handlers = {}, raf = 0, last = 0, endT = 0, overInfo = null;
-  let mode = null;
+  let mode = null, opts = {};
   const modeDef = () => (def?.modes || []).find((m) => m.id === mode) || null;
+  const optDefs = () => modeDef()?.options || [];
+  const optVal = (o) => (o.choices.some((c) => c.id === opts[o.id]) ? opts[o.id] : o.default ?? o.choices[0]?.id);
+  const chosenOpts = () => Object.fromEntries(optDefs().map((o) => [o.id, optVal(o)]));
+  /** Which top 5 this round belongs to: the mode plus every option chosen for it. */
+  const scoreKey = () => [mode || 'default', ...optDefs().map(optVal)].join(':');
+  const keyName = () => [modeDef()?.name, ...optDefs().map((o) => o.choices.find((c) => c.id === optVal(o))?.name)].filter(Boolean).join(' · ');
   const scoring = () => modeDef()?.scoring || def?.scoring || 'high';
   const unit = () => modeDef()?.unit ?? def?.unit ?? '';
   const format = (s) => (modeDef()?.format || def?.format || ((n) => Math.round(n).toLocaleString()))(s);
@@ -80,6 +92,8 @@ export function GameScreen({ id }) {
     add(n) { g.score((g.scoreValue || 0) + n); scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump'); },
     sub(text) { subEl.textContent = text || ''; },
     hud(show) { hudEl.hidden = !show; },
+    /** Move the pause button (x, y from −1…1 across the round screen; default 0, −0.876 = top centre). */
+    pauseAt(x = 0, y = -0.876) { btnPause.style.left = `${50 + x * 50}%`; btnPause.style.top = `${50 + y * 50}%`; },
     toast(text, ms = 1200) {
       toastEl.textContent = text; toastEl.classList.remove('on'); void toastEl.offsetWidth; toastEl.classList.add('on');
       clearTimeout(g._toastT); g._toastT = setTimeout(() => toastEl.classList.remove('on'), ms);
@@ -183,14 +197,15 @@ export function GameScreen({ id }) {
   function startRound() {
     if (!def) return;
     try { inst?.destroy?.(); } catch {}
-    inst = null; frameFn = null; handlers = {}; g.time = 0; g.mode = mode; g.scoreValue = 0;
+    inst = null; frameFn = null; handlers = {}; g.time = 0; g.mode = mode; g.opts = chosenOpts(); g.scoreValue = 0;
     g.draw.clearFx();
     scoreEl.textContent = def.hud === false ? '' : format(0); subEl.textContent = '';
     hudEl.hidden = def.hud === false;
+    g.pauseAt();
     el.classList.add('playing');
     hideOv();
     state = 'play';
-    try { inst = def.create(g, { mode, modeDef: modeDef() }) || {}; } catch (err) { console.error(`[game ${id}]`, err); }
+    try { inst = def.create(g, { mode, modeDef: modeDef(), opts: g.opts }) || {}; } catch (err) { console.error(`[game ${id}]`, err); }
     sfx('tap');
   }
   function pause() {
@@ -209,36 +224,79 @@ export function GameScreen({ id }) {
     let rank = 0, entry = null;
     // a zero in a bigger-is-better game isn't worth a place on the chart
     if (info.score != null && info.record !== false && !(scoring() === 'high' && info.score <= 0)) {
-      const r = addScore(id, mode || 'default', info.score, { scoring: scoring(), label: info.label, text: null });
+      const r = addScore(id, scoreKey(), info.score, { scoring: scoring(), label: info.label });
       rank = r.rank; entry = r.entry;
-      if (entry) { entry.text = `${format(info.score)}${unit() ? ` ${unit()}` : ''}`; persistText(entry); }
+      if (rank) {
+        // the formatted score (the Games ring shows it without loading the game) and the last name used
+        entry = updateEntry(id, scoreKey(), entry, { text: `${format(info.score)}${unit() ? ` ${unit()}` : ''}`, name: store.get('gamePlayer') || '' });
+      }
     }
     if (rank === 1) sfx('perfect');
     showOv('over', { info, rank, entry });
+    // a new place on the chart: ask who it was (the first time; later the last name is filled in and can be changed)
+    if (rank && !store.get('gamePlayer')) setTimeout(() => { if (state === 'over') askName({ info, rank, entry }); }, 650);
   }
-  // store the formatted score text alongside the number (the Games ring shows it without loading the game)
-  function persistText(entry) {
-    const all = { ...(store.get('gameScores') || {}) };
-    const k = `${id}:${mode || 'default'}`;
-    all[k] = (all[k] || []).map((e) => (e.at === entry.at && e.score === entry.score ? { ...e, text: entry.text } : e));
-    store.set('gameScores', all);
+  async function askName(data) {
+    const v = await editText({ title: 'Your name for the top 5', value: data.entry?.name || store.get('gamePlayer') || '', placeholder: 'Name' });
+    if (v === null) return;
+    const name = v.trim().slice(0, 16);
+    if (name) store.set('gamePlayer', name);
+    data.entry = updateEntry(id, scoreKey(), data.entry, { name });
+    if (state === 'over') showOv('over', data);
   }
 
   // ---------- overlays ----------
   const pill = (label, onclick, cls = '') => h(`button.g-btn${cls ? '.' + cls : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); sfx('click'); onclick(); } }, label);
-  function hideOv() { ov.classList.remove('on'); el.classList.remove('ov-on'); }
+  let offMedia = null;
+  function hideOv() { ov.classList.remove('on'); el.classList.remove('ov-on'); offMedia?.(); offMedia = null; }
+  /** Pause card: the music / movie that's playing, with previous · play/pause · next and volume. */
+  function mediaBox() {
+    if (!player.provider) return null;
+    const art = h('div.g-np-art'), title = h('div.g-np-title'), artist = h('div.g-np-sub');
+    const btn = (ic, label, fn) => iconBtn(ic, label, () => { sfx('click'); Promise.resolve(fn()).catch(() => {}); }, 'g-np-btn');
+    const bPrev = btn('prev', 'Previous', () => player.prev()), bPlay = btn('play', 'Play / pause', () => player.toggle()), bNext = btn('next', 'Next', () => player.next());
+    const vol = h('span.g-np-vol');
+    const vStep = (d) => player.setVolume(Math.max(0, Math.min(100, (player.state.volume ?? 50) + d)));
+    const bDown = btn('minus', 'Volume down', () => vStep(-6)), bUp = btn('plus', 'Volume up', () => vStep(6));
+    const box = h('div.g-np', h('div.g-np-head', art, h('div.g-np-text', title, artist)), h('div.g-np-ctl', bPrev, bPlay, bNext, h('span.g-np-gap'), bDown, vol, bUp));
+    const paint = () => {
+      const s = player.state, t = s.track, c = player.caps;
+      box.hidden = !t && !s.device;
+      art.style.backgroundImage = t?.art ? `url("${t.art}")` : '';
+      art.classList.toggle('none', !t?.art);
+      title.textContent = t ? (t.media?.show || t.title || '') : (s.device?.name || 'Nothing playing');
+      artist.textContent = t ? (t.media ? [t.media.season != null ? `S${t.media.season} E${t.media.episode}` : '', t.media.title !== t.title ? t.media.title : ''].filter(Boolean).join(' · ') || t.artist || '' : t.artist || '') : (s.message || '');
+      bPlay.innerHTML = icon(s.isPlaying ? 'pause' : 'play');
+      bPrev.disabled = !c.prev; bNext.disabled = !c.next;
+      bDown.disabled = bUp.disabled = !c.volume;
+      vol.textContent = c.volume && s.volume != null ? String(Math.round(s.volume)) : '';
+    };
+    paint();
+    offMedia?.(); offMedia = player.on('state', paint);
+    return box;
+  }
   let shownAt = 0;
   function showOv(kind, data = {}) {
     shownAt = performance.now();
+    offMedia?.(); offMedia = null;
     clear(ov);
     el.classList.add('ov-on');
     const card = h(`div.g-card.${kind}`);
     const put = (...items) => card.append(...items.filter(Boolean));
-    const list = () => topScores(id, mode || 'default');
+    const list = () => topScores(id, scoreKey());
     const chart = (highlight = null) => scoreChart(list(), { color: meta.color, format, unit: unit(), scoring: scoring(), highlight });
-    const modeChips = () => (def.modes?.length > 1 ? h('div.g-modes', def.modes.map((m) => h(`button.g-chip${m.id === mode ? '.on' : ''}`, {
-      type: 'button', onclick: (e) => { e.stopPropagation(); mode = m.id; saveMode(); sfx('click'); showOv(kind, data); },
-    }, m.name))) : null);
+    const modeChips = () => {
+      const rows = [];
+      if (def.modes?.length > 1) rows.push(h('div.g-modes', def.modes.map((m) => h(`button.g-chip${m.id === mode ? '.on' : ''}`, {
+        type: 'button', onclick: (e) => { e.stopPropagation(); mode = m.id; saveMode(); sfx('click'); showOv(kind, data); },
+      }, m.name))));
+      for (const o of optDefs()) {
+        rows.push(h('div.g-opt', h('span.g-opt-label', o.name), ...o.choices.map((c) => h(`button.g-chip.sm${optVal(o) === c.id ? '.on' : ''}`, {
+          type: 'button', onclick: (e) => { e.stopPropagation(); opts = { ...opts, [o.id]: c.id }; saveMode(); sfx('click'); showOv(kind, data); },
+        }, c.name))));
+      }
+      return rows.length ? h('div.g-choices', rows) : null;
+    };
     const best = () => { const b = list()[0]; return b ? `Best  ${b.text || format(b.score)}` : 'No best score yet'; };
     if (kind === 'menu') {
       put(
@@ -257,7 +315,8 @@ export function GameScreen({ id }) {
       const sndBtn = pill(snd(), () => { store.set('gameSound', store.get('gameSound') === false); sndBtn.textContent = snd(); });
       put(h('div.g-title', 'Paused'), h('div.g-best', `Score  ${scoreEl.textContent || '0'}`),
         h('div.g-actions', pill('Resume', resume, 'primary')),
-        h('div.g-actions.small', pill('Restart', startRound), pill('Quit', () => showOv('menu')), sndBtn));
+        h('div.g-actions.small', pill('Restart', startRound), pill('Quit', () => showOv('menu')), sndBtn),
+        mediaBox());
     } else if (kind === 'over') {
       const { info, rank } = data;
       const hasScore = info.score != null;
@@ -265,7 +324,10 @@ export function GameScreen({ id }) {
         h('div.g-title.sm', info.title || (info.win ? 'You win!' : 'Game over')),
         hasScore ? h('div.g-big', `${format(info.score)}${unit() ? ` ${unit()}` : ''}`) : null,
         rank ? h(`div.g-rankpill${rank === 1 ? '.gold' : ''}`, rank === 1 ? 'New best!' : `#${rank} on the chart`) : null,
+        rank ? h('button.g-name', { type: 'button', onclick: (e) => { e.stopPropagation(); askName(data); } },
+          h('span', { html: icon('edit') }), data.entry?.name ? `${data.entry.name}` : 'Add your name') : null,
         info.note ? h('div.g-how', info.note) : null,
+        keyName() ? h('div.g-keyname', keyName()) : null,
         chart(data.entry),
         h('div.g-actions', pill('Play again', startRound, 'primary')),
         h('div.g-actions.small', pill('Menu', () => showOv('menu')), pill('Games', () => go('games'))),
@@ -274,7 +336,11 @@ export function GameScreen({ id }) {
     ov.append(card);
     ov.classList.add('on');
   }
-  function saveMode() { store.set('gameModes', { ...(store.get('gameModes') || {}), [id]: mode }); }
+  function saveMode() {
+    store.set('gameModes', { ...(store.get('gameModes') || {}), [id]: mode });
+    store.set('gameOpts', { ...(store.get('gameOpts') || {}), [id]: opts });
+    store.set('gameKeys', { ...(store.get('gameKeys') || {}), [id]: scoreKey() });   // for the best score on the Games ring
+  }
 
   // ---------- load ----------
   ov.append(h('div.g-card', h('div.g-how', 'Loading…')));
@@ -283,6 +349,7 @@ export function GameScreen({ id }) {
     def = d;
     const saved = (store.get('gameModes') || {})[id];
     mode = def.modes?.some((m) => m.id === saved) ? saved : def.modes?.[0]?.id || null;
+    opts = { ...((store.get('gameOpts') || {})[id] || {}) };
     state = 'menu';
     resize();
     showOv('menu');
@@ -296,6 +363,7 @@ export function GameScreen({ id }) {
       window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp);
       document.removeEventListener('visibilitychange', onVis);
       try { inst?.destroy?.(); } catch {}
+      offMedia?.();
       for (const d of downs.values()) clearTimeout(d.ht);
       clearTimeout(g._toastT);
     },

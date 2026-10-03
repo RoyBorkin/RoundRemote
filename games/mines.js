@@ -85,7 +85,6 @@ export default {
     let press = null, cursor = null, kbOn = false, shake = 0, lastBoomSfx = -1, loseEnd = 0, overSfx = false, winT = 0;
     let built = '';
     const waves = [];             // shock rings { x, y, t0, max, col }
-    const glowCache = new Map();
 
     // ---------- geometry ----------
     function rebuild() {
@@ -110,18 +109,6 @@ export default {
       if (!ring) return null;
       const a = (((p.a - ring.off) % TAU) + TAU) % TAU;
       return ring.cells[Math.floor(a / ring.step) % ring.n] || null;
-    }
-
-    // a soft round glow, pre-rendered once per colour (cheaper than shadowBlur on many things)
-    function glow(col) {
-      let c = glowCache.get(col);
-      if (c) return c;
-      c = document.createElement('canvas'); c.width = c.height = 64;
-      const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, g.draw.alpha(col, 0.55)); gr.addColorStop(0.4, g.draw.alpha(col, 0.2)); gr.addColorStop(1, g.draw.alpha(col, 0));
-      x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-      glowCache.set(col, c);
-      return c;
     }
 
     // ---------- rules ----------
@@ -260,7 +247,6 @@ export default {
     function drawFlag(x, y, s, a = 1, wrong = false) {
       const { ctx } = g;
       ctx.save(); ctx.translate(x, y); ctx.globalAlpha = a;
-      const gl = glow(FLAG); ctx.drawImage(gl, -s * 1.3, -s * 1.3, s * 2.6, s * 2.6);
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1.5, s * 0.13);
       ctx.beginPath(); ctx.moveTo(-s * 0.28, s * 0.62); ctx.lineTo(-s * 0.28, -s * 0.66); ctx.stroke();
@@ -279,14 +265,13 @@ export default {
     function drawMine(x, y, s, hot = 0) {
       const { ctx } = g;
       ctx.save(); ctx.translate(x, y);
-      const gl = glow(hot ? '#ff9f43' : '#b57bff'); ctx.drawImage(gl, -s * 1.5, -s * 1.5, s * 3, s * 3);
-      ctx.strokeStyle = hot ? '#ffd9a8' : '#cdd3e0'; ctx.lineWidth = Math.max(1.5, s * 0.14); ctx.lineCap = 'round';
+      // flat: one solid colour for the spikes and the round body
+      const col = hot ? '#ffb347' : '#cdd3e0';
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, s * 0.14); ctx.lineCap = 'round';
       ctx.beginPath();
       for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.2; ctx.moveTo(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.3); ctx.lineTo(Math.cos(a) * s * 0.92, Math.sin(a) * s * 0.92); }
       ctx.stroke();
-      const gr = ctx.createRadialGradient(-s * 0.2, -s * 0.22, s * 0.05, 0, 0, s * 0.6);
-      gr.addColorStop(0, hot ? '#fff1d6' : '#9aa3b8'); gr.addColorStop(0.5, hot ? '#ff7a45' : '#3a3f52'); gr.addColorStop(1, hot ? '#7a1d10' : '#14161e');
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, TAU); ctx.fill();
       ctx.restore();
     }
 
@@ -379,7 +364,7 @@ export default {
         const k = clamp((now - press.t0 - 0.12) / 0.33, 0, 1);
         if (k > 0) {
           g.draw.arc(press.x, press.y, R * 0.085, 0, TAU, 'rgba(255,255,255,.12)', R * 0.012);
-          g.draw.arc(press.x, press.y, R * 0.085, 0, TAU * k, FLAG, R * 0.012, { glow: 8 });
+          g.draw.arc(press.x, press.y, R * 0.085, 0, TAU * k, FLAG, R * 0.012);
         }
       }
 
@@ -406,11 +391,10 @@ export default {
       const lost = phase === 'lost', won = phase === 'won';
       const tint = lost ? '#ff5a6a' : won ? '#3ddc84' : flagMode ? FLAG : g.color;
       ctx.save();
-      const gr = ctx.createRadialGradient(cx, cy - rr * 0.4, rr * 0.1, cx, cy, rr);
-      gr.addColorStop(0, g.draw.alpha(tint, 0.22)); gr.addColorStop(1, 'rgba(255,255,255,.04)');
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); ctx.fillStyle = gr;
-      ctx.shadowColor = tint; ctx.shadowBlur = flagMode || lost || won ? R * 0.06 : R * 0.025; ctx.fill();
-      ctx.shadowBlur = 0; ctx.lineWidth = Math.max(1.5, R * 0.007);
+      // flat centre disc: one solid tinted fill and a solid rim
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU);
+      ctx.fillStyle = g.draw.alpha(tint, flagMode || lost || won ? 0.2 : 0.12); ctx.fill();
+      ctx.lineWidth = Math.max(1.5, R * 0.007);
       ctx.strokeStyle = flagMode || lost || won ? g.draw.alpha(tint, 0.85) : 'rgba(255,255,255,.18)'; ctx.stroke();
       ctx.restore();
       // timer

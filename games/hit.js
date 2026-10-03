@@ -179,20 +179,16 @@ export default {
       ctx.globalAlpha = clamp(age * 5, 0, 1) * (late ? 1 - (now - t.at) / OK : 1);
       ctx.beginPath(); ctx.arc(X, Y, ar, 0, TAU);
       ctx.strokeStyle = sweet ? '#fff' : t.col; ctx.lineWidth = R * (0.008 + p * 0.008);
-      if (first) { ctx.shadowColor = t.col; ctx.shadowBlur = R * 0.03; }
       ctx.stroke();
       ctx.restore();
       // the circle itself
       ctx.save();
       ctx.globalAlpha = inK * (late ? 0.5 + 0.5 * (1 - (now - t.at) / OK) : 1);
       ctx.translate(X, Y); ctx.scale(sc, sc);
-      const gr = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
-      gr.addColorStop(0, g.draw.alpha(t.col, 0.55)); gr.addColorStop(0.7, g.draw.alpha(t.col, 0.32)); gr.addColorStop(1, g.draw.alpha(t.col, 0.6));
-      if (first || sweet) { ctx.shadowColor = t.col; ctx.shadowBlur = R * (sweet ? 0.08 : 0.04); }
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = gr; ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = R * 0.012; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, TAU); ctx.lineWidth = R * 0.004; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
+      // flat: one solid tone (the next circle brighter, later ones deeper), a solid white rim and a flat inner ring
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = sweet ? t.col : g.draw.shade(t.col, first ? -0.25 : -0.5); ctx.fill();
+      ctx.lineWidth = R * (sweet ? 0.018 : 0.012); ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, TAU); ctx.lineWidth = R * 0.006; ctx.strokeStyle = g.draw.alpha(t.col, 0.9); ctx.stroke();
       ctx.restore();
       g.draw.text(String(t.num), X, Y + r * 0.04, r * 0.9 * sc, { color: '#fff', alpha: inK, weight: 700 });
     }

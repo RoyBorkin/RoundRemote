@@ -512,9 +512,9 @@ export default {
         if (o.smash) return;
         if (!projP(p, o.s, o.l, 0.3)) return;
         const fi = fogI(SZ), r = 0.4 * SK;
-        ctx.fillStyle = ROCKD[fi]; ctx.beginPath(); ctx.ellipse(SX, SY + r * 0.15, r * 1.1, r * 0.85, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = ROCK[fi]; ctx.beginPath(); ctx.ellipse(SX - r * 0.12, SY - r * 0.05, r * 0.9, r * 0.7, -0.2, 0, TAU); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.ellipse(SX - r * 0.35, SY - r * 0.35, r * 0.3, r * 0.15, -0.3, 0, TAU); ctx.fill();
+        // flat boulder: a solid darker rim around one solid face, no shine
+        ctx.fillStyle = ROCKD[fi]; ctx.beginPath(); ctx.ellipse(SX, SY + r * 0.05, r * 1.05, r * 0.82, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = ROCK[fi]; ctx.beginPath(); ctx.ellipse(SX, SY + r * 0.05, r * 0.9, r * 0.68, 0, 0, TAU); ctx.fill();
       } else if (o.type === 'arch') {
         const bot = 1.0, top = 1.75;
         let fi = 0;
@@ -582,7 +582,6 @@ export default {
       ctx.globalAlpha = c.got ? Math.max(0, 1 - c.gt / 0.3) : 1;
       ctx.fillStyle = GOLDD[fi]; ctx.beginPath(); ctx.ellipse(SX, SY, r * w, r, 0, 0, TAU); ctx.fill();
       ctx.fillStyle = GOLD[fi]; ctx.beginPath(); ctx.ellipse(SX, SY, r * w * 0.72, r * 0.72, 0, 0, TAU); ctx.fill();
-      if (fi < 8) { ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(SX - r * w * 0.3, SY - r * 0.3, r * w * 0.18, r * 0.18, 0, 0, TAU); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
     function drawTorch(t, p) {

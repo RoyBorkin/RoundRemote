@@ -80,29 +80,16 @@ export default {
 
     // ------------------------------------------------------------------ cached art (track + marble sprites)
     function buildSprites() {
-      const r = MR * g.R, pad = r * 0.45, o = r + pad, size = o * 2;
+      const r = MR * g.R, pad = r * 0.1, o = r + pad, size = o * 2;
       spriteHalf = o;
       sprites = COLS.map((col) => {
         const c = document.createElement('canvas');
         c.width = c.height = Math.ceil(size * g.dpr);
         const x = c.getContext('2d'); x.scale(g.dpr, g.dpr);
-        let gr = x.createRadialGradient(o, o + r * 0.18, r * 0.5, o, o + r * 0.18, r * 1.4);
-        gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-        x.fillStyle = gr; x.fillRect(0, 0, size, size);
-        gr = x.createRadialGradient(o, o, r * 0.85, o, o, r * 1.42);
-        gr.addColorStop(0, g.draw.alpha(col, 0.32)); gr.addColorStop(1, g.draw.alpha(col, 0));
-        x.fillStyle = gr; x.fillRect(0, 0, size, size);
-        gr = x.createRadialGradient(o - r * 0.35, o - r * 0.4, r * 0.06, o, o, r);
-        gr.addColorStop(0, g.draw.shade(col, 0.7)); gr.addColorStop(0.32, g.draw.shade(col, 0.18));
-        gr.addColorStop(0.72, col); gr.addColorStop(1, g.draw.shade(col, -0.5));
-        x.beginPath(); x.arc(o, o, r, 0, TAU); x.fillStyle = gr; x.fill();
-        x.beginPath(); x.arc(o, o, r * 0.8, 0.45, Math.PI - 0.45);
-        x.strokeStyle = g.draw.alpha(g.draw.shade(col, 0.45), 0.45); x.lineWidth = r * 0.12; x.lineCap = 'round'; x.stroke();
-        x.save(); x.translate(o - r * 0.36, o - r * 0.42); x.rotate(-0.65); x.scale(1, 0.6);
-        gr = x.createRadialGradient(0, 0, 0, 0, 0, r * 0.36);
-        gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-        x.beginPath(); x.arc(0, 0, r * 0.36, 0, TAU); x.fillStyle = gr; x.fill();
-        x.restore();
+        // flat marble: one solid colour with a thin darker rim so touching marbles stay apart
+        x.beginPath(); x.arc(o, o, r, 0, TAU); x.fillStyle = col; x.fill();
+        x.beginPath(); x.arc(o, o, r - r * 0.06, 0, TAU);
+        x.strokeStyle = g.draw.shade(col, -0.38); x.lineWidth = r * 0.12; x.stroke();
         return c;
       });
     }
@@ -304,10 +291,9 @@ export default {
       const hx = X(T.xs[n]), hy = Y(T.ys[n]), rv = g.R * 0.078;
       const col = danger > 0 ? THEME.danger : g.color;
       ctx.save();
-      const gr = ctx.createRadialGradient(hx, hy, 0, hx, hy, rv * 1.8);
-      gr.addColorStop(0, '#000'); gr.addColorStop(0.45, 'rgba(0,0,0,.92)');
-      gr.addColorStop(0.62, g.draw.alpha(col, 0.22 + 0.3 * danger)); gr.addColorStop(1, g.draw.alpha(col, 0));
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(hx, hy, rv * 1.8, 0, TAU); ctx.fill();
+      // flat: a solid tinted disc with a solid black hole in it
+      ctx.fillStyle = g.draw.alpha(col, 0.16 + 0.22 * danger); ctx.beginPath(); ctx.arc(hx, hy, rv * 1.45, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx, hy, rv * 1.12, 0, TAU); ctx.fill();
       ctx.lineCap = 'round';
       const spin = t * (2.2 + 4 * danger);
       for (let k = 0; k < 4; k++) {           // swirling arms
@@ -318,7 +304,6 @@ export default {
         }
         ctx.strokeStyle = g.draw.alpha(col, 0.75); ctx.lineWidth = g.R * 0.008; ctx.stroke();
       }
-      ctx.shadowColor = col; ctx.shadowBlur = g.R * (0.04 + 0.05 * danger);
       ctx.beginPath(); ctx.arc(hx, hy, rv * 1.12, 0, TAU);
       ctx.strokeStyle = g.draw.alpha(col, 0.55 + 0.35 * danger); ctx.lineWidth = g.R * 0.009; ctx.stroke();
       ctx.restore();
@@ -332,7 +317,7 @@ export default {
       ctx.beginPath(); ctx.ellipse(0, 0, r * 0.45, r, 0, 0, TAU);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
       ctx.setLineDash([r * 0.35, r * 0.25]); ctx.lineDashOffset = -t * r * 2;
-      ctx.strokeStyle = g.draw.alpha(g.color, 0.8); ctx.lineWidth = g.R * 0.008; ctx.shadowColor = g.color; ctx.shadowBlur = g.R * 0.03;
+      ctx.strokeStyle = g.draw.alpha(g.color, 0.8); ctx.lineWidth = g.R * 0.008;
       ctx.stroke();
       ctx.restore();
     }
@@ -393,13 +378,11 @@ export default {
         if (onBall) g.draw.circle(x1 + dx * MR * g.R, y1 + dy * MR * g.R, MR * g.R * 1.05, null, { stroke: g.draw.alpha(col, 0.7), lw: 2 });
       }
       // the orb
-      const gr = ctx.createRadialGradient(x, y - rs * 0.3, rs * 0.1, x, y, rs * 1.05);
-      gr.addColorStop(0, 'rgba(255,255,255,.13)'); gr.addColorStop(1, 'rgba(255,255,255,.04)');
       ctx.save();
-      ctx.beginPath(); ctx.arc(x, y, rs, 0, TAU); ctx.fillStyle = '#0b0b0e'; ctx.fill(); ctx.fillStyle = gr; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, rs, 0, TAU); ctx.fillStyle = '#17171c'; ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1.5; ctx.stroke();
-      // glowing ring segments in the loaded colour
-      ctx.lineCap = 'round'; ctx.shadowColor = col; ctx.shadowBlur = g.R * 0.035;
+      // flat ring segments in the loaded colour
+      ctx.lineCap = 'round';
       ctx.strokeStyle = col; ctx.lineWidth = g.R * 0.011;
       for (let k = 0; k < 3; k++) {
         const a = t * 0.7 + (k * TAU) / 3;
@@ -408,7 +391,7 @@ export default {
       // pointer
       ctx.translate(x, y); ctx.rotate(aim);
       ctx.beginPath(); ctx.moveTo(rs * 1.62, 0); ctx.lineTo(rs * 1.28, -rs * 0.24); ctx.lineTo(rs * 1.36, 0); ctx.lineTo(rs * 1.28, rs * 0.24); ctx.closePath();
-      ctx.fillStyle = '#fff'; ctx.shadowColor = g.color; ctx.shadowBlur = g.R * 0.03; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fill();
       ctx.restore();
       // next marble behind, current one in the middle (slides in after a shot, little pop on swap)
       const nb = (1 - ease.out(Math.min(1, swapT))) * 0.25;

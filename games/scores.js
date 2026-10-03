@@ -1,4 +1,4 @@
-// High scores: the 5 best places for every game (and every mode of a game), kept with the rest of the
+// High scores: the 5 best places for every game (and every mode / option of a game), with the player's name, kept with the rest of the
 // settings (store key "gameScores"), so a settings profile copies them to another display too.
 import { store } from '../js/core/store.js';
 
@@ -17,6 +17,7 @@ export function bestScore(gameId, mode) { return topScores(gameId, mode)[0] || n
 /**
  * Add a result. `scoring` is 'high' (bigger is better) or 'low' (smaller is better, e.g. a time).
  * Returns { rank } — 1…5 when it made the chart, 0 when it didn't — and the updated list.
+ * Entries: { score, label, at, name?, text? }
  */
 export function addScore(gameId, mode, score, { scoring = 'high', label = '' } = {}) {
   if (score == null || !Number.isFinite(+score)) return { rank: 0, list: topScores(gameId, mode) };
@@ -30,6 +31,17 @@ export function addScore(gameId, mode, score, { scoring = 'high', label = '' } =
   all[keyOf(gameId, mode)] = top;
   store.set('gameScores', all);
   return { rank, list: top, entry };
+}
+
+/** Change fields of a saved entry (its name, formatted text…). Returns the updated entry. */
+export function updateEntry(gameId, mode, entry, fields) {
+  if (!entry) return entry;
+  const all = { ...(store.get('gameScores') || {}) };
+  const k = keyOf(gameId, mode);
+  let out = { ...entry, ...fields };
+  all[k] = (all[k] || []).map((e) => (e.at === entry.at && e.score === entry.score ? (out = { ...e, ...fields }) : e));
+  store.set('gameScores', all);
+  return out;
 }
 
 /** Would this score make the chart? (for "new best!" previews) */

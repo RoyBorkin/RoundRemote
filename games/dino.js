@@ -135,10 +135,8 @@ export default {
       sprites.moonR = mr;
       sprites.moon = (phase) => mk(mr * 2 + 4, mr * 2 + 4, (x) => {
         const c = mr + 2;
-        const gr = x.createRadialGradient(c - mr * 0.3, c - mr * 0.3, mr * 0.1, c, c, mr);
-        gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#d9def0');
-        x.fillStyle = gr; x.beginPath(); x.arc(c, c, mr, 0, TAU); x.fill();
-        x.fillStyle = 'rgba(160,170,200,.35)';
+        x.fillStyle = '#e9ecf7'; x.beginPath(); x.arc(c, c, mr, 0, TAU); x.fill();   // flat moon, flat craters
+        x.fillStyle = '#c9cfe2';
         for (const [a, b, r] of [[-0.3, -0.2, 0.18], [0.25, 0.3, 0.13], [0.1, -0.45, 0.09]]) { x.beginPath(); x.arc(c + a * mr, c + b * mr, r * mr, 0, TAU); x.fill(); }
         if (phase) { x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(c + phase * mr, c - mr * 0.1, mr * 1.02, 0, TAU); x.fill(); }
       });
@@ -341,7 +339,6 @@ export default {
         const img = sprites.moons[nightNo % sprites.moons.length];
         ctx.globalAlpha = nightK;
         const mr = sprites.moonR;
-        ctx.drawImage(sprites.glow, cx + mx * R - mr * 2.4, cy + my * R - mr * 2.4, mr * 4.8, mr * 4.8);
         ctx.drawImage(img, cx + mx * R - mr - 2, cy + my * R - mr - 2, mr * 2 + 4, mr * 2 + 4);
         ctx.globalAlpha = 1;
       }

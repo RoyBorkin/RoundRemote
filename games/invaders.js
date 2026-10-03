@@ -371,9 +371,9 @@ export default {
       ctx.globalAlpha = 1;
       // the core they come out of
       const cr = R * (0.1 + 0.015 * Math.sin(t * 2.2) + coreKick * 0.08);
-      const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr * 1.8);
-      cg.addColorStop(0, g.draw.alpha(ME, 0.22 + coreKick * 0.3)); cg.addColorStop(0.45, g.draw.alpha(ME, 0.07)); cg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.8, 0, TAU); ctx.fill();
+      // flat core: two solid tones (an outer disc and a brighter inner one)
+      ctx.fillStyle = g.draw.alpha(ME, 0.08 + coreKick * 0.12); ctx.beginPath(); ctx.arc(cx, cy, cr * 1.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = g.draw.alpha(ME, 0.16 + coreKick * 0.3); ctx.beginPath(); ctx.arc(cx, cy, cr * 0.85, 0, TAU); ctx.fill();
       g.draw.circle(cx, cy, R * 0.05, null, { stroke: 'rgba(255,255,255,.12)', lw: 1.5 });
       // ship track + danger line
       ctx.save();
@@ -465,9 +465,7 @@ export default {
       ctx.save(); ctx.translate(x, y); ctx.rotate(ship.a + Math.PI);   // local −y points at the centre
       // engine glow
       const fl = 0.7 + 0.3 * Math.sin(t * 40);
-      const eg = ctx.createRadialGradient(0, s * 0.75, 0, 0, s * 0.75, s * 0.9 * fl);
-      eg.addColorStop(0, 'rgba(200,255,180,.75)'); eg.addColorStop(1, 'rgba(139,255,106,0)');
-      ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(0, s * 0.75, s * 0.9, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(200,255,180,.45)'; ctx.beginPath(); ctx.arc(0, s * 0.75, s * 0.42 * fl, 0, TAU); ctx.fill();
       // hull
       ctx.beginPath();
       ctx.moveTo(0, -s * 1.05);
@@ -480,7 +478,6 @@ export default {
       ctx.shadowBlur = 0;
       // cockpit
       ctx.beginPath(); ctx.ellipse(0, -s * 0.12, s * 0.16, s * 0.3, 0, 0, TAU); ctx.fillStyle = '#0c2a10'; ctx.fill();
-      ctx.beginPath(); ctx.ellipse(-s * 0.04, -s * 0.2, s * 0.05, s * 0.1, 0, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fill();
       ctx.restore();
     }
 
@@ -490,11 +487,9 @@ export default {
       const s = R * 0.06;
       const al = clamp(Math.min(u.t * 3, u.left * 3), 0, 1);
       ctx.save(); ctx.globalAlpha = al; ctx.translate(x, y); ctx.rotate(u.a + Math.PI);
-      ctx.shadowColor = UFO; ctx.shadowBlur = R * 0.05;
-      // dome (towards the centre) and the saucer
+      // dome (towards the centre) and the saucer — flat fills
       ctx.beginPath(); ctx.ellipse(0, -s * 0.18, s * 0.42, s * 0.42, 0, Math.PI, 0); ctx.fillStyle = 'rgba(255,190,200,.85)'; ctx.fill();
       ctx.beginPath(); ctx.ellipse(0, 0, s * 1.15, s * 0.36, 0, 0, TAU); ctx.fillStyle = UFO; ctx.fill();
-      ctx.shadowBlur = 0;
       ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.75, s * 0.13, 0, 0, TAU); ctx.fillStyle = 'rgba(80,0,10,.45)'; ctx.fill();
       for (let i = 0; i < 5; i++) {
         const on = (Math.floor(t * 8) + i) % 3 === 0;

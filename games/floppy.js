@@ -241,11 +241,7 @@ export default {
       ctx.fillStyle = '#e88a3a';
       ctx.beginPath(); ctx.moveTo(-r * 0.8, -r * 0.1); ctx.lineTo(-r * 1.45, -r * 0.45); ctx.lineTo(-r * 1.3, r * 0.05); ctx.lineTo(-r * 1.4, r * 0.35); ctx.lineTo(-r * 0.8, r * 0.25); ctx.closePath(); ctx.fill();
       // body
-      ctx.shadowColor = 'rgba(255,179,92,.6)'; ctx.shadowBlur = r * 0.8;
-      const body = ctx.createRadialGradient(-r * 0.3, -r * 0.4, r * 0.1, 0, 0, r * 1.05);
-      body.addColorStop(0, '#ffd59a'); body.addColorStop(0.55, BIRD_COL); body.addColorStop(1, '#e07b2c');
-      ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = BIRD_COL; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();   // flat, one solid colour
       // belly
       ctx.fillStyle = BELLY; ctx.globalAlpha = 0.9;
       ctx.beginPath(); ctx.ellipse(r * 0.18, r * 0.42, r * 0.58, r * 0.4, -0.15, 0, TAU); ctx.fill();

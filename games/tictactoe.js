@@ -220,9 +220,8 @@ export default {
       const a = cs * (p === X ? 0.25 : 0.28) * scale, col = COL[p];
       ctx.save();
       ctx.globalAlpha = alpha; ctx.lineCap = 'round';
-      ctx.shadowColor = col; ctx.shadowBlur = g.R * 0.05 * glow;
-      (p === X ? strokeX : strokeO)(x, y, a, k, col, cs * 0.12 * scale);
-      ctx.shadowBlur = 0;
+      // flat strokes (no glow); `glow` only makes the winning pieces a touch bolder
+      (p === X ? strokeX : strokeO)(x, y, a, k, col, cs * (0.11 + 0.01 * glow) * scale);
       (p === X ? strokeX : strokeO)(x, y, a, k, 'rgba(255,255,255,.55)', cs * 0.035 * scale);
       ctx.restore();
     }
@@ -324,7 +323,7 @@ export default {
         const py = ty + g.R * 0.085;
         for (const p of [X, O]) for (let k = 0; k < 3; k++) {
           const x = cx + (p === X ? -1 : 1) * (g.R * 0.07 + k * g.R * 0.045);
-          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)', { glow: k < tally[p] ? g.R * 0.03 : 0 });
+          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)');
         }
       }
       draw.particles(dt);

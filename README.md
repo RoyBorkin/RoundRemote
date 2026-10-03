@@ -154,6 +154,34 @@ On the home screen:
 
 The platform logos come from the free [Simple Icons](https://simpleicons.org) set (jsDelivr, with unpkg as a backup). They're downloaded once and then kept in the browser, so the Pi shows them offline too. Qobuz isn't in that set, so its tile keeps its letters. Tiles show letters until a logo has been downloaded once.
 
+
+### Games
+
+Tap **Games** on the home screen. The games sit on a ring: tap one (or drag around the ring, scroll, or use ← →) to see it in the middle, then tap **Play**. Every game keeps a **top-5 chart** for each of its modes. It shows after every round and under **Top 5** on its start card. The scores are saved with your settings, so a settings profile copies them to another display.
+
+| Game | How it plays |
+|---|---|
+| **Grow** | Hold to grow a bubble, let go to bank it. Bigger is more points, but touching the edge or a drifting spike pops it. 3 lives. |
+| **Marble Chain** | A Zuma-style marble shooter with 6 paths: 4 with the shooter in the centre, 2 with it near the edge. Drag to aim, let go to shoot, tap the shooter to swap. 3 of a colour pop. |
+| **Perfect Circle** | Draw a circle in one go and get a score for how perfect it is. |
+| **Ring Invaders** | Space Invaders in a circle. Your ship flies around the rim and shoots inward at invaders spreading out from the core. |
+| **Circle Pong** | Keep the ball inside the circle with a paddle on the rim. *Classic* or *Two balls*. |
+| **Tic Tac Toe** | 1P vs COM (Easy / Normal / Hard) or 2 players. |
+| **Stack** | Tap to drop each sliding block on the tower. Overhang is cut off; perfect drops keep it whole. |
+| **2048** | Swipe to slide and join the tiles. |
+| **Four in a Row** | Connect-four. 1P vs COM (Easy / Normal / Hard) or 2 players. |
+| **Floppy Bird** | Tap to flap through the gaps. |
+| **Running Circle** | Your ball runs around a ring. Tap to hop to the other side of the line and dodge the obstacles. |
+| **Hit Circle** | Tap each circle as its ring closes in. Perfect timing scores most. |
+| **Minesweeper** | A round minefield in Easy, Medium or Hard. Hold to flag. Your best times are kept. |
+| **Dino Run** | Jump the cacti and duck the gliders. |
+| **Bubble Shooter** | Shoot from the rim into a bubble cluster around a core. 3 of a colour pop; bubbles cut off from the core fall. |
+| **Jetpack Dash** | Hold to fly. Dodge zappers, missiles and lasers, and collect coins. |
+| **Temple Dash** | Run an ancient path. Swipe to turn at corners and to change lanes, swipe up to jump and down to slide. |
+| **Rail Rush** | Three rail lanes. Swipe to switch lanes, jump and roll, and ride the train roofs. |
+
+Every game works with touch, and also with the keyboard: arrows, space and Enter. Games that turn something around the circle also take a rotary knob (←/→ or the scroll wheel). The ⏸ button at the top pauses the game; you can also turn the sound on or off there and on the Games ring. The names, characters and art are original; several games are round takes on well-known arcade classics.
+
 ---
 
 ## 1. Put it on GitHub Pages
@@ -670,6 +698,7 @@ js/providers/                   one file per service + the bridge client (common
 js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library) + media-views (the 9 library views), ha-controls (Home Assistant tiles & round controls)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), panels, connect, settings
+games/                          the Games category: index.js (the list), hub.js (the Games ring), shell.js (start card, pause, game over, top 5), kit.js (sound + drawing helpers), scores.js, games.css, and one file per game
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, airplay, cider, mpris, winmedia, mock) + settings profiles
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)

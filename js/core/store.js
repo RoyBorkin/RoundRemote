@@ -80,6 +80,11 @@ export const DEFAULTS = Object.freeze({
   ghCommands: null,            // Google Home command tiles [{ label, cmd, icon }] (null = the default set)
   ghSpeak: true,               // play Google Assistant's spoken answers on this display
   ghLanguage: '',              // Assistant language ('' = the browser's)
+  // Games
+  gameScores: {},              // top 5 per game + mode: { 'pong:default': [{ score, label, at, text }] }
+  gameModes: {},               // last mode picked per game
+  gameSound: true,             // sound effects in the games
+  lastGame: null,              // the game selected on the Games ring
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)

@@ -73,12 +73,18 @@ export function GameScreen({ id }) {
   let def = null, inst = null, state = 'loading', frameFn = null, handlers = {}, raf = 0, last = 0, endT = 0, overInfo = null;
   let mode = null, opts = {};
   const modeDef = () => (def?.modes || []).find((m) => m.id === mode) || null;
-  const optDefs = () => modeDef()?.options || [];
+  const optDefs = () => (modeDef()?.options || []).filter(Boolean);   // (null entries are skipped)
   const optVal = (o) => (o.choices.some((c) => c.id === opts[o.id]) ? opts[o.id] : o.default ?? o.choices[0]?.id);
   const chosenOpts = () => Object.fromEntries(optDefs().map((o) => [o.id, optVal(o)]));
   /** Which top 5 this round belongs to: the mode plus every option chosen for it. */
-  const scoreKey = () => [mode || 'default', ...optDefs().map(optVal)].join(':');
-  const keyName = () => [modeDef()?.name, ...optDefs().map((o) => o.choices.find((c) => c.id === optVal(o))?.name)].filter(Boolean).join(' · ');
+  // a game can add parts to the key (keyExtra(), e.g. the song a rhythm game was played with) and name them (keyLabel())
+  const extraKey = () => { try { return (def?.keyExtra?.() || []).filter((x) => x != null && x !== ''); } catch { return []; } };
+  const keyLabel = () => { try { return def?.keyLabel?.() || ''; } catch { return ''; } };
+  const scoreKey = () => [mode || 'default', ...optDefs().map(optVal), ...extraKey()].join(':');
+  const keyName = () => [modeDef()?.name, ...optDefs().map((o) => o.choices.find((c) => c.id === optVal(o))?.name), keyLabel()].filter(Boolean).join(' · ');
+  // where quit / back go: the Games ring, or the game's own home (rhythm games → the Rhythm screen)
+  const homeRoute = meta.home || 'games';
+  const homeName = homeRoute === 'rhythm' ? 'Rhythm' : 'Games';
   const scoring = () => modeDef()?.scoring || def?.scoring || 'high';
   const unit = () => modeDef()?.unit ?? def?.unit ?? '';
   const format = (s) => (modeDef()?.format || def?.format || ((n) => Math.round(n).toLocaleString()))(s);
@@ -135,7 +141,8 @@ export function GameScreen({ id }) {
     const x = (e.clientX - r.left) * (g.S / (r.width || 1)), y = (e.clientY - r.top) * (g.S / (r.height || 1));
     const dx = x - g.cx, dy = y - g.cy;
     let a = Math.atan2(dx, -dy); if (a < 0) a += TAU;
-    return { x, y, dx, dy, r: Math.hypot(dx, dy) / (g.R || 1), a, id: e.pointerId, t: performance.now() };
+    // ts = when the input actually happened (event time, same clock as performance.now()) — rhythm games judge by it
+    return { x, y, dx, dy, r: Math.hypot(dx, dy) / (g.R || 1), a, id: e.pointerId, t: performance.now(), ts: e.timeStamp || performance.now() };
   };
   const downs = new Map();
   canvas.addEventListener('pointerdown', (e) => {
@@ -164,18 +171,18 @@ export function GameScreen({ id }) {
   canvas.addEventListener('wheel', (e) => { if (state === 'play') { e.preventDefault(); emit('wheel', { delta: Math.sign(e.deltaY || e.deltaX) }); } }, { passive: false });
   const onKey = (e) => {
     if (e.target.matches?.('input, textarea')) return;
-    if (e.key === 'Escape') { e.preventDefault(); if (state === 'play') pause(); else if (state === 'pause') resume(); else if (state !== 'ending') go('games'); return; }
+    if (e.key === 'Escape') { e.preventDefault(); if (state === 'play') pause(); else if (state === 'pause') resume(); else if (state !== 'ending') go(homeRoute); return; }
     if (state === 'play') {
       if (e.key === 'p' && !def?.usesP) { pause(); return; }
       if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) e.preventDefault();
-      if (!e.repeat || def?.keyRepeat) emit('key', { key: e.key, repeat: e.repeat });
+      if (!e.repeat || def?.keyRepeat) emit('key', { key: e.key, repeat: e.repeat, ts: e.timeStamp || performance.now() });
     } else if ((e.key === 'Enter' || e.key === ' ') && (state === 'menu' || state === 'over')) {
       e.preventDefault();
       // ignore a key still held from playing (auto-repeat) and presses right as the card appears
       if (!e.repeat && performance.now() - shownAt > 600) startRound();
     }
   };
-  const onKeyUp = (e) => { if (state === 'play') emit('keyup', { key: e.key }); };
+  const onKeyUp = (e) => { if (state === 'play') emit('keyup', { key: e.key, ts: e.timeStamp || performance.now() }); };
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKeyUp);
   const onVis = () => { if (document.hidden && state === 'play') pause(); };
@@ -228,13 +235,14 @@ export function GameScreen({ id }) {
       rank = r.rank; entry = r.entry;
       if (rank) {
         // the formatted score (the Games ring shows it without loading the game) and the last name used
-        entry = updateEntry(id, scoreKey(), entry, { text: `${format(info.score)}${unit() ? ` ${unit()}` : ''}`, name: store.get('gamePlayer') || '' });
+        // a game that already knows who scored (e.g. the winner of a party game) passes info.name
+        entry = updateEntry(id, scoreKey(), entry, { text: `${format(info.score)}${unit() ? ` ${unit()}` : ''}`, name: info.name || store.get('gamePlayer') || '' });
       }
     }
     if (rank === 1) sfx('perfect');
     showOv('over', { info, rank, entry });
     // a new place on the chart: ask who it was (the first time; later the last name is filled in and can be changed)
-    if (rank && !store.get('gamePlayer')) setTimeout(() => { if (state === 'over') askName({ info, rank, entry }); }, 650);
+    if (rank && !info.name && !store.get('gamePlayer')) setTimeout(() => { if (state === 'over') askName({ info, rank, entry }); }, 650);
   }
   async function askName(data) {
     const v = await editText({ title: 'Your name for the top 5', value: data.entry?.name || store.get('gamePlayer') || '', placeholder: 'Name' });
@@ -260,7 +268,10 @@ export function GameScreen({ id }) {
     const bDown = btn('minus', 'Volume down', () => vStep(-6)), bUp = btn('plus', 'Volume up', () => vStep(6));
     const box = h('div.g-np', h('div.g-np-head', art, h('div.g-np-text', title, artist)), h('div.g-np-ctl', bPrev, bPlay, bNext, h('span.g-np-gap'), bDown, vol, bUp));
     const paint = () => {
-      const s = player.state, t = s.track, c = player.caps;
+      const s = player.state, c = player.caps;
+      // a game can keep the song a secret (Hit Timeline): its instance returns true from hideTrack()
+      const secret = !!inst?.hideTrack?.();
+      const t = secret ? (s.track ? { title: 'Mystery song', artist: 'No peeking!' } : null) : s.track;
       box.hidden = !t && !s.device;
       art.style.backgroundImage = t?.art ? `url("${t.art}")` : '';
       art.classList.toggle('none', !t?.art);
@@ -302,14 +313,15 @@ export function GameScreen({ id }) {
       put(
         h('div.g-badge', { html: iconSvg(meta.icon) }),
         h('div.g-title', meta.name),
+        keyLabel() ? h('div.g-keyname', keyLabel()) : null,
         h('div.g-how', def.howTo || meta.blurb || ''),
         modeChips(),
         h('div.g-best', best()),
         h('div.g-actions', pill('Play', startRound, 'primary')),
-        h('div.g-actions.small', pill('Top 5', () => showOv('scores', { back: 'menu' })), pill('Games', () => go('games'))),
+        h('div.g-actions.small', pill('Top 5', () => showOv('scores', { back: 'menu' })), pill(homeName, () => go(homeRoute))),
       );
     } else if (kind === 'scores') {
-      put(h('div.g-title.sm', `${meta.name} · Top 5`), modeChips(), chart(), h('div.g-actions', pill('Back', () => showOv(data.back || 'menu'), 'primary')));
+      put(h('div.g-title.sm', `${meta.name} · Top 5`), keyLabel() ? h('div.g-keyname', keyLabel()) : null, modeChips(), chart(), h('div.g-actions', pill('Back', () => showOv(data.back || 'menu'), 'primary')));
     } else if (kind === 'pause') {
       const snd = () => (store.get('gameSound') === false ? 'Sound off' : 'Sound on');
       const sndBtn = pill(snd(), () => { store.set('gameSound', store.get('gameSound') === false); sndBtn.textContent = snd(); });
@@ -330,7 +342,7 @@ export function GameScreen({ id }) {
         keyName() ? h('div.g-keyname', keyName()) : null,
         chart(data.entry),
         h('div.g-actions', pill('Play again', startRound, 'primary')),
-        h('div.g-actions.small', pill('Menu', () => showOv('menu')), pill('Games', () => go('games'))),
+        h('div.g-actions.small', pill('Menu', () => showOv('menu')), pill(homeName, () => go(homeRoute))),
       );
     }
     ov.append(card);
@@ -353,12 +365,13 @@ export function GameScreen({ id }) {
     state = 'menu';
     resize();
     showOv('menu');
-  }).catch((err) => { console.error(err); clear(ov); ov.append(h('div.g-card', h('div.g-title.sm', 'This game didn’t load'), h('div.g-how', String(err.message || err)), h('div.g-actions', pill('Games', () => go('games'), 'primary')))); });
+  }).catch((err) => { console.error(err); clear(ov); ov.append(h('div.g-card', h('div.g-title.sm', 'This game didn’t load'), h('div.g-how', String(err.message || err)), h('div.g-actions', pill(homeName, () => go(homeRoute), 'primary')))); });
   raf = requestAnimationFrame(frame);
 
   return {
     el,
     destroy() {
+      state = 'gone';   // e.g. the "your name" prompt scheduled for a new top-5 score must not open on the next screen
       cancelAnimationFrame(raf); ro.disconnect();
       window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp);
       document.removeEventListener('visibilitychange', onVis);

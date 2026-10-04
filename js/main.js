@@ -16,6 +16,7 @@ import { ConnectScreen } from './screens/connect.js';
 import { SettingsScreen } from './screens/settings.js';
 import { GamesHubScreen } from '../games/hub.js';
 import { GameScreen } from '../games/shell.js';
+import { RhythmHubScreen } from '../rhythm/hub.js';
 import { openVolume, openLibrary, openSearch } from './screens/panels.js';
 
 const app = document.getElementById('app');
@@ -33,6 +34,7 @@ register('connect', (p) => { closeAllPanels(); return ConnectScreen(p); });
 register('settings', () => { closeAllPanels(); return SettingsScreen(); });
 register('games', () => { closeAllPanels(); return GamesHubScreen(); });
 register('game', (p) => { closeAllPanels(); return GameScreen(p); });
+register('rhythm', () => { closeAllPanels(); return RhythmHubScreen(); });
 
 // ---------- control size (XS … XL; L is the original size) ----------
 export const UI_SIZES = { XS: 0.7, S: 0.8, M: 0.9, L: 1, XL: 1.12 };
@@ -79,7 +81,7 @@ app.addEventListener('pointerdown', (e) => {
 // ---------- keyboard / rotary-encoder shortcuts ----------
 window.addEventListener('keydown', (e) => {
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Escape') topPanel()?.close(); return; }
-  if (currentScreen() === 'games' || currentScreen() === 'game') return;   // the games handle their own keys
+  if (['games', 'game', 'rhythm'].includes(currentScreen())) return;   // the games (and the Rhythm screen) handle their own keys
   const inPlayer = currentScreen() === 'player';
   const inMedia = currentScreen() === 'media';
   const k = e.key;

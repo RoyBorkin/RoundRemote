@@ -1,7 +1,7 @@
 // Round Remote service worker — makes the app installable and load offline.
 // Strategy: network-first for the app's own files (so updates show up immediately when
 // online), falling back to the cache when offline. Music-service APIs are never cached.
-const VERSION = 'rr-3.9.2';
+const VERSION = 'rr-4.0.0';
 const SHELL = [
     "./",
     "index.html",
@@ -95,6 +95,31 @@ const SHELL = [
     "games/subway.js",
     "games/temple.js",
     "games/tictactoe.js",
+    "rhythm/rhythm.css",
+    "rhythm/index.js",
+    "rhythm/chrono-map.js",
+    "rhythm/spin-chart.js",
+    "rhythm/hub.js",
+    "rhythm/session.js",
+    "rhythm/store.js",
+    "rhythm/clock.js",
+    "rhythm/kit.js",
+    "rhythm/analyzer.js",
+    "rhythm/analyzer-worker.js",
+    "rhythm/chart.js",
+    "rhythm/synth.js",
+    "rhythm/bridge-audio.js",
+    "rhythm/dsp-fft.js",
+    "rhythm/dsp-features.js",
+    "rhythm/dsp-post.js",
+    "rhythm/dsp-songs.js",
+    "rhythm/hits.js",
+    "rhythm/hits-songs.js",
+    "rhythm/frets.js",
+    "rhythm/tiles.js",
+    "rhythm/chrono.js",
+    "rhythm/circles.js",
+    "rhythm/spin.js",
     "js/providers/googlehome.js",
     "js/screens/smarthome.js",
     "js/views/ha-controls.js",

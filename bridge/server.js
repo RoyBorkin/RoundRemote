@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Hub } from './lib/hub.js';
 import { isPrivateHost, log } from './lib/util.js';
+import { createAudio } from './lib/audio.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(__dirname, '..');
@@ -77,6 +78,8 @@ for (const [id, load] of Object.entries(ADAPTERS)) {
     log(id, adapterState[id].status);
   });
 }
+
+const audio = createAudio({ cfg });
 
 // ---------------------------------------------------------------- apple token
 let appleToken = null;
@@ -227,6 +230,8 @@ async function api(req, res, url) {
     } catch (e) { return json(res, 500, { error: e.message }); }
   }
   if (p === '/api/proxy') return proxy(req, res, url);
+  // Rhythm: system-audio capture stream, tempo lookup, audio download proxy (lib/audio.js)
+  if (p.startsWith('/api/audio/')) return audio.route(req, res, url, { json });
   if (p === '/api/profiles' || p.startsWith('/api/profiles/')) return profiles(req, res, decodeURIComponent(p.slice('/api/profiles/'.length)));
   return json(res, 404, { error: 'not found' });
 }
@@ -301,7 +306,7 @@ server.listen(cfg.port, cfg.host, () => {
   log('bridge', `Round Remote bridge ${VERSION} on http://${cfg.host === '0.0.0.0' ? 'localhost' : cfg.host}:${cfg.port}/`);
 });
 
-const shutdown = () => { for (const a of hub.adapters.values()) try { a.stop?.(); } catch {} process.exit(0); };
+const shutdown = () => { try { audio.stop(); } catch {} for (const a of hub.adapters.values()) try { a.stop?.(); } catch {} process.exit(0); };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 process.on('unhandledRejection', (e) => log('bridge', 'unhandled', e?.message || e));

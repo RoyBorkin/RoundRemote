@@ -92,7 +92,7 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 3. [Set up each service](#2-set-up-each-service)
 4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Google Home, Tidal, Qobuz)](#3-the-bridge)
 5. [Raspberry Pi kiosk](#4-raspberry-pi-kiosk)
-6. [Using the app](#5-using-the-app)
+6. [Using the app](#5-using-the-app) — including [Games](#games) and [Rhythm](#rhythm-music-games)
 7. [Troubleshooting](#6-troubleshooting)
 8. [Honest limits](#7-honest-limits)
 9. [Project layout](#8-project-layout)
@@ -192,6 +192,31 @@ Tap **Games** on the home screen. The games sit on a ring: tap one (or drag arou
 | **Rope Snip** | Swipe to cut the ropes and swing the sweet into the hungry critter's mouth, grabbing the 3 stars. 36 levels in 3 boxes with bubbles, puffers, ringed pins, spikes, moving pins and a gravity switch. The top 5 is your total stars. |
 
 Every game works with touch, and also with the keyboard: arrows, space and Enter. Games that turn something around the circle also take a rotary knob (←/→ or the scroll wheel). The ⏸ button at the top pauses the game; you can also turn the sound on or off there and on the Games ring. Circles and balls are drawn flat: solid colours, no gloss. The names, characters and art are original; several games are round takes on well-known arcade classics.
+
+### Rhythm (music games)
+
+Tap **Rhythm** on the home screen. First choose **where the music plays** — any of your music services (Spotify, Apple Music, YouTube Music, Plex, Jellyfin, the Demo…). The song plays on your speakers or phone as usual; the round display is the game. The choice is remembered (**Change** switches it). The games sit on a ring around what's playing, with play/pause/skip and **Choose song** (search or one of your playlists).
+
+| Game | How it plays |
+|---|---|
+| **Hit Timeline** | A party game: a mystery song plays (the display hides the title) and you place it in your timeline by year — before, between or after your cards. Right = the card stays. *Party* (2–6 players, pass the display) or *Solo* (how long a streak before 3 mistakes). 531 well-known songs from 1939 to 2025, a decade filter, or songs from one of your playlists. |
+| **Fret Fire** | A fret highway: notes ride down to 3–5 fret buttons. Hold for sustains, chords on Hard+, and Overdrive phrases that double your points. Keys 1–5 or A S D F G. |
+| **Rhythm Rush** | Falling tiles in 3–4 lanes: tap as they reach the line, hold long tiles, chords and doubles on the hard levels. Keys D F J K. |
+| **Chrono Ring** | Notes fly out from the centre to the ring — tap the ring where they land. Holds, slides along the ring, doubles and flicks. Knob or ←/→ + Space also work. |
+| **Beat Circles** | Tap the circles as their approach rings close in; follow sliders, spin spinners. Approach time and circle size change with difficulty. Z / X also hit. |
+| **Spin Beat** | Turn the wheel (drag, knob, ←/→, A/D) so its colour matches the notes; tap, hold, drum hits on the hub and big spins. |
+
+**How the games learn a song.** The five rhythm games make their levels from the song itself — 5 difficulties (Easy, Medium, Hard, Expert, Master), each with its own top 5 per song. The first time you play a song the app *learns* it, saves what it learned, and later plays start straight away. Spotify and the other streaming services don't let apps hear their audio (and Spotify no longer offers song analysis), so the app learns from what's available:
+
+| Where the music is | How the app learns it |
+|---|---|
+| **Plex, Jellyfin** | Downloads the track and analyses it offline, much faster than real time (usually 10–40×) — no listening needed. |
+| **Demo** | The Demo songs have real music now (made by the app); learning renders and analyses them in seconds. |
+| **Bridge computer** | If the music plays on the computer running the bridge (e.g. Spotify desktop), the bridge records that computer's sound and the app listens to the song once (see *Rhythm: let the bridge hear your music* below). |
+| **Microphone** | A microphone on the display (e.g. a USB mic on the Pi) hears your speakers: the song plays once from the start while the app listens. |
+| **Nothing to listen to** | The app looks up the song's tempo online (through the bridge) or you tap along to the beat, then builds a level on that beat. Less faithful to the song, but it works anywhere. |
+
+Each learn is saved as a **version**; a song can have several (tap the learned badge on the Rhythm screen to pick one, make a new version from the same learn, or learn it again). *Settings → Rhythm* has the preferred way to learn (Auto picks the best available), an **audio latency calibration** (tap along to clicks) and *Forget learned songs*.
 
 ---
 
@@ -456,6 +481,19 @@ The **Speakers** tab needs no sign-in: it lists the Google / Nest speakers and d
 
 1. Install the Roon extension libraries once: `cd bridge && npm run roon`, or `bash pi/setup.sh --with-roon` on the Pi.
 2. In Roon, go to **Settings → Extensions → Round Remote → Enable**.
+
+### Rhythm: let the bridge hear your music
+
+When music plays on the computer running the bridge (Spotify desktop, Apple Music, a browser…), the bridge records that computer's sound with **ffmpeg** and streams it to the round display, so the Rhythm games can learn a song by listening to it once. The bridge also looks up song tempos online (ReccoBeats and Deezer, no keys needed) and downloads Plex/Jellyfin tracks for the offline analysis when the server doesn't allow it directly.
+
+1. Install ffmpeg — Windows: `winget install Gyan.FFmpeg`; macOS: `brew install ffmpeg`; Linux / Pi: `sudo apt install ffmpeg`. Restart the bridge.
+2. Give it something to record:
+   - **Windows:** enable **Stereo Mix** (Sound settings → More sound settings → Recording → right-click → *Show disabled devices* → Stereo Mix → Enable). No Stereo Mix? Install the free **VB-Audio Virtual Cable**, make *CABLE Input* the playback device and turn on *Listen to this device* on *CABLE Output* so you still hear it. The bridge picks it automatically.
+   - **macOS:** install **BlackHole 2ch** (`brew install blackhole-2ch`), create a **Multi-Output Device** (your speakers + BlackHole) in Audio MIDI Setup and choose it as the sound output. Allow microphone access for Terminal (or whatever runs the bridge) in System Settings → Privacy & Security.
+   - **Linux / Pi:** PulseAudio or PipeWire is used automatically (the monitor of the default output; needs `pactl`: `sudo apt install pulseaudio-utils`). Run the bridge as the logged-in desktop user, not as root.
+3. Check it: open `http://<bridge>:8765/api/audio/status?devices=1` — it shows the chosen device or what to fix.
+
+Config (`bridge/config.json` → `audio`): `device` (the capture device's name), `input` (full ffmpeg input arguments, e.g. `["-f","pulse","-i","my.monitor"]`), `enabled`, `ffmpeg` (path), `maxFetchMB` (default 80), `tempo` (false turns off the online tempo lookups).
 
 ### Bridge config
 
@@ -732,6 +770,8 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 - **AirPlay:** no seeking. **Cast:** next/previous depends on the casting app.
 - **Apple Music with MusicKit** plays on the display itself. To control Apple Music elsewhere, use Cider, Sidra or the Apple Music app for Windows through the bridge (the Computer tile).
 - **The Computer tile** (Cider API, Windows media controls, MPRIS) was tested with stand-ins that follow each interface, not yet with the real apps.
+- **Rhythm games and streaming services:** Spotify, Apple Music and YouTube Music don't give apps the audio or (any more) an analysis of a song, so the app can't learn those songs faster than real time: it listens once (microphone or bridge) or works from the tempo. Timing follows the service's reported play position, which is less exact than local audio — the judgement windows widen a little for remote services, and *Settings → Rhythm → latency* fine-tunes it. Plex, Jellyfin and the Demo are learned from the audio itself.
+- **Hit Timeline years** were checked by hand but not yet against an online database (it was unreachable while building); a wrong year or two is possible. To check them all against MusicBrainz, run `node bridge/tools/verify-hit-years.mjs > report.txt` from the RoundRemote folder (takes about 10 minutes).
 - The Demo and the bridge were tested with fake zones. The Roon, UPnP, Cast, shairport-sync and YouTube paths follow each service's documented API but haven't been tested against real accounts and hardware yet.
 
 ---
@@ -747,6 +787,7 @@ js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-k
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
 js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), panels, connect, settings
 games/                          the Games category: index.js (the list), hub.js (the Games ring), shell.js (start card, pause, game over, top 5), kit.js (sound + drawing helpers), scores.js, games.css, and one file per game
+rhythm/                         the Rhythm category: index.js (the list), hub.js (the Rhythm screen), session.js + store.js (learned songs & versions, IndexedDB), clock.js (song time), kit.js (rhythm-game runtime), analyzer.js + dsp-*.js (song analysis), chart.js (levels), synth.js (Demo music), bridge-audio.js, and one file per game
 bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, airplay, cider, mpris, winmedia, mock) + settings profiles
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)

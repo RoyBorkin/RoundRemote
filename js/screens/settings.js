@@ -21,6 +21,8 @@ import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
 import { THEMES, MODES, SWATCHES, themeConfig, setThemeConfig, resetThemeConfig, themeById, backdropSpec } from '../core/theme.js';
 import { BACKDROPS, drawBackdropPreview } from '../ui/backdrops.js';
+import { SOURCES, forgetAll, learnedSongCount } from '../../rhythm/session.js';
+import { openCalibration } from '../../rhythm/hub.js';
 
 export const VERSION = '2.0.0';
 
@@ -33,7 +35,7 @@ export function SettingsScreen() {
   const section = (t) => h('div.section', t);
   // the big headers (Theme, General, Music…), with a row of chips at the top to jump to them
   const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
-    ['home', 'Home', 'house'], ['games', 'Games', 'gamepad'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
+    ['home', 'Home', 'house'], ['games', 'Games', 'gamepad'], ['rhythm', 'Rhythm', 'rhythm'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
   const groupEls = {};
   const group = (id) => {
     const [, title, ic] = GROUPS.find((g) => g[0] === id);
@@ -162,6 +164,9 @@ export function SettingsScreen() {
       return h('div.center', b);
     })(),
 
+    group('rhythm'),
+    ...rhythmSection(),
+
     group('connect'),
     section('Connection'),
     field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
@@ -203,6 +208,38 @@ export function SettingsScreen() {
   );
   curve(list);
   return { el };
+}
+
+// ---------------------------------------------------------------- Rhythm
+function rhythmSection() {
+  const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
+  const section = (t) => h('div.section', t);
+  const fmt = (v) => `${v > 0 ? '+' : ''}${v} ms`;
+  let st = null;
+  const makeStepper = () => stepper('Audio latency', () => Number(store.get('rhythmOffsetMs')) || 0, (v) => store.set('rhythmOffsetMs', clamp(v, -500, 1000)), { step: 5, fmt });
+  st = makeStepper();
+  const calib = h('button.pill.small', { type: 'button', onclick: (e) => { e.stopPropagation(); openCalibration({ onSave: () => { const n = makeStepper(); st.replaceWith(n); st = n; } }); } }, 'Calibrate — tap along');
+  const forgetBtn = h('button.pill.small.danger', { type: 'button' }, 'Forget learned songs');
+  const label = (n) => (n ? `Forget learned songs (${n})` : 'Forget learned songs');
+  learnedSongCount().then((n) => { forgetBtn.textContent = label(n); }).catch(() => {});
+  let armed = false;
+  forgetBtn.onclick = async (e) => {
+    e.stopPropagation();
+    if (!armed) { armed = true; forgetBtn.textContent = 'Tap again to forget'; setTimeout(() => { if (armed) { armed = false; learnedSongCount().then((n) => { forgetBtn.textContent = label(n); }); } }, 3000); return; }
+    armed = false;
+    await forgetAll();
+    forgetBtn.textContent = label(0);
+    toast('Learned songs forgotten');
+  };
+  return [
+    section('Rhythm games'),
+    st,
+    h('div.center', calib),
+    h('div.opt-hint', 'How late the music reaches you and your taps register. Calibrate with the clicks here; for music on other speakers, nudge it by ear (hits feel late → raise it).'),
+    opt('Learn songs from', chips(SOURCES, store.get('rhythmSource') || 'auto', (v) => store.set('rhythmSource', v))),
+    h('div.opt-hint', 'Auto picks the best there is: Demo songs and Plex / Jellyfin files are learned in seconds; otherwise the bridge (the computer’s sound) or a microphone listens to the song once; Tempo needs only a few taps.'),
+    h('div.center', forgetBtn),
+  ];
 }
 
 // ---------------------------------------------------------------- settings profiles

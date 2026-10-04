@@ -95,6 +95,12 @@ export const DEFAULTS = Object.freeze({
   gamePlayer: '',              // the name last entered for a top-5 score
   gameSound: true,             // sound effects in the games
   lastGame: null,              // the game selected on the Games ring
+  // Rhythm (rhythm/)
+  rhythmService: '',           // the music service chosen on the Rhythm screen ('' = ask)
+  rhythmGame: null,            // the game selected on the Rhythm ring
+  rhythmOffsetMs: 0,           // audio + tap latency in ms (Settings → Rhythm → calibrate); subtracted from the song time
+  rhythmSource: 'auto',        // how songs are learned: auto | file | mic | bridge | tempo
+  rhythmSel: {},               // chosen version per song key
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)

@@ -161,7 +161,7 @@ export class PlexProvider extends Provider {
       track: {
         id: m.ratingKey, title: m.title, artist: m.originalTitle || m.grandparentTitle || '', album: m.parentTitle || '',
         durationMs: m.duration || 0, art: this._thumb(m.parentThumb || m.thumb || m.grandparentThumb), key: m.key,
-        year: m.parentYear || m.year || null,
+        year: m.parentYear || m.year || null, part: m.Media?.[0]?.Part?.[0]?.key || null,   // the audio file (Rhythm learns from it)
       },
       isPlaying: m.Player?.state === 'playing' || m.Player?.state === 'buffering',
       progressMs: m.viewOffset || 0,
@@ -365,4 +365,17 @@ export class PlexProvider extends Provider {
     return [...seen.values()].map((d) => ({ ...d, active: d.id === this.playerId }));
   }
   async selectDevice(dev) { store.setZone(this.id, dev.id); this.playerId = dev.id; await this.refresh(); }
+
+  /** URL of the track's full audio file, for the Rhythm games to analyse it offline (through the bridge's LAN proxy if needed). */
+  async analysisUrl(track) {
+    if (!track?.id) return null;
+    if (!this.server) await this._connectServer();
+    let part = track.part;
+    if (!part) {
+      const d = await this.pms(`/library/metadata/${track.id}`).catch(() => null);
+      part = d?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.key || null;
+    }
+    if (!part) return null;
+    return this._url(`${this.server.uri}${part}?${qs({ download: 0, 'X-Plex-Token': this.server.token })}`);
+  }
 }

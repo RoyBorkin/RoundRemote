@@ -185,6 +185,14 @@ export class JellyfinProvider extends Provider {
   }
   async selectDevice(dev) { store.setZone(this.id, dev.id); await this.refresh(); }
 
+  /** URL of the track's original audio file, for the Rhythm games to analyse it offline (bridge LAN proxy for http servers on https pages). */
+  async analysisUrl(track) {
+    if (!track?.id || !this.auth?.token) return null;
+    const full = `${this.server}/Audio/${track.id}/stream?${qs({ static: 'true', api_key: this.auth.token })}`;
+    if (isMixed(full)) { try { return await this._proxyUrl(full); } catch { return full; } }
+    return full;
+  }
+
   async getLyrics(track) {
     try {
       const r = await this.api(`/Audio/${track.id}/Lyrics`);

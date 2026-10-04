@@ -64,11 +64,11 @@ export function HomeScreen() {
     else go('player');
   };
   const now = h('button.now-mini', { type: 'button', onclick: openNowPlaying });
-  // The main categories: Music · Media (movies & TV) · Home (smart home) · Games · Settings
+  // The main categories: Music · Media (movies & TV) · Home (smart home) · Games · Rhythm · Settings
   const setMode = (m) => { if (mode() !== m) { store.set('homeMode', m); ring.classList.remove('swap'); void ring.offsetWidth; ring.classList.add('swap'); } };
-  const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Media'], ['home', 'house', 'Home'], ['games', 'gamepad', 'Games'], ['settings', 'settings', 'Settings']].map(([m, ic, label]) => h('button.hm-btn', {
+  const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Media'], ['home', 'house', 'Home'], ['games', 'gamepad', 'Games'], ['rhythm', 'rhythm', 'Rhythm'], ['settings', 'settings', 'Settings']].map(([m, ic, label]) => h('button.hm-btn', {
     type: 'button', dataset: { mode: m }, 'aria-label': label, html: `${icon(ic)}<span>${label}</span>`,
-    onclick: (e) => { e.stopPropagation(); if (m === 'settings') go('settings'); else if (m === 'games') go('games'); else setMode(m); },
+    onclick: (e) => { e.stopPropagation(); if (['settings', 'games', 'rhythm'].includes(m)) go(m); else setMode(m); },
   }));
   const modeSwitch = h('div.home-mode', modeBtns);
   const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now);

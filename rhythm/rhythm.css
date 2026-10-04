@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Rhythm: the Rhythm screen (choose a service → the six rhythm games around the song).
+   Reuses the Games ring look (.gh-item, .gh-play, .gh-glow in games/games.css) and the Home service tiles (.svc).
+   Sizes in cqmin like the rest of the app; colours from the theme variables.
+   ========================================================================== */
+.rhythm-hub { position: absolute; inset: 0; --gc: #ff4d4d; overflow: hidden; }
+.rh-step { position: absolute; inset: 0; }
+.rh-step[hidden] { display: none; }
+.rh-step.in .rh-center, .rh-step.in .rh-pick { animation: rh-in .45s var(--ease) both; }
+@keyframes rh-in { from { opacity: 0; transform: scale(.94); } }
+
+/* ---------- step 1: services ---------- */
+.rh-svc-ring { position: absolute; inset: 0; }
+.rh-svc-ring .svc { z-index: 1; }
+.rh-pick { position: absolute; left: 50%; top: 50%; width: 46%; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.6cqmin; scale: min(var(--ui, 1), 1.04); }
+.rh-kicker { font-size: 2cqmin; font-weight: 800; letter-spacing: .4em; margin-right: -.4em; color: var(--dim); }
+.rh-pick-title { font-family: var(--display); font-size: 5.6cqmin; font-weight: 700; letter-spacing: -.025em; line-height: 1.05; }
+.rh-pick-sub { font-size: 2.4cqmin; line-height: 1.4; color: var(--muted); max-width: 92%; }
+.rh-pick-btns { display: flex; gap: 2cqmin; margin-top: 1cqmin; }
+.rh-pick-btns .ibtn { width: 9cqmin; height: 9cqmin; font-size: 4.2cqmin; }
+.rh-pick-btns .ibtn[hidden] { display: none; }
+
+/* ---------- step 2: games ring ---------- */
+.rh-ring { position: absolute; inset: 0; }
+.rh-item { --gi: 11cqmin; }
+.rh-item svg { width: 54%; height: 54%; }
+.rh-pointer { position: absolute; inset: 0; pointer-events: none; transition: transform .35s var(--ease); }
+.rh-pointer::after { content: ''; position: absolute; left: 50%; top: 16.4%; width: 1.4cqmin; height: 1.4cqmin; border-radius: 50%; transform: translate(-50%, -50%); background: var(--gc); box-shadow: 0 0 1.6cqmin var(--gc); }
+/* home + back sit on the ring between the games (210° and 150°, radius 41.5%) */
+.rh-home, .rh-back2 { position: absolute; transform: translate(-50%, -50%); width: 8.4cqmin; height: 8.4cqmin; font-size: 3.9cqmin; }
+.rh-home { left: 29.25%; top: 85.94%; }
+.rh-back2 { left: 70.75%; top: 85.94%; }
+.rh-home:active, .rh-back2:active { transform: translate(-50%, -50%) scale(.9); }
+
+.rh-center { position: absolute; left: 50%; top: 50%; width: 55%; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; gap: 1.3cqmin; text-align: center; scale: min(var(--ui, 1), 1.04); }
+/* the service ("Change") */
+.rh-svc { display: flex; align-items: center; gap: 1.2cqmin; padding: .6cqmin 2cqmin .6cqmin .6cqmin; border-radius: 99px; background: var(--glass); border: 1px solid var(--line); font-size: 2.2cqmin; font-weight: 700; max-width: 80%; }
+.rh-svc .badge.sm { width: 5.2cqmin; height: 5.2cqmin; font-size: 2cqmin; }
+.rh-svc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-svc-change { color: var(--muted); font-weight: 600; font-size: 1.9cqmin; padding-left: 1.2cqmin; border-left: 1px solid var(--line); }
+.rh-svc:active { transform: scale(.95); }
+/* the song */
+.rh-song { display: flex; align-items: center; gap: 2cqmin; width: 100%; padding: 1.2cqmin 2.2cqmin 1.2cqmin 1.2cqmin; border-radius: 4cqmin; background: var(--glass); border: 1px solid var(--line); text-align: left; }
+.rh-art { flex: none; width: 12cqmin; height: 12cqmin; border-radius: 2.4cqmin; background: var(--ph) center / cover no-repeat; display: grid; place-items: center; color: var(--dim); font-size: 5cqmin; }
+.rh-song-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: .3cqmin; }
+.rh-title { font-family: var(--display); font-size: 3.1cqmin; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-artist { font-size: 2.3cqmin; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-learned { align-self: flex-start; margin-top: .5cqmin; padding: .45cqmin 1.5cqmin; border-radius: 99px; font-size: 1.75cqmin; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--glass-2); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.rh-learned.yes { color: color-mix(in srgb, var(--gc) 70%, rgb(var(--ink))); background: color-mix(in srgb, var(--gc) 16%, transparent); }
+.rh-learned[hidden] { display: none; }
+/* mini transport + choose song */
+.rh-transport { display: flex; align-items: center; justify-content: center; gap: 1cqmin; }
+.rh-tbtn.ibtn.small { width: 7cqmin; height: 7cqmin; font-size: 3.4cqmin; }
+.rh-tplay.ibtn.small { background: var(--fg); color: var(--on-fg); border-color: transparent; }
+.rh-choose { display: flex; align-items: center; gap: .9cqmin; margin-left: 1cqmin; padding: 1.3cqmin 2.4cqmin; border-radius: 99px; font-size: 2.3cqmin; font-weight: 800; background: var(--glass-2); border: 1px solid var(--line); white-space: nowrap; }
+.rh-choose .ic { width: 2.8cqmin; height: 2.8cqmin; }
+.rh-choose:active { transform: scale(.95); }
+.rh-sep { width: 40%; height: 1px; background: var(--line); margin: .3cqmin 0; }
+/* the selected game */
+.rh-game { display: flex; flex-direction: column; align-items: center; gap: .9cqmin; width: 92%; }
+.rh-game.swap { animation: gh-swap .35s var(--ease); }
+.rh-gname { font-family: var(--display); font-size: 4.6cqmin; font-weight: 700; letter-spacing: -.02em; line-height: 1.05; color: color-mix(in srgb, var(--gc) 55%, rgb(var(--ink))); }
+.rh-gblurb { font-size: 2.15cqmin; line-height: 1.35; color: var(--muted); min-height: 5.8cqmin; max-width: 86%; }
+.rh-gbest { font-size: 1.85cqmin; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); min-height: 2.2cqmin; font-variant-numeric: tabular-nums; }
+.rh-play.gh-play { margin-top: .2cqmin; padding: 1.6cqmin 6.4cqmin; font-size: 2.9cqmin; }
+
+/* the light themes: the selected game's colour as text needs to be a little darker */
+#app[data-mode="light"] .rh-gname { color: color-mix(in srgb, var(--gc) 70%, rgb(var(--ink))); }
+#app[data-theme="bauhaus"] :is(.rh-svc, .rh-song, .rh-choose) { background: var(--surface); border: .35cqmin solid rgb(var(--ink)); }
+#app[data-theme="bauhaus"] .rh-learned { border-radius: 0; }
+#app[data-theme="bauhaus"] .rh-art { border-radius: 0; }
+
+/* ---------- latency calibration (Settings → Rhythm) ---------- */
+.rh-cal .panel-body { gap: 2.4cqmin; align-items: center; justify-content: center; }
+.rh-cal-pad { --pulse: 0; width: 30cqmin; height: 30cqmin; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--accent) calc(10% + var(--pulse) * 45%), var(--surface)); border: .5cqmin solid var(--accent);
+  box-shadow: 0 0 calc(var(--pulse) * 6cqmin) color-mix(in srgb, var(--accent) 60%, transparent); transform: scale(calc(1 + var(--pulse) * .05)); }
+.rh-cal-pad.hit { animation: rh-cal-hit .18s var(--ease); }
+@keyframes rh-cal-hit { 50% { filter: brightness(1.3); } }
+.rh-cal-num { font-family: var(--display); font-size: 7.5cqmin; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rh-cal-msg { font-size: 2.6cqmin; line-height: 1.4; color: var(--muted); text-align: center; max-width: 70%; }
+.rh-cal-actions { display: flex; gap: 2cqmin; justify-content: center; }

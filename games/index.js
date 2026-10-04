@@ -2,6 +2,8 @@
 // Each game lives in its own file in this folder and is only loaded when you open it.
 // (Names are our own; several games are round takes on well-known arcade classics.)
 
+import { rhythmById, loadRhythmGame } from '../rhythm/index.js';
+
 // tiny helpers to write 24×24 icon paths
 const c = (x, y, r, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 0 : 1} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 0 : 1} ${-2 * r} 0z`;
 
@@ -62,10 +64,12 @@ export const GAMES = [
     icon: 'M11 1h2v10h-2z' + c(12, 14.5, 4) + 'M17 18l4-4 1 1-4 4zM2 15l1-1 4 4-1 1z' },
 ];
 
-export const gameById = (id) => GAMES.find((g) => g.id === id) || null;
+// The Rhythm category's games (rhythm/index.js) run in the same shell: found here too, loaded from rhythm/.
+export const gameById = (id) => GAMES.find((g) => g.id === id) || rhythmById(id) || null;
 
 /** Load a game's module (its default export: modes, scoring, how-to and create()). */
 export async function loadGame(id) {
+  if (!GAMES.some((g) => g.id === id) && rhythmById(id)) return loadRhythmGame(id);
   const meta = gameById(id);
   if (!meta) throw new Error(`No game “${id}”`);
   const mod = await import(meta.file);

@@ -8,6 +8,16 @@
 
   "airplay": { "metadataPipe": "/tmp/shairport-sync-metadata", "bus": "system", "name": "Round Display" },
 
+  "audio": {
+    "enabled": true,
+    "ffmpeg": "ffmpeg",
+    "device": "",
+    "input": null,
+    "sampleRate": 22050,
+    "maxFetchMB": 80,
+    "tempo": true
+  },
+
   "apple": {
     "teamId": "",
     "keyId": "",

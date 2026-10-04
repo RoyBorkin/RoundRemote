@@ -4,7 +4,8 @@
 // The choice of service is remembered (Settings: rhythmService), so next time it opens on step 2.
 import { h, iconBtn, badge, clear } from '../js/ui/dom.js';
 import { icon } from '../js/ui/icons.js';
-import { openPanel, listRow, curve, toast, topPanel, closeAllPanels } from '../js/ui/overlay.js';
+import { openPanel, listRow, curve, toast, topPanel, closeAllPanels, spinner, emptyNote } from '../js/ui/overlay.js';
+import { editText } from '../js/ui/keyboard.js';
 import { openLibrary, openSearch } from '../js/screens/panels.js';
 import { go } from '../js/core/router.js';
 import { store } from '../js/core/store.js';
@@ -14,12 +15,16 @@ import { bridgeInfo } from '../js/providers/bridge.js';
 import { iconSvg } from '../games/index.js';
 import { sfx } from '../games/kit.js';
 import { RHYTHM } from './index.js';
-import { currentSong, versions, selectedVersionId, selectVersion, newVersion, forget, markRelearn, needsRelearn, setActiveSong, SOURCE_SHORT } from './session.js';
+import { currentSong, versions, selectedVersionId, selectVersion, newVersion, forget, markRelearn, needsRelearn, setActiveSong, SOURCE_SHORT, SOURCE_NAME, SOURCES, checkSource, learnJob, setVersionOffset } from './session.js';
 import { demoTick } from './clock.js';
 
 const MUSIC = SERVICES.filter((s) => (s.section || 'music') === 'music');
 const fmtDate = (t) => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
 const signedIn = (svc) => { const p = provider(svc.id); return !p.setupHint() && p.isAuthed(); };
+const fmtLen = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const fmtOff = (ms) => `${ms > 0 ? '+' : ms < 0 ? '−' : '±'}${Math.abs(ms)} ms`;
+const SOURCE_ICON = { auto: 'sparkle', file: 'note', mic: 'mic', bridge: 'desktop', tempo: 'clock', chart: 'list' };
+const methodNow = () => (SOURCES.some((x) => x.id === store.get('rhythmSource')) ? store.get('rhythmSource') : 'auto');
 
 /** Make a service the player's provider (like openService, without leaving the Rhythm screen). */
 function useService(svc) {
@@ -122,7 +127,13 @@ export function RhythmHubScreen() {
   const art = h('div.rh-art');
   const title = h('div.rh-title'), artist = h('div.rh-artist');
   const learned = h('button.rh-learned', { type: 'button', onclick: (e) => { e.stopPropagation(); openVersions(); } });
-  const songBox = h('div.rh-song', art, h('div.rh-song-text', title, artist, learned));
+  // "Learn from: Auto ▾" — the same setting as Settings → Rhythm → Learn songs from
+  const fromVal = h('span.rh-from-v');
+  const fromBtn = h('button.rh-from', { type: 'button', 'aria-label': 'Learn songs from', onclick: (e) => { e.stopPropagation(); sfx('click'); openLearnFrom(); } },
+    h('span.rh-from-k', 'Learn from'), fromVal, h('span.rh-from-caret', { html: icon('chevron') }));
+  const renderFrom = () => { fromVal.textContent = SOURCE_NAME[methodNow()] || 'Auto'; };
+  renderFrom();
+  const songBox = h('div.rh-song', art, h('div.rh-song-text', title, artist, h('div.rh-tags', learned, fromBtn)));
   const bPrev = iconBtn('prev', 'Previous', () => player.prev(), 'small rh-tbtn');
   const bPlay = iconBtn('play', 'Play / pause', () => player.toggle(), 'small rh-tbtn rh-tplay');
   const bNext = iconBtn('next', 'Next', () => player.next(), 'small rh-tbtn');
@@ -200,6 +211,7 @@ export function RhythmHubScreen() {
   }
   renderSvc(); renderSong();
   offs.push(player.on('state', () => { renderSong(); }));
+  offs.push(store.on('change:rhythmSource', renderFrom));
   offs.push(player.on('provider', () => { renderSvc(); renderSong(); }));
   let lastTrack = null;
   offs.push(player.on('track', (t) => { if ((t?.id ?? null) !== lastTrack) { lastTrack = t?.id ?? null; renderLearned(); } }));
@@ -238,11 +250,14 @@ export function RhythmHubScreen() {
           clear(list);
           if (!vs.length) list.append(h('div.empty', h('div', 'Not learned yet — start a game and the song is learned first.')));
           for (const v of vs) {
+            const off = Math.round(+v.offsetMs || 0);
             list.append(listRow({
-              title: v.name || 'Version', subtitle: `${SOURCE_SHORT[v.source] || v.source || ''} · ${fmtDate(v.created)}${v.seed > 1 ? ` · chart ${v.seed}` : ''}`,
+              title: v.name || 'Version',
+              subtitle: `${SOURCE_SHORT[v.source] || v.source || ''}${v.charter ? ` · ${v.charter}` : ''} · ${fmtDate(v.created)}${v.seed > 1 ? ` · chart ${v.seed}` : ''}${off ? ` · ${fmtOff(off)}` : ''}`,
               mono: v.id === selId ? '✓' : '♪', active: v.id === selId,
               onClick: () => { selectVersion(song.key, v.id); toast(`${v.name} selected`); load(); renderLearned(); },
             }));
+            if (v.id === selId) list.append(nudgeRow(song.key, v, load));
           }
           if (vs.length) {
             list.append(listRow({ title: 'New version', subtitle: 'A different chart from the same learning', mono: '+', onClick: async () => { const v = await newVersion(song.key); if (v) toast(`${v.name} made`); load(); renderLearned(); } }));
@@ -256,6 +271,177 @@ export function RhythmHubScreen() {
           }
         };
         load();
+      },
+    });
+  }
+
+  /**
+   * Sync nudge for the selected version: the notes come earlier (−) or later (+), up to ±500 ms. Charts from the
+   * library were made for their own audio, which can start a little differently from the streaming version.
+   */
+  function nudgeRow(key, v, reload) {
+    let off = Math.round(+v.offsetMs || 0), saveT = 0;
+    const val = h('div.rh-nudge-v');
+    const sub = h('div.rh-nudge-sub');
+    const show = () => {
+      val.textContent = fmtOff(off);
+      sub.textContent = off > 0 ? 'Notes come later' : off < 0 ? 'Notes come earlier' : v.source === 'chart' ? 'Notes early or late? Nudge them' : 'In sync';
+    };
+    const step = (d) => (e) => {
+      e.stopPropagation(); sfx('tick');
+      off = Math.max(-500, Math.min(500, off + d));
+      show();
+      clearTimeout(saveT);
+      saveT = setTimeout(async () => { v.offsetMs = off; await setVersionOffset(key, v.id, off); }, 250);
+    };
+    const btn = (label, d, aria) => h('button.rh-nudge-b', { type: 'button', 'aria-label': aria, onclick: step(d) }, label);
+    show();
+    return h('div.rh-nudge', { onclick: (e) => e.stopPropagation() },
+      btn('−50', -50, 'Earlier by 50 ms'), btn('−10', -10, 'Earlier by 10 ms'),
+      h('div.rh-nudge-mid', h('div.rh-nudge-k', 'Sync'), val, sub),
+      btn('+10', 10, 'Later by 10 ms'), btn('+50', 50, 'Later by 50 ms'));
+  }
+
+  // ---------------------------------------------------------------- learn from (source chooser)
+  function openLearnFrom() {
+    const song = currentSong();
+    openPanel({
+      title: 'Learn from', className: 'list-panel rh-from-panel',
+      build(body, panel) {
+        const list = h('div.list');
+        body.append(list);
+        curve(list);
+        const state = {};            // source id → result of checkSource
+        const rows = {};
+        let action = null;
+        const choose = (id) => {
+          store.set('rhythmSource', id);
+          sfx('tick');
+          for (const [k, r] of Object.entries(rows)) r.classList.toggle('active', k === id);
+          renderAction();
+        };
+        const tap = async (id) => {
+          const st = state[id];
+          if (!st) { choose(id); return; }        // still checking: let the choice stand
+          if (st.ok) { choose(id); return; }
+          if (st.ask === 'mic') {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              stream.getTracks().forEach((t) => t.stop());
+              check('mic').then(() => { if (state.mic?.ok) choose('mic'); });
+            } catch { toast('The microphone wasn’t allowed', { kind: 'error' }); check('mic'); }
+            return;
+          }
+          sfx('drop'); toast(st.reason || 'Not available here');
+        };
+        const paint = (id) => {
+          const r = rows[id], st = state[id];
+          const subEl = r.querySelector('.row-sub');
+          r.classList.toggle('rh-off', !!st && !st.ok);
+          r.classList.toggle('rh-ask', !!st?.ask);
+          subEl.textContent = !st ? 'Checking…' : st.ok ? st.sub || '' : st.reason || 'Not available';
+        };
+        const check = (id) => checkSource(id, song).catch((e) => ({ ok: false, reason: e?.message || 'Unavailable' }))
+          .then((st) => { if (!panel.closed) { state[id] = st; paint(id); if (id === 'chart' || id === methodNow()) renderAction(); } });
+        for (const src of SOURCES) {
+          const r = listRow({
+            title: SOURCE_NAME[src.id] || src.name, subtitle: 'Checking…', active: src.id === methodNow(),
+            mono: h('span.rh-src-ic', { html: icon(SOURCE_ICON[src.id] || 'note') }), onClick: () => tap(src.id),
+          });
+          rows[src.id] = r;
+          list.append(r);
+          check(src.id);
+        }
+        // the action for the current song
+        function renderAction() {
+          action?.remove(); action = null;
+          if (!song) return;
+          const id = methodNow();
+          if (id === 'chart') {
+            const st = state.chart;
+            action = listRow({
+              title: 'Choose a chart', subtitle: st?.charts?.length ? `For “${song.title}” · ${st.charts.length} found` : `Find “${song.title}” in the library`, mono: '›',
+              onClick: () => { if (st && !st.ok) { toast(st.reason); return; } openChartPicker(song, st?.charts); },
+            });
+          } else {
+            const st = state[id];
+            const again = learned.classList.contains('yes');
+            action = listRow({
+              title: `Learn ${again ? 'again ' : ''}with ${id === 'auto' ? 'Auto' : SOURCE_NAME[id]}`, subtitle: needsRelearn(song.key) ? 'Set for the next game' : `“${song.title}” · when the next game starts`, mono: '↻',
+              onClick: () => {
+                if (st && !st.ok && !st.ask) { toast(st.reason); return; }
+                markRelearn(song.key, true);
+                panel.close(); renderLearned();
+                toast(RHYTHM[sel].needsSong ? `Press Play — ${song.title} is learned again first` : 'Start a rhythm game — the song is learned again first');
+              },
+            });
+          }
+          action.classList.add('rh-from-act');
+          list.append(action);
+        }
+        renderAction();
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------- chart library picker
+  function openChartPicker(song, prefetched = null) {
+    openPanel({
+      title: 'Chart library', className: 'list-panel rh-charts-panel',
+      build(body, panel) {
+        const list = h('div.list');
+        body.append(list);
+        curve(list);
+        let query = '', busy = false;
+        const show = (charts) => {
+          clear(list);
+          if (!charts.length) list.append(emptyNote(query ? `No charts for “${query}”` : 'No chart of this song found'));
+          charts.forEach((c, i) => {
+            const m = c.match || {};
+            const pct = Math.round((m.score || 0) * 100);
+            const bits = [c.charter ? `by ${c.charter}` : '', c.lengthMs ? fmtLen(c.lengthMs) : '', instrumentsText(c)].filter(Boolean);
+            const row = listRow({
+              title: `${c.name}${c.artist ? ` — ${c.artist}` : ''}`, subtitle: bits.join(' · '), mono: String(i + 1),
+              right: h(`span.rh-match${m.good ? '.good' : ''}`, `${pct}%`),
+              onClick: () => learnChart(c, row),
+            });
+            list.append(row);
+          });
+          list.append(listRow({ title: 'Search by hand…', subtitle: 'Another spelling, the album, a cover…', mono: '⌕', onClick: async () => {
+            const q = await editText({ title: 'Search charts', value: query || `${song.artist} ${song.title}`.trim(), okLabel: 'Search' });
+            if (q) { query = q; run(); }
+          } }));
+        };
+        const run = async () => {
+          clear(list); list.append(spinner('Searching the chart library…'));
+          try {
+            const C = await import('./charts.js');
+            const charts = await C.findCharts(song.track, { q: query, limit: 10 });
+            if (!panel.closed) show(charts);
+          } catch (e) { if (!panel.closed) { clear(list); list.append(emptyNote(e?.message || 'The chart library is unavailable', { label: 'Try again', onClick: run })); } }
+        };
+        async function learnChart(c, row) {
+          if (busy) return;
+          busy = true;
+          sfx('tap');
+          const sub = row.querySelector('.row-sub');
+          const was = sub.textContent;
+          row.classList.add('rh-busy');
+          const job = learnJob(song.track, { method: 'chart', chart: c, provider: song.provider, onStatus: (j) => { if (!panel.closed) sub.textContent = j.text; } });
+          try {
+            await job.promise;
+            toast(`Learned from ${c.charter ? `${c.charter}’s chart` : 'the chart'}`);
+            closeAllPanels();
+            renderLearned();
+          } catch (e) {
+            sub.textContent = was;
+            toast(e?.message || 'That chart couldn’t be read', { kind: 'error' });
+          } finally { busy = false; row.classList.remove('rh-busy'); }
+        }
+        let instrumentsText = () => '';
+        import('./charts.js').then((m) => { instrumentsText = m.instrumentsText; if (prefetched?.length) show(prefetched); else run(); })
+          .catch(() => { clear(list); list.append(emptyNote('The chart library couldn’t load')); });
+        list.append(spinner('Searching the chart library…'));
       },
     });
   }

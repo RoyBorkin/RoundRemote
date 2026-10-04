@@ -7,8 +7,8 @@
 const c = (x, y, r, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 0 : 1} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 0 : 1} ${-2 * r} 0z`;
 
 export const RHYTHM = [
-  { id: 'hits', file: './hits.js', name: 'Hit Timeline', color: '#ffb020', home: 'rhythm', needsSong: false,
-    blurb: 'Hear a hit, guess its year and slot it into your timeline. Get the order right to grow your line.',
+  { id: 'hits', file: './hits.js', name: 'Hitster', color: '#ffb020', home: 'rhythm', needsSong: false,
+    blurb: 'Hear a hit, guess its year and slot it into your timeline. Get the order right to grow your line. In English or Hebrew.',
     icon: 'M2 19h20v2H2zM2.5 10h5v7.5h-5zM16.5 10h5v7.5h-5zM9.5 2.5h5v7h-5zM9.5 11.5h5L12 15z' },
   { id: 'frets', file: './frets.js', name: 'Fret Fire', color: '#ff4d4d', home: 'rhythm', needsSong: true,
     blurb: 'Notes race down the fretboard to your song. Strike them on the line and hold the long ones.',
@@ -38,7 +38,9 @@ export async function loadRhythmGame(id) {
   const meta = rhythmById(id);
   if (!meta) throw new Error(`No game “${id}”`);
   const mod = await import(meta.file);
-  const def = { ...meta, ...mod.default, id: meta.id, name: meta.name, color: meta.color, icon: meta.icon, home: 'rhythm' };
+  // copy property descriptors, not values: a game may define howTo / modes / unit as getters (Hitster's follow its language)
+  const def = Object.defineProperties({ ...meta }, Object.getOwnPropertyDescriptors(mod.default));
+  Object.assign(def, { id: meta.id, name: meta.name, color: meta.color, icon: meta.icon, home: 'rhythm' });
   if (meta.needsSong && !def.keyExtra) {
     const S = await import('./session.js');
     const song = () => S.activeSong() || S.currentSong();

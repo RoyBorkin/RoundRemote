@@ -1,0 +1,196 @@
+/* Clock app (apps/clock.js). Everything is sized in cqmin of the round app box. */
+.ck { position: absolute; inset: 0; overflow: hidden; touch-action: none; --hand2: #ff5a4f; --sun: #ffb238; --night: #5b6fd8; }
+#app[data-mode="light"] .ck { --sun: #e08a00; --night: #4057c8; }
+.ck-track { position: absolute; inset: 0; will-change: transform; }
+.ck-track.anim { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.ck-page { position: absolute; top: 0; width: 100%; height: 100%; }
+
+.ck-corner { position: absolute; top: 76%; width: 9.6cqmin; height: 9.6cqmin; margin: -4.8cqmin 0 0 -4.8cqmin; font-size: 4.4cqmin; z-index: 5; }
+.ck-corner, .ck-dots { transition: opacity .6s; }
+.ck.idle .ck-corner, .ck.idle .ck-dots { opacity: 0; pointer-events: none; }
+.app-screen:has(.ck.idle) .app-back { opacity: 0; pointer-events: none; }
+.ck-left { left: 12.5%; } .ck-right { left: 87.5%; }
+.ck-dots { position: absolute; left: 50%; top: 95.2%; transform: translate(-50%, -50%); display: flex; gap: 1.2cqmin; z-index: 5; }
+.ck-dot { width: 3.2cqmin; height: 3.2cqmin; display: grid; place-items: center; }
+.ck-dot::after { content: ''; width: 1.3cqmin; height: 1.3cqmin; border-radius: 50%; background: var(--dim); transition: background .3s, transform .3s; }
+.ck-dot.on::after { background: var(--fg); transform: scale(1.35); }
+.ck-facename { position: absolute; left: 50%; top: 89.5%; transform: translateX(-50%); font-size: 2cqmin; font-weight: 800; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--dim); opacity: 0; pointer-events: none; white-space: nowrap; }
+.ck-facename.show { animation: ck-fade 1.8s ease forwards; }
+@keyframes ck-fade { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------------------------------------------------------------- analog */
+.ck-analog svg { position: absolute; left: 50%; top: 50%; width: 76cqmin; height: 76cqmin; transform: translate(-50%, -50%); overflow: visible; cursor: pointer; }
+.an-dial { fill: var(--glass); stroke: var(--line); stroke-width: .8; }
+.an-tk { stroke: var(--dim); stroke-width: .9; stroke-linecap: round; }
+.an-tk-h { stroke: var(--fg); stroke-width: 2.6; }
+.an-num { fill: var(--fg); font-family: var(--display); font-weight: 700; font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+.an-date { fill: var(--muted); font-family: var(--font); font-weight: 700; font-size: 8px; letter-spacing: .14em; text-anchor: middle; }
+.an-hand { fill: var(--fg); }
+.an-shadow { opacity: .22; }
+.an-shadow * { fill: rgb(var(--shade)) !important; stroke: rgb(var(--shade)) !important; }
+.an-sec { stroke: var(--hand2); stroke-width: 1.3; stroke-linecap: round; }
+.an-secdot { fill: var(--hand2); }
+.an-pin { fill: var(--bg); }
+/* minimal */
+.an-dial-min { fill: none; stroke: var(--line); }
+.min-bar { stroke: var(--muted); stroke-width: 3.2; stroke-linecap: round; }
+.min-top { stroke: var(--ac); }
+.min-h, .min-m { stroke: var(--fg); stroke-linecap: round; }
+.min-h { stroke-width: 7; } .min-m { stroke-width: 4.6; }
+.min-s { stroke: var(--ac); stroke-width: 1.6; stroke-linecap: round; }
+.min-sring { fill: var(--bg); stroke: var(--ac); stroke-width: 2.4; }
+/* neon */
+.neon-bg { fill: color-mix(in srgb, var(--bg) 70%, #050510); }
+#app[data-mode="light"] .neon-bg { fill: #10121c; }
+.neon-ring { fill: none; stroke: var(--ac); stroke-width: 1.6; }
+.neon-glow { fill: none; stroke: var(--ac); stroke-width: 7; opacity: .22; }
+.neon-dot { fill: #ff4fa3; }
+.neon-dot.dim { fill: rgb(255 255 255 / .35); }
+.neon-num { fill: #e9f2ff; font-family: var(--display); font-weight: 500; font-size: 15px; text-anchor: middle; dominant-baseline: central; paint-order: stroke;
+  stroke: color-mix(in srgb, var(--ac) 55%, transparent); stroke-width: 2.4px; }
+.neon-date { fill: #9fc4ff; font-family: var(--font); font-weight: 700; font-size: 7.5px; letter-spacing: .2em; text-anchor: middle; }
+.neon-h, .neon-m, .neon-s { stroke-linecap: round; }
+.neon-h { stroke: #b57bff; stroke-width: 4.4; } .neon-h.glow { stroke-width: 12; opacity: .28; }
+.neon-m { stroke: var(--ac); stroke-width: 3; } .neon-m.glow { stroke-width: 10; opacity: .28; }
+.neon-s { stroke: #ff4fa3; stroke-width: 1.4; } .neon-s.glow { stroke-width: 6; opacity: .3; }
+.neon-cap { fill: #ff4fa3; }
+/* roman */
+.an-dial-rom { fill: color-mix(in srgb, var(--surface) 70%, transparent); stroke: var(--line); }
+.rom-ring { fill: none; stroke: var(--fg); stroke-width: .7; opacity: .7; }
+.rom-tk { stroke: var(--fg); stroke-width: .6; opacity: .6; }
+.rom-tk-h { stroke-width: 1.6; opacity: .9; }
+.rom-num { fill: var(--fg); font-family: 'Frank Ruhl Libre', 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 13px; text-anchor: middle; dominant-baseline: central; }
+.rom-sub { fill: none; stroke: var(--line); stroke-width: .8; }
+.rom-date { fill: var(--muted); font-family: 'Frank Ruhl Libre', Georgia, serif; font-weight: 700; font-size: 10px; text-anchor: middle; dominant-baseline: central; }
+.rom-h, .rom-m { stroke: var(--fg); stroke-linecap: round; }
+.rom-h { stroke-width: 2.6; } .rom-m { stroke-width: 1.8; }
+.rom-moon { fill: none; stroke: var(--fg); stroke-width: 1.8; }
+.rom-fill { fill: var(--fg); }
+.rom-s { stroke: var(--hand2); stroke-width: .9; }
+.rom-scap { fill: var(--hand2); }
+.rom-cap { fill: var(--fg); }
+
+/* ---------------------------------------------------------------- digital */
+.dg-ring { position: absolute; inset: 4%; }
+.dg-ring svg { width: 100%; height: 100%; }
+.dg-tk { stroke: var(--line); stroke-width: 1.6; stroke-linecap: round; transition: stroke .4s; }
+.dg-tk.five { stroke: var(--dim); stroke-width: 2.2; }
+.dg-tk.on { stroke: var(--ac); }
+.dg-tk.now { stroke: var(--fg); stroke-width: 3; }
+.dg-day { position: absolute; left: 50%; top: 27%; transform: translateX(-50%); font-size: 3.4cqmin; font-weight: 800; letter-spacing: .26em; text-transform: uppercase; color: var(--ac); white-space: nowrap; }
+#app[data-mode="light"] .dg-day { color: color-mix(in srgb, var(--ac) 60%, rgb(var(--ink))); }
+.dg-mid { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%); display: grid; place-items: center; }
+.dg-mid > * { grid-area: 1 / 1; }
+.dg-time { display: flex; align-items: baseline; font-family: var(--display); font-weight: 700; font-size: 25cqmin; letter-spacing: -.04em; line-height: 1;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dg-col { margin: 0 .4cqmin; transition: opacity .25s; position: relative; top: -.08em; }
+.dg-col.off { opacity: .25; }
+.dg-ap { font-size: 5cqmin; letter-spacing: .05em; margin-left: 1.6cqmin; color: var(--muted); font-weight: 800; }
+.dg-ap:empty { display: none; }
+.dg-secs { position: absolute; left: 50%; top: 63.5%; transform: translateX(-50%); font-family: var(--mono); font-size: 4.6cqmin; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dg-date { position: absolute; left: 50%; top: 71.5%; transform: translateX(-50%); font-size: 3cqmin; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.dg-next { position: absolute; left: 50%; top: 79%; transform: translateX(-50%); display: flex; align-items: center; gap: 1cqmin; font-size: 2.6cqmin; font-weight: 700; color: var(--dim); }
+.dg-next .ic { font-size: 3cqmin; }
+.ck-digital[data-font="tall"] .dg-time { font-family: 'Oswald', var(--display); font-weight: 300; font-size: 31cqmin; letter-spacing: 0; }
+.ck-digital[data-font="tall"] .dg-col { top: -.06em; }
+.ck-digital[data-font="lcd"] .dg-time { font-family: 'VT323', var(--mono); font-weight: 400; font-size: 33cqmin; letter-spacing: .02em; }
+.ck-digital[data-font="lcd"] .dg-time { color: var(--ac); text-shadow: 0 0 3cqmin color-mix(in srgb, var(--ac) 45%, transparent); }
+#app[data-mode="light"] .ck-digital[data-font="lcd"] .dg-time { color: color-mix(in srgb, var(--ac) 55%, rgb(var(--ink))); text-shadow: none; }
+.ck-digital[data-font="lcd"] .dg-ap { font-family: 'VT323', var(--mono); font-size: 7cqmin; }
+.ck-digital[data-font="mono"] .dg-time { font-family: var(--mono); font-weight: 700; font-size: 21cqmin; letter-spacing: -.06em; }
+
+/* ---------------------------------------------------------------- world */
+.wd-ring { position: absolute; left: 50%; top: 50%; width: 88cqmin; height: 88cqmin; transform: translate(-50%, -50%); }
+.wd-ring svg { width: 100%; height: 100%; overflow: visible; }
+.wd-track { fill: none; stroke: var(--line); stroke-width: 9; }
+.wd-day { fill: none; stroke: var(--sun); stroke-width: 9; opacity: .2; }
+.wd-night { fill: none; stroke: var(--night); stroke-width: 9; opacity: .22; }
+.wd-tk { stroke: var(--dim); stroke-width: .8; stroke-linecap: round; }
+.wd-tk.six { stroke: var(--muted); stroke-width: 1.6; }
+.wd-lbl { fill: var(--dim); font-size: 7px; font-weight: 700; font-family: var(--font); text-anchor: middle; dominant-baseline: central; }
+.wd-sun g:first-child { fill: var(--sun); } .wd-sun g:last-child { fill: var(--night); }
+.wd-sun path { opacity: .9; }
+.wd-you { fill: var(--ac); }
+.wd-city { cursor: pointer; }
+.wd-city circle { stroke: var(--bg); stroke-width: 1.4; transition: r .3s; }
+.wd-city.day circle { fill: var(--sun); }
+.wd-city.dusk circle { fill: #e0679a; }
+.wd-city.night circle { fill: var(--night); }
+.wd-city text { fill: #0b0b10; font-family: var(--font); font-weight: 800; font-size: 5.6px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.wd-city.night text { fill: #fff; }
+.wd-city.on circle { stroke: var(--fg); stroke-width: 1.8; }
+.wd-city.on text { font-size: 6.6px; }
+.wd-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 62cqmin; height: 62cqmin; border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.wd-name { font-family: var(--display); font-size: 5.4cqmin; font-weight: 700; max-width: 54cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-country { font-size: 2.5cqmin; color: var(--muted); margin-top: .4cqmin; font-weight: 600; }
+.wd-time { font-family: var(--display); font-weight: 700; font-size: 16cqmin; letter-spacing: -.04em; line-height: 1.05; margin-top: 1cqmin; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; }
+.wd-time small { font-size: 4cqmin; color: var(--muted); margin-left: 1.2cqmin; letter-spacing: .04em; }
+.wd-rel { font-size: 2.7cqmin; font-weight: 700; color: var(--muted); margin-top: .8cqmin; }
+.wd-sunstate { display: flex; align-items: center; gap: .9cqmin; margin-top: 1.6cqmin; font-size: 2.4cqmin; font-weight: 700; padding: .9cqmin 2.2cqmin; border-radius: 99px;
+  background: color-mix(in srgb, var(--sun) 16%, transparent); color: var(--sun); }
+.wd-sunstate[data-st="night"] { background: color-mix(in srgb, var(--night) 18%, transparent); color: color-mix(in srgb, var(--night) 70%, rgb(var(--ink))); }
+.wd-sunstate .ic { font-size: 3cqmin; }
+
+/* ---------------------------------------------------------------- alarms */
+.al-head { position: absolute; left: 50%; top: 16.5%; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+.al-h1 { font-size: 2.2cqmin; font-weight: 800; letter-spacing: .26em; text-transform: uppercase; color: var(--dim); }
+.al-h2 { font-size: 3cqmin; font-weight: 700; margin-top: .8cqmin; color: var(--fg); }
+.al-list { position: absolute; left: 14%; right: 14%; top: 26%; bottom: 17%; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  scrollbar-width: none; padding: 3cqmin 0 6cqmin; display: flex; flex-direction: column; gap: 1.4cqmin;
+  mask-image: linear-gradient(transparent, #000 8%, #000 86%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 8%, #000 86%, transparent); }
+.al-list::-webkit-scrollbar { display: none; }
+.al-row { flex: none; display: flex; align-items: center; gap: 2.6cqmin; padding: 2cqmin 2.4cqmin 2cqmin 3.6cqmin; border-radius: 6cqmin; background: var(--glass); border: 1px solid var(--line);
+  cursor: pointer; transition: opacity .3s, background .2s; }
+.al-row:active { background: var(--glass-2); }
+.al-row.off { opacity: .5; }
+.al-t { font-family: var(--display); font-size: 7.4cqmin; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; flex: none; }
+.al-t small { font-size: 2.6cqmin; margin-left: .8cqmin; color: var(--muted); letter-spacing: .04em; }
+.al-meta { flex: 1; min-width: 0; }
+.al-label { font-size: 2.9cqmin; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; text-align: start; }
+.al-days { font-size: 2.3cqmin; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .3cqmin; }
+.al-row .switch.on { background: var(--ac); }
+.al-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 56cqmin; display: flex; flex-direction: column; align-items: center; gap: 1.4cqmin; text-align: center; }
+.al-empty[hidden] { display: none; }
+.al-empty .ic { font-size: 11cqmin; color: var(--ac); opacity: .8; }
+.al-e1 { font-family: var(--display); font-size: 4.6cqmin; font-weight: 700; }
+.al-e2 { font-size: 2.6cqmin; color: var(--muted); line-height: 1.35; }
+
+/* ---------------------------------------------------------------- panels */
+.ck-panel .panel-body { top: 17%; bottom: 15%; left: 10%; right: 10%; }
+.ck-form { flex: 1; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; display: flex; flex-direction: column; align-items: center;
+  gap: 1.8cqmin; padding: 3cqmin 4cqmin 10cqmin;
+  mask-image: linear-gradient(transparent, #000 5%, #000 88%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 5%, #000 88%, transparent); }
+.ck-form::-webkit-scrollbar { display: none; }
+.ck-form > * { flex: none; }
+.ck-lbl { font-size: 2.2cqmin; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-top: 2cqmin; }
+.ck-note { font-size: 2.3cqmin; color: var(--dim); text-align: center; line-height: 1.4; max-width: 92%; }
+.ck-note:empty { display: none; }
+.ck-opt { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 2cqmin; padding: 1.6cqmin 2.4cqmin 1.6cqmin 3.4cqmin; border-radius: 99px;
+  background: var(--glass); border: 1px solid var(--line); font-size: 2.8cqmin; font-weight: 600; text-align: left; }
+.ck-panel .switch.on, .ck-panel .chip.on { background: var(--ac); color: #0a0a0b; }
+.ck-tset { display: flex; align-items: center; gap: 1.4cqmin; }
+.ck-unit { display: flex; flex-direction: column; align-items: center; gap: .6cqmin; }
+.ck-arrow .ic { transform: rotate(-90deg); }
+.ck-arrow.down .ic { transform: rotate(90deg); }
+.ck-num { font-family: var(--display); font-size: 13cqmin; font-weight: 700; line-height: 1; min-width: 17cqmin; text-align: center; padding: .6cqmin 1cqmin; border-radius: 3cqmin;
+  font-variant-numeric: tabular-nums; cursor: pointer; transition: background .2s, color .2s; }
+.ck-unit.sel .ck-num { background: color-mix(in srgb, var(--ac) 20%, transparent); color: var(--fg); }
+.ck-colon { font-family: var(--display); font-size: 10cqmin; font-weight: 700; color: var(--dim); margin-top: -1.4cqmin; }
+.ck-apchip { margin-left: 1cqmin; }
+.ck-apchip[hidden] { display: none; }
+.ck-when { font-size: 2.5cqmin; color: var(--muted); font-weight: 600; }
+.ck-days .chip { width: 7.4cqmin; height: 7.4cqmin; padding: 0; display: grid; place-items: center; font-size: 2.9cqmin; font-weight: 800; }
+.ck-days.chips.multi .chip.on::before { content: none; }
+.ck-mini { font-size: 2.3cqmin; padding: 1.1cqmin 2.3cqmin; }
+.ck-labelbtn { max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
+.ck-btns { display: flex; gap: 1.6cqmin; flex-wrap: wrap; justify-content: center; margin-top: 3cqmin; }
+.ck-search { display: flex; align-items: center; gap: 1.6cqmin; margin: 0 6%; padding: 1.4cqmin 2.6cqmin; border-radius: 99px; background: var(--glass); border: 1px solid var(--line); }
+.ck-search .ic { font-size: 3.6cqmin; color: var(--muted); flex: none; }
+.ck-q { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 3cqmin; color: var(--fg); }
+.ck-q::placeholder { color: var(--dim); }
+.ck-cities .list { padding: 6% 0 14%; }
+.ck-cright { font-size: 4cqmin; color: var(--dim); flex: none; }
+.ck-cities .row.active .ck-cright { color: var(--ac); }
+.ck-sep { font-size: 2.1cqmin; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); text-align: center; padding: 2.4cqmin 0 1cqmin; }

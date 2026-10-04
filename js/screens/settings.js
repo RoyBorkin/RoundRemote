@@ -4,13 +4,13 @@ import { h, iconBtn, onCircle, badge, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { field } from '../ui/keyboard.js';
 import { curve, toast } from '../ui/overlay.js';
-import { chips, stepper, toggle, vinylArtSlider, infoArtChips, armToggle, VINYL_SPEEDS, vinylDesignChips, vinylColorSwatches, armDesignChips } from './panels.js';
+import { chips, stepper, toggle, infoArtChips, deckOptions } from './panels.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
 import { LYRIC_STYLES, TYPO_VARIANTS } from '../views/lyrics.js';
 import { TONE_VARIANTS } from '../views/tone-visuals.js';
-import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, vinylTitleToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
+import { TONE_SOURCES, TONE_SOURCE_HINT, multiChips, infoArtToggle, infoAutoHideToggle, videoOpts, devicePillToggle, factChips } from './panels.js';
 import { sound } from '../core/sound.js';
 import { MEDIA_BGS } from './media-panels.js';
 import { LIB_VIEWS } from '../views/media-views.js';
@@ -76,14 +76,8 @@ export function SettingsScreen() {
     infoArtToggle(),
     infoAutoHideToggle(),
 
-    section('Vinyl'),
-    vinylDesignChips(),
-    vinylColorSwatches(),
-    armDesignChips(),
-    vinylArtSlider(),
-    armToggle(),
-    vinylTitleToggle(),
-    opt('Record speed (spin + scratch)', chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))),
+    section('Vinyl · Tape · CD'),
+    ...deckOptions(),
 
     section('Lyrics'),
     opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
@@ -237,9 +231,44 @@ function rhythmSection() {
     h('div.center', calib),
     h('div.opt-hint', 'How late the music reaches you and your taps register. Calibrate with the clicks here; for music on other speakers, nudge it by ear (hits feel late → raise it).'),
     opt('Learn songs from', chips(SOURCES, store.get('rhythmSource') || 'auto', (v) => store.set('rhythmSource', v))),
-    h('div.opt-hint', 'Auto picks the best there is: Demo songs and Plex / Jellyfin files are learned in seconds; otherwise the bridge (the computer’s sound) or a microphone listens to the song once; Tempo needs only a few taps.'),
+    h('div.opt-hint', 'Auto picks the best: Demo songs and Plex / Jellyfin files in seconds; for streaming songs a matching fan-made chart from the chart library (through the bridge — only the notes are downloaded); otherwise the bridge or a microphone listens once; Tempo needs a few taps.'),
     h('div.center', forgetBtn),
+    section('Hitster'),
+    opt('Hitster language', chips([{ id: 'auto', name: 'Auto' }, { id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('hitsterLang') || 'auto', (v) => store.set('hitsterLang', v))),
+    h('div.opt-hint', 'Auto follows the keyboard language. In Hebrew the whole game reads right to left. Which songs play (English, Hebrew, both, other languages) and which genres are blocked is chosen on Hitster’s setup screen.'),
+    ...hitsterSongs(),
   ];
+}
+
+/** Settings → Rhythm → Hitster: "Update song lists" — more well-known songs from Wikidata, kept on this display. */
+function hitsterSongs() {
+  const info = h('div.opt-hint', '…');
+  const btn = h('button.pill.small', { type: 'button' }, 'Update song lists');
+  let mods = null;
+  const load = async () => (mods ||= Promise.all([import('../../rhythm/hits-update.js'), import('../../rhythm/hits-deck.js')]));
+  const paint = async () => {
+    const [U, D] = await load();
+    await U.loadExtra();
+    const { lastUpdated } = U.extraInfo();
+    info.textContent = `${D.builtinCount()} built-in songs · ${D.extraCount()} downloaded · ${lastUpdated ? `updated ${new Date(lastUpdated).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}` : 'not updated yet'}. New songs come from Wikidata and are never removed.`;
+  };
+  paint().catch(() => { info.textContent = ''; });
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const [U] = await load();
+      const r = await U.updateSongs({ onProgress: ({ i, n }) => { btn.textContent = `Updating… ${Math.min(i + 1, n)} / ${n}`; } });
+      toast(r.added ? `Hitster: +${r.added} new songs` : 'Hitster: no new songs this time');
+    } catch (err) {
+      toast('Couldn’t reach Wikidata — check the internet connection');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Update song lists';
+      paint().catch(() => {});
+    }
+  };
+  return [h('div.center', btn), info];
 }
 
 // ---------------------------------------------------------------- settings profiles

@@ -1,6 +1,8 @@
 // Analysis → note chart (deterministic). See RHYTHM_GUIDE.md "chart.js".
-//   makeChart(analysis, { lanes, difficulty 0..4, seed, holds, chords, leadMs })
+//   makeChart(analysis, { lanes, difficulty 0..4, seed, holds, chords, leadMs, authored })
 //   → { notes: [{ t, lane, dur, s, b, p, beat, chord }], bpm, beats, durMs, difficulty, seed, lanes }
+// An Analysis from the chart library (source 'chart') carries `authored` note charts per difficulty: with
+// `authored` (default: only when lanes === 5) those are used as written instead of generating from the onsets.
 // Musical rules: onsets are quantised to the beat grid (per-difficulty divisions), chosen by strength × metric
 // weight with per-difficulty density targets scaled by section energy (choruses denser), minimum gaps,
 // lanes follow the pitch contour (p) with seeded variation, repeated sections reuse their lane motif,
@@ -53,10 +55,14 @@ function grid(beats, bpm) {
   return { toBeat, toTime, periodAt, n };
 }
 
-export function makeChart(analysis, { lanes = 4, difficulty = 1, seed = 1, holds = true, chords = true, leadMs = 1800 } = {}) {
+export function makeChart(analysis, { lanes = 4, difficulty = 1, seed = 1, holds = true, chords = true, leadMs = 1800, authored } = {}) {
   const A = analysis || {};
   lanes = Math.max(1, Math.round(lanes));
   const diff = clamp(Math.round(difficulty), 0, 4);
+  // a chart from the chart library carries the charter's own notes per difficulty: use them as written (5 lanes)
+  // or folded onto fewer lanes. authored: true | false | undefined (= only with 5 lanes)
+  const auth = A.authored?.[AUTHORED_OF[diff]];
+  if (auth?.length && (authored ?? lanes === 5)) return authoredChart(A, auth, { lanes, diff, seed: Math.round(seed) || 1, holds, chords, leadMs });
   const C = CFG[diff];
   seed = Math.round(seed) || 1;
   const rnd = prng(seed * 7919 + diff * 104729 + lanes * 31);
@@ -317,6 +323,65 @@ export function makeChart(analysis, { lanes = 4, difficulty = 1, seed = 1, holds
   for (const n of notes) delete n._c;
   notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
   return { notes, bpm, beats: beats.slice(), durMs, difficulty: diff, seed, lanes };
+}
+
+// ---------------------------------------------------------------- authored charts (rhythm/charts-data.js)
+const AUTHORED_OF = ['easy', 'medium', 'hard', 'expert', 'expert'];   // Master plays the Expert chart
+/**
+ * The charter's notes ({ t, lane 0–4, dur }) as a chart for `lanes` lanes. Fewer than 5 lanes: a sliding "hand
+ * position" keeps the shape of every phrase (G R Y B O on 4 lanes moves the window up when orange comes, back down
+ * for green). Even seeds (New version) mirror the lanes. chords: false keeps the top note; holds: false drops sustains.
+ */
+function authoredChart(A, auth, { lanes, diff, seed, holds, chords, leadMs }) {
+  const bpm = A.bpm || 120;
+  const beats = A.beats && A.beats.length >= 2 ? A.beats : (() => { const out = [], per = 60000 / bpm; for (let t = 0; t < (A.durMs || 180000); t += per) out.push(Math.round(t)); return out; })();
+  const G = grid(beats, bpm);
+  const durMs = A.durMs || beats[beats.length - 1] || 180000;
+  const L = lanes - 1;
+  const mirror = seed > 1 && seed % 2 === 0;
+  const groups = [];
+  for (const n of auth) {
+    if (n.t < leadMs - 30 || n.t > durMs) continue;
+    const g = groups[groups.length - 1];
+    if (g && g.t === n.t) g.n.push(n); else groups.push({ t: n.t, n: [n] });
+  }
+  const notes = [];
+  const holdUntil = new Float64Array(Math.max(lanes, 5)).fill(-1);
+  const holdNote = [];
+  let sh = 0;   // hand position: authored lane − shown lane
+  for (const g of groups) {
+    let src = g.n;
+    if (!chords && src.length > 1) src = [src.reduce((a, b) => (b.lane > a.lane ? b : a))];
+    let ls = src.map((n) => n.lane);
+    if (mirror) ls = ls.map((l) => 4 - l);
+    if (lanes >= 5) sh = 0;
+    else if (lanes >= 3) {
+      const lo = Math.min(...ls), hi = Math.max(...ls);
+      if (hi - sh > L) sh = hi - L;
+      if (lo - sh < 0) sh = lo;
+    }
+    const used = new Set();
+    src.forEach((n, i) => {
+      let lane = lanes >= 3 ? clamp(ls[i] - sh, 0, L) : Math.round((ls[i] / 4) * L);
+      if (used.has(lane)) { const alt = [lane + 1, lane - 1].find((k) => k >= 0 && k <= L && !used.has(k)); if (alt == null) return; lane = alt; }
+      used.add(lane);
+      // a lane still held by a sustain (after folding): end that hold a little before this note
+      if (holdUntil[lane] > g.t - 60 && holdNote[lane]) {
+        const m = holdNote[lane], nd = g.t - 120 - m.t;
+        m.dur = nd >= 300 ? Math.round(nd) : 0;
+        holdUntil[lane] = -1;
+      }
+      const dur = holds && n.dur > 0 ? Math.round(n.dur) : 0;
+      const q = G.toBeat(g.t);
+      const note = { t: Math.round(g.t), lane, dur, s: src.length > 1 ? 0.9 : 0.7, b: 1, p: L ? lane / L : 0.5, beat: Math.round(q * 1000) / 1000, chord: false };
+      if (dur) { holdUntil[lane] = g.t + dur; holdNote[lane] = note; }
+      notes.push(note);
+    });
+  }
+  // chord flags
+  for (let i = 0; i < notes.length; i++) if ((i > 0 && notes[i - 1].t === notes[i].t) || (i + 1 < notes.length && notes[i + 1].t === notes[i].t)) notes[i].chord = true;
+  notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
+  return { notes, bpm, beats: beats.slice(), durMs, difficulty: diff, seed, lanes, authored: true };
 }
 
 /** Quick stats (for tests / debug UIs). */

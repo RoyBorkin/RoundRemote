@@ -35,6 +35,11 @@ The current song can be shown **six ways**:
    - **Record speed** (45 / 33⅓ / 16 / 8 / 4 rpm) sets both the spin and how far one turn scratches, so the record always moves with the music.
    - A slider sets the centre artwork size, from none to full screen.
    - The song title around the label can be turned off.
+   - **Player:** the record can be swapped for a **cassette** or a **CD** (⋯ in the view, or *Settings → Music → Vinyl · Tape · CD*), each in three styles. They spin up and coast down with play/pause, scrub when you drag them (with fling momentum), and wind to the new spot when you seek with the ring or the knob.
+     - **Cassette** (*Classic* smoke shell with a paper label, the title hand-written · *Clear* see-through shell with coloured guides and an artwork-tinted label · *Chrome / Metal* black and brushed-silver type IV). The reels turn at their real relative speeds, and the left pack shrinks while the right one grows as the song plays. Drag the tape sideways (or turn a reel) to wind; flick to fast-forward or rewind.
+     - **CD · back** (the data side: *Silver* with a rainbow sheen · *Gold CD-R* whose burned area grows with the song · *Black* game-disc style with a violet sheen). A red read-laser moves outward with the song; the title is engraved around the hub.
+     - **CD · top** (the label side: *Full print* artwork over the whole disc · *CD-R marker* white disc with the title written by hand and an artwork sticker · *Ring* silver disc with the artwork as a band and the title on an arc).
+     - Spin a CD like the record to scrub. Like a real CD it turns faster near the start of the song (constant linear velocity).
 3. **Lyrics:** synced lyrics in six styles:
    - **Basic**, **Typing** (typewriter) and **Roll** (3D drum).
    - **Fluid**, in the spirit of Lyricify / BetterLyrics: a flowing album-art colour field, lines that glide in a staggered cascade, and words that fill with a soft glow and lift as they're sung. Long notes glow letter by letter.
@@ -90,7 +95,7 @@ In every view the controls hide by themselves after a few seconds; tap the scree
 1. [Services](#services)
 2. [Put it on GitHub Pages](#1-put-it-on-github-pages)
 3. [Set up each service](#2-set-up-each-service)
-4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Google Home, Tidal, Qobuz)](#3-the-bridge)
+4. [The bridge (Roon, UPnP, Cast, AirPlay, Apple TV, Google TV, Google Home, PlayStation, Steam, music streamer, Tidal, Qobuz)](#3-the-bridge)
 5. [Raspberry Pi kiosk](#4-raspberry-pi-kiosk)
 6. [Using the app](#5-using-the-app) — including [Games](#games) and [Rhythm](#rhythm-music-games)
 7. [Troubleshooting](#6-troubleshooting)
@@ -145,6 +150,9 @@ Tap one, or swipe sideways to move between Music, Media and Home. Each shows its
 |---|---|---|
 | **Home Assistant** | Your whole Home Assistant, live:<br>• **Favourites** (you pick them), **Rooms** (your HA areas) and **Scenes** (scenes, scripts, automations, buttons).<br>• Round controls: brightness and colours for lights, a temperature dial and modes for climate, position for blinds, speed for fans, locks, speakers (volume, play/pause, what's playing), cameras (live snapshots), vacuums, alarms, and big readings for sensors. | ✅ with an https address; an http address works with `cors_allowed_origins` (or through the bridge) |
 | **Google Home** | Your own command tiles for Google Assistant ("Turn off the kitchen lights", "Good night", "Set the thermostat to 22"), **Ask Google** anything, and **Broadcast** a message to your speakers. Answers show on screen and can be spoken. The **Speakers** tab has volume, play/pause and stop for your Google / Nest speakers and displays. | Needs the bridge (and a one-time Google sign-in for commands) |
+| **PlayStation** | A round console screen: your PSN profile and presence (online/offline, on PS4 or PS5), **the game you're playing now** large in the middle with its art, play time and **trophy progress around the rim**, the latest trophies you earned and the easiest ones still to get, **recently played games** with play time, your **trophy level** and platinum/gold/silver/bronze counts, and **friends online** with what they play. **Wake / rest mode** for the PS5 through Home Assistant (ps5-mqtt) or `playactor` on the bridge. | Needs the bridge (sign in once with an NPSSO token) |
+| **Steam** | Your Steam status (online / away / in game) and level, **the game you're playing** with its header art, hours and **achievement progress around the rim**, the latest unlocks and what's next (with how many players have them), **recently played games** with hours, and **friends online** with their games. **Start a game** or **Big Picture** on the computer running the bridge. | Needs the bridge (a free Steam Web API key) |
+| **Fosi S3** (music streamer) | Your network streamer on one round screen: the **artwork** (blurred behind everything) with title, artist and album, the service and the **audio format** (e.g. *Hi-Res · FLAC · 24-bit / 96 kHz*), the track progress around the art, play / pause / next / previous, and a big **volume ring around the rim** you turn with a finger (or the knob, wheel or arrow keys), with mute. **Sources** lists the streamer's own inputs and services: tap Line In, Optical, HDMI or Bluetooth to switch to it; Spotify, Qobuz Connect, TIDAL, Roon, Google Cast, AirPlay and UPnP show how to play to it from the app. **Settings** switches the output (RCA/XLR ↔ optical), shuffle / repeat, standby. Works with other StreamUnlimited-based streamers too (the ones whose web page is at `http://<ip>/webclient`). | Through the bridge (direct when the app is opened over http on your network and the streamer allows it) |
 
 On the home screen:
 - a green dot means you're signed in;
@@ -199,7 +207,7 @@ Tap **Rhythm** on the home screen. First choose **where the music plays** — an
 
 | Game | How it plays |
 |---|---|
-| **Hit Timeline** | A party game: a mystery song plays (the display hides the title) and you place it in your timeline by year — before, between or after your cards. Right = the card stays. *Party* (2–6 players, pass the display) or *Solo* (how long a streak before 3 mistakes). 531 well-known songs from 1939 to 2025, a decade filter, or songs from one of your playlists. |
+| **Hitster** | A party game: a mystery song plays (the display hides the title) and you place it in your timeline by year — before, between or after your cards. Right = the card stays. Four modes: *Original* (2–6 players, the real Hitster token rules: name title + artist → +1 token, a token skips a song, 3 tokens buy a card, and the others can shout **HITSTER!** — put a token on the gap they think is right; if you're wrong and they're right, they win the card; *Pro* / *Expert* rules: 5 tokens, you must also name the song — and in Expert the exact year — to keep it), *Classic* (the same race to 5 / 10 / 15 cards, no tokens), *Bingo* (Hitster Bingo: spin the wheel for a category — solo or band, before 2000, decade, year ± 2 / ± 4 — or in Expert song title, artist, exact year, ± 3 — everyone answers in turn, the right ones cross a box of that colour on their 4×4 card; first line wins) and *Co-op / Solo* (Solo: how long a streak before 3 mistakes; Team: 2–6 players build one timeline together with shared tokens — 10 cards wins, 3 mistakes lose). 609 well-known songs from 1939 to 2025 (91 Israeli), each tagged with genres and its language; on the setup screen pick the song languages (English, Hebrew, both, other languages — separate from the game's language) and block genres (pop, rock, hip-hop, Mizrahi, Eurovision, children's…); the time period is the start card's *Songs* option (a decade range, *Israeli hits*, or one of your playlists). **Update songs** (setup screen, or *Settings → Rhythm → Hitster*) adds more well-known songs from Wikidata — kept on the display for good, de-duplicated, and each update fetches the next most popular ones. In English or Hebrew (*Settings → Rhythm → Hitster language*, or EN \| עב on the setup screen; *Auto* follows the keyboard language): in Hebrew the whole game reads right to left (older songs on the right). |
 | **Fret Fire** | A fret highway: notes ride down to 3–5 fret buttons. Hold for sustains, chords on Hard+, and Overdrive phrases that double your points. Keys 1–5 or A S D F G. |
 | **Rhythm Rush** | Falling tiles in 3–4 lanes: tap as they reach the line, hold long tiles, chords and doubles on the hard levels. Keys D F J K. |
 | **Chrono Ring** | Notes fly out from the centre to the ring — tap the ring where they land. Holds, slides along the ring, doubles and flicks. Knob or ←/→ + Space also work. |
@@ -214,9 +222,26 @@ Tap **Rhythm** on the home screen. First choose **where the music plays** — an
 | **Demo** | The Demo songs have real music now (made by the app); learning renders and analyses them in seconds. |
 | **Bridge computer** | If the music plays on the computer running the bridge (e.g. Spotify desktop), the bridge records that computer's sound and the app listens to the song once (see *Rhythm: let the bridge hear your music* below). |
 | **Microphone** | A microphone on the display (e.g. a USB mic on the Pi) hears your speakers: the song plays once from the start while the app listens. |
+| **Chart library** | Fan-made **Clone Hero / Rock Band / Guitar Hero charts**: the app searches *Chorus Encore* (enchor.us, the Clone Hero chart search — tens of thousands of songs) for the song that plays and uses a chart someone made for it. In seconds, no listening, and *Fret Fire* plays the charter's own notes (Easy → Easy … Expert and Master → Expert; the fewer lanes on Easy/Medium are folded sensibly); the other games make their levels from the chart's notes and drums. Needs the bridge with internet. **Only the note chart is downloaded** (a few KB read out of the chart package with range requests) — never the song's audio, video or artwork. |
 | **Nothing to listen to** | The app looks up the song's tempo online (through the bridge) or you tap along to the beat, then builds a level on that beat. Less faithful to the song, but it works anywhere. |
 
-Each learn is saved as a **version**; a song can have several (tap the learned badge on the Rhythm screen to pick one, make a new version from the same learn, or learn it again). *Settings → Rhythm* has the preferred way to learn (Auto picks the best available), an **audio latency calibration** (tap along to clicks) and *Forget learned songs*.
+**Learn from.** Under the song on the Rhythm screen, **Learn from: Auto ▾** opens a small chooser: *Auto*, *Song file* (Plex / Jellyfin / Demo), *Microphone*, *Bridge computer*, *Tempo / tap* and *Chart library*. Each says whether it works right now for this service and song — greyed with the reason when not (*Needs the bridge*, *No microphone permission yet — tap to ask*, …) — and the chart library says how many charts it found. It's the same setting as *Settings → Rhythm → Learn songs from*. At the bottom: **Learn again with …** (the next game learns the song again that way) or, for the chart library, **Choose a chart** — the best matches by name and length, with the charter, instruments and difficulties, length and a match score, plus *Search by hand…*. *Auto* uses a chart for streaming songs when one clearly matches (same name, length within 4 s) before listening with the bridge or a microphone.
+
+Each learn is saved as a **version**; a song can have several (tap the learned badge on the Rhythm screen to pick one, make a new version from the same learn, or learn it again). The selected version has a **Sync** nudge (−500…+500 ms): a chart was made for the charter's own copy of the song, which may start a little earlier or later than the streaming one — if the notes come early or late, nudge them (it's saved with the version). *Settings → Rhythm* has the preferred way to learn (Auto picks the best available), an **audio latency calibration** (tap along to clicks) and *Forget learned songs*.
+
+### Apps
+
+Tap **Apps** on the home screen for handy tools on a ring:
+
+| App | What it does |
+|---|---|
+| **Clock** | Analog (classic, minimal, neon, roman), big digital, a world clock (160 cities, day/night) and **alarms that play your music** — a playlist from your service, the current song, or a built-in sound — with Snooze / Stop. Alarms ring on any screen while Round Remote is open. |
+| **Calculator** | Digits round the rim like a clock face, correct order of operations, %, memory, history and a tip & split helper. Works with the keyboard. |
+| **Timer** | Stopwatch with laps, several countdown timers set with a dial (or presets), and an **hourglass** you flip. When time is up it plays your music (or a sound). |
+| **Truth or Dare** | Flick the bottle to spin it. *Spin* mode just picks someone; *Truth or Dare* mode then shows a truth, dare or task, with Done / Chicken and scores. |
+| **Tasks** | Your truths, dares and tasks (starter packs in English and Hebrew included). Players **scan the QR code with their phone** and add their own (needs the bridge — see *Apps → Tasks from your phone*). Everything is kept; choose *All* or *This session*. |
+| **Randomizer** | Random number, colour, letter (English or Hebrew), who goes first (a spinning wheel), teams, yes / no / maybe, pick from your own lists, shuffle. |
+| **Board Games** | **Dice** (1–12 dice, d4–d20 and d100, hold & re-roll, advantage, Risk-style battle, duel), **coin flip**, **score keeper**, companions for **Ticket to Ride, Catan, Monopoly, Taki, Twister, Clue, Jungle Speed, Yahtzee, Uno and Rummikub**, and **rules** for 40 board and card games (in our own words; search in English or Hebrew). |
 
 ---
 
@@ -477,6 +502,62 @@ Then:
 
 The **Speakers** tab needs no sign-in: it lists the Google / Nest speakers and displays the bridge finds (like the Cast tile).
 
+### PlayStation (Home → PlayStation)
+
+Sony has no official public API for this, so the bridge talks to the same PlayStation Network endpoints the PlayStation App uses, the way the open-source [psn-api](https://github.com/achievements-app/psn-api) library does (no extra packages to install). You sign in once with an **NPSSO token**:
+
+1. In a browser on your phone or computer, sign in at [playstation.com](https://www.playstation.com) with your PSN account.
+2. In the same browser open **https://ca.account.sony.com/api/v1/ssocookie**. It shows `{"npsso":"…"}`.
+3. Copy the 64-character value (pasting the whole line works too), then in the app tap **Home → PlayStation**, paste it and tap **Sign in**.
+
+The bridge swaps the token for the PlayStation App's own sign-in, keeps it in `bridge/psn.json` and renews it by itself. The renewal lasts about two months; after that (or if you change your password) the screen asks for a fresh token. Treat the NPSSO like a password. Signing out of playstation.com in that browser makes a new one.
+
+The screen has four pages. Swipe sideways, turn the knob, use ← → or tap the dots at the bottom:
+- **Now**: your profile and status at the top, the game you're playing in the middle (or your avatar with *Online* / *Offline · 2 h ago*), its trophy counts, and the trophy progress as an arc around the rim. The outer ring shows your status: blue in a game, green online, grey offline.
+- **Recent**: recently played games with platform, play time and when.
+- **Trophies**: your level (the ring is the progress to the next level), platinum / gold / silver / bronze totals, the current game's progress, your latest trophies (with how rare they are) and **Up next**: the most common trophies you don't have yet. When you're not playing, it shows the game you last earned trophies in.
+- **Friends**: friends who are online, with the game they're playing.
+
+The screen asks the bridge every 20 seconds while it's open (never in the background), and the bridge keeps each answer for a while (presence 15 s, friends 1 min, games and trophy totals 5–10 min, trophy lists for a day) so Sony isn't asked too often.
+
+**Wake / rest mode (optional).** A power button appears on the Now page when either of these is set up:
+- **Home Assistant** with the [ps5-mqtt](https://github.com/FunkeyFlo/ps5-mqtt) add-on (or [PlayStation2MQTT](https://github.com/jzucker2/PlayStation2MQTT), or HA's *PlayStation 4* integration). Set up Home Assistant in Home → Home Assistant; the PlayStation screen finds the console's power switch by itself. This is the best option: it's live.
+- **playactor** on the bridge computer. Install it with Node.js and pair once (*Remote Play* must be on: PS5 Settings → System → Remote Play):
+  ```
+  npm i -g playactor
+  playactor login --ps5
+  ```
+  `login` shows a link to sign in with your PSN account and asks for the code the PS5 shows. Restart the bridge afterwards. With more than one console, or if discovery doesn't find it, set its address: `"psn": { "playactor": { "ip": "192.168.1.60" } }` in `bridge/config.json`.
+
+Without either, the button stays hidden. The PS5 can only be woken from **rest mode**, not when it's fully off.
+
+### Steam (Home → Steam)
+
+1. Get a free **Steam Web API key** at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (sign in with Steam; any domain name works, e.g. `localhost`).
+2. In the app tap **Home → Steam**, paste the key and your profile: the link of your Steam profile (`steamcommunity.com/id/yourname` or `…/profiles/7656…`), its custom URL name, or your SteamID64. Tap **Connect**.
+3. In Steam: **Profile → Edit Profile → Privacy Settings** → set *My profile* and *Game details* (and *Friends list*) to **Public**. Otherwise Steam hides your games, achievements and friends from the Web API.
+
+The key stays on the bridge (`bridge/steam.json`); the app never sees it. You can also put it in `bridge/config.json` (`"steam": { "apiKey": "…", "steamId": "7656…" }`).
+
+The pages are the same as PlayStation's: **Now** (the game you're playing with its header art and hours, the achievement progress around the rim; the outer ring follows Steam's own colours: green in a game, blue online, amber away), **Recent** (hours in total and in the past two weeks), **Achievements** (the game's progress, your Steam level, the latest unlocks and **Up next**: the achievements most players have that you don't) and **Friends** (online friends and their games).
+
+**Start a game / Big Picture:** the ▶ next to a recent game, the button on the Now page, and **Big Picture** open Steam **on the computer running the bridge** (`steam://rungameid/<id>` and `steam://open/bigpicture` through `start` / `open` / `xdg-open`). Steam must be installed and signed in there. To turn this off: `"steam": { "control": false }`.
+
+### Music streamer — Fosi S3 (Home → Fosi S3)
+
+The Fosi Audio S3 runs StreamUnlimited's *StreamSDK* — the same software as other StreamUnlimited-based streamers, which you can recognise by their web page at `http://<ip>/webclient`. Its web page talks to a small JSON API on the streamer, and so does the app (no account, no pairing).
+
+1. Find the streamer's IP address: the address its web page opens at (e.g. `http://192.168.50.156/webclient/#/main`), or your router's list of devices. Giving it a fixed address in the router (a DHCP reservation) keeps it from changing.
+2. In the app tap **Home → Fosi S3**, type the address (`192.168.50.156`; pasting the whole web-page link works too) and tap **Test connection**. It shows the streamer's name, model and firmware. Tap **Open**.
+
+The page reaches the streamer **through the bridge** (an https page — GitHub Pages — can't call a plain-http device on your network, and the streamer sends no CORS headers). The bridge relays the calls (`/api/streamsdk/…`), proxies the album art, and passes on the streamer's own change events, so volume, track and source changes made elsewhere (the Fosi app, Spotify, the remote) show up at once. When the app itself is opened over http on your network and the streamer answers it directly, it talks to the streamer **directly** and polls instead.
+
+On the screen: **turn the ring** around the rim for volume (it moves relative to where you put your finger, so a stray tap never jumps the volume; the number shows over the artwork), or use the knob / mouse wheel / arrow keys; tap the **volume pill** at the bottom to mute; tap the artwork (or Space) to play / pause. **Sources** (bottom left, or the name at the top) shows the streamer's own list: inputs switch straight away; the music services and AirPlay / Cast / UPnP are started from the app on your phone, and the tile tells you how. **Settings** (bottom right) has the output (RCA/XLR or optical), shuffle / repeat when the service allows it, the microphone mute and standby; the power button (top right) puts the streamer in standby or wakes it. The green dot on the Home tile means the bridge can reach the streamer.
+
+If the streamer's web page is password-protected, turn the password off — the app can't sign in to it yet.
+
+For a fixed streamer you can also set its address on the bridge: `"streamsdk": { "host": "192.168.50.156" }` in `bridge/config.json` (otherwise the bridge remembers the last address the app used, in `bridge/streamsdk.json`).
+
 ### Roon
 
 1. Install the Roon extension libraries once: `cd bridge && npm run roon`, or `bash pi/setup.sh --with-roon` on the Pi.
@@ -494,6 +575,19 @@ When music plays on the computer running the bridge (Spotify desktop, Apple Musi
 3. Check it: open `http://<bridge>:8765/api/audio/status?devices=1` — it shows the chosen device or what to fix.
 
 Config (`bridge/config.json` → `audio`): `device` (the capture device's name), `input` (full ffmpeg input arguments, e.g. `["-f","pulse","-i","my.monitor"]`), `enabled`, `ffmpeg` (path), `maxFetchMB` (default 80), `tempo` (false turns off the online tempo lookups).
+
+### Rhythm: the chart library
+
+The *Chart library* way of learning (Rhythm screen → Learn from) needs only the bridge and internet on the bridge computer — no setup. The bridge searches **Chorus Encore** (`POST https://api.enchor.us/search`) for the song and reads the chosen chart from `https://files.enchor.us/<md5>.sng` with HTTP range requests: first the package's header and file list (a few hundred bytes), then only the bytes of `notes.mid` / `notes.chart`. The audio, video and album art in the package are never downloaded (a server that ignores range requests is refused rather than sending the whole package). Note charts are cached in `bridge/cache/charts/`. Routes: `GET /api/charts/search?artist=&title=` (or `?q=`), `GET /api/charts/notes?md5=`, `GET /api/charts/status`. Config (`bridge/config.json` → `charts`): `enabled`, `api`, `files`, `cacheDir`, `maxNotesMB`, `timeoutMs`; the env variables `RR_CHARTS_API` / `RR_CHARTS_FILES` override `api` / `files`. The charts are made by fans for Clone Hero and friends — the app shows their charters' names.
+
+### Apps → Tasks from your phone
+
+The **Tasks** app (and **Truth or Dare**, which draws its cards from it) lets players add their own truths, dares and tasks from their phones. Tap **Phones** in the Tasks app: the round display shows a QR code for `http://<bridge LAN address>:8765/tasks?s=<session>`. Players scan it, type their name once, and add items in English or Hebrew; they pop up on the display within a few seconds with the player's name. **New game session** (Tasks → Options, or on the QR page) starts a new session, and the **All / This session** filter picks between everything ever added and what this game added.
+
+- The bridge keeps everything forever in `bridge/tasks.json` (deleted items stay as small tombstones so every display learns about the deletion). The display keeps its own copy too, so the lists and the game work without the bridge.
+- Phone and display must be on the same network. If the QR code shows the wrong address (e.g. a VPN or Docker interface), set it in `bridge/config.json`: `"tasks": { "publicUrl": "http://192.168.1.50:8765" }` (`"file"` changes where the list is stored).
+- No bridge? The QR page says so — add items on the display instead.
+- API: `GET /api/tasks/info`, `GET /api/tasks?since=<rev>[&session=<id>]`, `POST /api/tasks`, `PUT|DELETE /api/tasks/<id>` (see `bridge/lib/tasks.js`).
 
 ### Bridge config
 
@@ -518,6 +612,9 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it:
 - **`apple`** lets the bridge sign Apple Music developer tokens.
 - **`cider`** is where Cider's API is and its app token (see [Apple Music](#apple-music)). `mpris` only runs on Linux and `winmedia` only on Windows, so leaving both on is fine.
 - **`allowedOrigins`**: the bridge answers only pages on the same machine, your LAN, or the origins listed here.
+- **`psn`**: `language` (e.g. `en-US`, `de-DE`), `npsso` (sign in from the config instead of the app), `playactor` (`{ "bin", "ip", "hostId", "ps4": true }`, or `false` to never use it).
+- **`steam`**: `apiKey` + `steamId` (SteamID64), `language` (achievement names, e.g. `german`), `control` (`false` = no starting games), `opener` (the command that opens `steam://` links, if not the system's).
+- **`streamsdk`**: `host` (the music streamer's address, e.g. `192.168.50.156` — the app can also send it), `pingSec` (how often the bridge checks the streamer for the Home tile's dot, default 60). Turn it off with `"adapters": { "streamsdk": false }`.
 - **Testing without devices:** `cd bridge && npm run mock` adds two fake zones.
 
 ---
@@ -566,9 +663,9 @@ sudo reboot
 | Bottom row | Previous · Play/Pause · Next; below them the four view buttons (Info, Vinyl, Lyrics, Video) |
 | Top buttons | Services (home) · Playlists · Search · Devices |
 | Left button | Volume dial (drag around, −/+, or mouse wheel) |
-| Right button | **⋯** in Info/Vinyl/Video: shuffle, repeat, skip ±15 s, full-screen art style (Info), centre artwork size, arm hiding and record speed (Vinyl). **Aa** in Lyrics: style, Kinetic Type variant, timing offset |
+| Right button | **⋯** in Info/Vinyl/Video: shuffle, repeat, skip ±15 s, full-screen art style (Info), player (vinyl, cassette or CD) and its style, centre artwork size, arm hiding and record speed (Vinyl). **Aa** in Lyrics: style, Kinetic Type variant, timing offset |
 | Info / Lyrics / Video | Swipe left or right to change view |
-| Vinyl | Spin the record to scrub; flick for momentum |
+| Vinyl | Spin the record (or CD) to scrub; flick for momentum. Cassette: drag sideways or turn a reel to wind |
 | Any view | The controls hide after a few seconds; tap to show them. Tapping lyrics doesn't skip |
 | On-screen keyboard | **עב / EN** switches between English and Hebrew; **123** shows numbers and symbols |
 
@@ -708,8 +805,10 @@ Settings is split into groups with headers: **Theme, General, Music, Movies & TV
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
 | Random includes | Which Kinetic Type variants the Random variant picks from (tap to include or leave out; at least one stays on; *Include all* resets) |
 | Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
+| Vinyl · Tape · CD: player | What the Vinyl view plays on: *Vinyl*, *Cassette*, *CD · back* or *CD · top*. Also in the Vinyl view under ⋯ |
+| Cassette / CD · data side / CD · label side | Cassette *Classic*, *Clear* or *Chrome / Metal*; CD data side *Silver*, *Gold CD-R* or *Black*; CD label side *Full print*, *CD-R marker* or *Ring* |
 | Vinyl: record / record colour / tone arm | Record design *Classic* (grooves), *Clear* (see-through, swirled) or *Flat*; any record colour (swatches or **+**); tone arm *Classic*, *S-arm* or *Minimal*. Also in the Vinyl view under ⋯ |
-| Centre artwork / Hide the arm with the controls / Show the title / Record speed | See the Vinyl view |
+| Centre artwork / Hide the arm with the controls / Show the title / Record speed | See the Vinyl view (Show the title and the speed also apply to the cassette / CDs) |
 | Movies & TV: background / slideshow speed | Poster, Photo, Blurred, Black or Slideshow; seconds per picture |
 | Movies & TV: skip back / skip forward | 5–30 s back, 10–60 s forward |
 | Movies & TV: buttons | Turn on or off: previous / next episode, skip, info, cast, fun facts, suggestions from your library, more from the collection, audio & subtitles, stop |
@@ -771,7 +870,10 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 - **Apple Music with MusicKit** plays on the display itself. To control Apple Music elsewhere, use Cider, Sidra or the Apple Music app for Windows through the bridge (the Computer tile).
 - **The Computer tile** (Cider API, Windows media controls, MPRIS) was tested with stand-ins that follow each interface, not yet with the real apps.
 - **Rhythm games and streaming services:** Spotify, Apple Music and YouTube Music don't give apps the audio or (any more) an analysis of a song, so the app can't learn those songs faster than real time: it listens once (microphone or bridge) or works from the tempo. Timing follows the service's reported play position, which is less exact than local audio — the judgement windows widen a little for remote services, and *Settings → Rhythm → latency* fine-tunes it. Plex, Jellyfin and the Demo are learned from the audio itself.
-- **Hit Timeline years** were checked by hand but not yet against an online database (it was unreachable while building); a wrong year or two is possible. To check them all against MusicBrainz, run `node bridge/tools/verify-hit-years.mjs > report.txt` from the RoundRemote folder (takes about 10 minutes).
+- **Hitster years** were checked by hand but not yet against an online database (it was unreachable while building); a wrong year or two is possible — more likely among the Israeli songs, which were added from memory. To check them all against MusicBrainz (both decks, Hebrew and Latin spellings), run `node bridge/tools/verify-hit-years.mjs > report.txt` from the RoundRemote folder (takes about 15 minutes). The songs' genre and language tags were also written by hand. Songs from *Update songs* come from Wikidata as they are there (the earliest publication date of the song or single, the genres mapped by keyword) — the most popular ones (most Wikipedia articles) first.
+- **PlayStation** uses the PlayStation App's own (unofficial) endpoints, like psn-api, PSN-tracking sites and Home Assistant's PlayStation Network integration; Sony could change them. Waking the PS5 needs Home Assistant (ps5-mqtt) or playactor, and only works from rest mode. PlayStation and Steam were built against the documented endpoints and tested with mock servers, not yet with real accounts.
+- **The music streamer (Fosi S3)** uses StreamUnlimited's StreamSDK web API, the one its own web page uses; it isn't a documented public API. It was built from the S3's live answers and its web page, and tested with a mock streamer — volume, mute, play/pause/skip and the source list follow the S3's real data, but switching the output, standby (`powermanager:target`), shuffle / repeat and the live change events haven't been tried on the real S3 yet. A password-protected web page isn't supported. There's no seeking (the streamer's apps don't seek either for most sources).
+- **Steam** shows only what your privacy settings make public. The Steam Achievement Manager-style unlocking of achievements is deliberately not included.
 - The Demo and the bridge were tested with fake zones. The Roon, UPnP, Cast, shairport-sync and YouTube paths follow each service's documented API but haven't been tested against real accounts and hardware yet.
 
 ---
@@ -782,13 +884,14 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle); css/themes.css = the six themes (js/core/theme.js sets their colours)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
 js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts), profiles (settings profiles), languages (subtitle languages)
-js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; streaming.js = Netflix / Disney+ / YouTube; homeassistant.js / googlehome.js are the Home services
-js/views/                       info, vinyl, lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library) + media-views (the 9 library views), ha-controls (Home Assistant tiles & round controls)
+js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; streaming.js = Netflix / Disney+ / YouTube; homeassistant.js / googlehome.js / playstation.js / steam.js / streamer.js are the Home services
+js/views/                       info, vinyl (+ vinyl-styles.js; decks.js + deck-styles.js: the cassette and CD players), lyrics (+ lyrics-extra.js, lyrics-kinetic2.js, lyrics-kinetic3.js), video, tone (+ tone-visuals.js), facts, media-library (Movies & TV library) + media-views (the 9 library views), ha-controls (Home Assistant tiles & round controls)
 js/lyrics/lrc.js                LRC parser + LRCLIB lookup
-js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), panels, connect, settings
+js/screens/                     home ring, player, media (Movies & TV) + media-panels, smarthome (Home), consoles (PlayStation & Steam, styles in css/consoles.css), streamer (the music streamer, css/streamer.css), panels, connect, settings
 games/                          the Games category: index.js (the list), hub.js (the Games ring), shell.js (start card, pause, game over, top 5), kit.js (sound + drawing helpers), scores.js, games.css, and one file per game
+apps/                           the Apps category: index.js (the list), hub.js (the Apps ring), shell.js (the app screen), and one file per app (clock, calc, timer, bottle, tasks, random, boardgames + their helpers and css)
 rhythm/                         the Rhythm category: index.js (the list), hub.js (the Rhythm screen), session.js + store.js (learned songs & versions, IndexedDB), clock.js (song time), kit.js (rhythm-game runtime), analyzer.js + dsp-*.js (song analysis), chart.js (levels), synth.js (Demo music), bridge-audio.js, and one file per game
-bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, airplay, cider, mpris, winmedia, mock) + settings profiles
+bridge/                         Node bridge: server.js + adapters (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, psn, steam, streamsdk, airplay, cider, mpris, winmedia, mock) + settings profiles
 pi/                             Pi setup script, kiosk launcher, systemd unit
 sw.js, manifest.webmanifest     offline support + installable app (icons/)
 screenshots/                    images used in this README

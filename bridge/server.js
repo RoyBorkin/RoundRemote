@@ -23,7 +23,7 @@ const DEFAULTS = {
   host: '0.0.0.0',
   allowedOrigins: ['https://royborkin.github.io'],
   // AirPlay needs shairport-sync (Linux/Pi); mpris = Linux media players (playerctl); winmedia = Windows media sessions
-  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, appletv: true, googlehome: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', mock: false },
+  adapters: { roon: true, upnp: true, cast: true, youtubetv: true, androidtv: true, appletv: true, googlehome: true, cider: true, mpris: process.platform === 'linux', winmedia: process.platform === 'win32', airplay: process.platform === 'linux', psn: true, steam: true, streamsdk: true, mock: false },
   airplay: { metadataPipe: '/tmp/shairport-sync-metadata', bus: 'system', name: 'Round Display' },
   upnp: { pollMs: 2000, searchEverySec: 60 },
   apple: { teamId: '', keyId: '', privateKeyPath: '' },
@@ -61,6 +61,9 @@ const ADAPTERS = {
   cider: () => import('./adapters/cider.js'),
   mpris: () => import('./adapters/mpris.js'),
   winmedia: () => import('./adapters/winmedia.js'),
+  psn: () => import('./adapters/psn.js'),       // PlayStation Network (Home → PlayStation)
+  steam: () => import('./adapters/steam.js'),   // Steam Web API + launching games (Home → Steam)
+  streamsdk: () => import('./adapters/streamsdk.js'),   // StreamUnlimited streamers, e.g. Fosi S3 (Home → streamer)
   mock: () => import('./adapters/mock.js'),
 };
 const adapterState = {};
@@ -230,8 +233,14 @@ async function api(req, res, url) {
     } catch (e) { return json(res, 500, { error: e.message }); }
   }
   if (p === '/api/proxy') return proxy(req, res, url);
+  // Home → music streamer (Fosi S3 and other StreamUnlimited StreamSDK devices): getData / getRows / setData / events / art
+  if (p.startsWith('/api/streamsdk/')) {
+    if (!cfg.adapters.streamsdk) return json(res, 404, { error: 'streamsdk is disabled in config.json' });
+    return (await import('./adapters/streamsdk.js')).route(req, res, url, { json, cfg });
+  }
   // Rhythm: system-audio capture stream, tempo lookup, audio download proxy (lib/audio.js)
   if (p.startsWith('/api/audio/')) return audio.route(req, res, url, { json });
+  if (p.startsWith('/api/charts/')) return (await import('./lib/charts.js')).route(req, res, url, { json, cfg });   // Rhythm: chart library (Chorus Encore)
   if (p === '/api/profiles' || p.startsWith('/api/profiles/')) return profiles(req, res, decodeURIComponent(p.slice('/api/profiles/'.length)));
   return json(res, 404, { error: 'not found' });
 }
@@ -289,6 +298,7 @@ async function proxy(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (/^\/(api\/)?tasks(\/|$)/.test(url.pathname)) return (await import('./lib/tasks.js')).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname });  // Tasks app: phone page + /api/tasks (lib/tasks.js)
   if (url.pathname.startsWith('/api/')) {
     cors(req, res);
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }

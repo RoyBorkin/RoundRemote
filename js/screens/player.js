@@ -59,6 +59,12 @@ export function PlayerScreen() {
     const b = iconBtn(v === 'facts' ? 'bulb' : v, `${VIEW_NAMES[v]} view`, () => setView(v), 'vbtn');
     b.dataset.v = v; return b;
   });
+  // the Vinyl view's button shows the chosen player: record, cassette or CD
+  const deckIcon = () => {
+    const d = store.get('vinylDeck');
+    viewBtns.find((b) => b.dataset.v === 'vinyl').innerHTML = icon(d === 'tape' ? 'cassette' : d === 'cdback' || d === 'cdtop' ? 'disc' : 'vinyl');
+  };
+  deckIcon();
   const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
   const miniMeta = h('div.mini-meta');
   const cta = h('div.cta');
@@ -249,6 +255,7 @@ export function PlayerScreen() {
   const offs = [
     ...['infoFullArt', 'infoShowArt', 'vinylArmHide', 'vinylShowTitle', 'videoShowArt', 'videoHud', 'showDevicePill', 'playerHide'].map((k) => store.on(`change:${k}`, applyArtMode)),
     store.on('change:infoAutoHide', () => showChrome()),
+    store.on('change:vinylDeck', deckIcon),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),
   ];

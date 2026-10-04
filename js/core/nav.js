@@ -13,7 +13,7 @@ export async function openService(id, { forceSetup = false } = {}) {
   if (svcMeta.section === 'home') {   // smart home: its own screen, the music/video player keeps playing
     store.set('lastService', id); store.set('homeMode', 'home');
     document.getElementById('app').style.setProperty('--accent', svcMeta.color);
-    go('smarthome', { id });
+    go(svcMeta.screen || 'smarthome', { id });   // game consoles: js/screens/consoles.js
     return;
   }
   store.set('lastService', id);

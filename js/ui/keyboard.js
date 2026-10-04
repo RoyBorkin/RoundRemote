@@ -106,7 +106,7 @@ export function createKeyboard(input, { onEnter } = {}) {
  * Edit a text value in a round panel (with the on-screen keyboard when wanted).
  * Resolves with the new string, or null if cancelled.
  */
-export function editText({ title = 'Edit', value = '', placeholder = '', secret = false } = {}) {
+export function editText({ title = 'Edit', value = '', placeholder = '', secret = false, okLabel = 'Save' } = {}) {
   // Lazy import to avoid a module cycle (overlay ← keyboard).
   return import('./overlay.js').then(({ openPanel }) => new Promise((resolve) => {
     let done = false;
@@ -116,7 +116,7 @@ export function editText({ title = 'Edit', value = '', placeholder = '', secret 
       onClose: () => finish(null),
       build(body, panel) {
         const input = h('input.edit-input', { type: secret ? 'password' : 'text', value, placeholder, autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off' });
-        const ok = h('button.pill.primary', { type: 'button', onclick: () => { finish(input.value.trim()); panel.close(); } }, 'Save');
+        const ok = h('button.pill.primary', { type: 'button', onclick: () => { finish(input.value.trim()); panel.close(); } }, okLabel);
         body.append(input, ok);
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { finish(input.value.trim()); panel.close(); } });
         if (wantsKeyboard()) {

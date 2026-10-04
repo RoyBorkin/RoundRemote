@@ -112,3 +112,16 @@
 .g-np-btn { width: 6cqmin; height: 6cqmin; font-size: 3cqmin; }
 .g-np-gap { width: 1.6cqmin; }
 .g-np-vol { min-width: 4cqmin; text-align: center; font-size: 2.1cqmin; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* right-to-left cards (a game in Hebrew, see def.lang() in shell.js): mirror the chart and the now-playing box;
+   media buttons keep their usual order; Hebrew doesn't take wide letter spacing */
+.g-ov[dir="rtl"] .g-rank { text-align: left; }
+.g-ov[dir="rtl"] .g-bar { left: auto; right: 0; border-radius: .6cqmin 0 0 .6cqmin; }
+.g-ov[dir="rtl"] .g-meta { padding-left: 0; padding-right: 1cqmin; }
+.g-ov[dir="rtl"] .g-val { text-align: left; }
+.g-ov[dir="rtl"] .g-opt-label { margin-right: 0; margin-left: .4cqmin; }
+.g-ov[dir="rtl"] .g-np-head { text-align: right; }
+.g-ov[dir="rtl"] .g-np-ctl { direction: ltr; }
+.g-ov[dir="rtl"] :is(.g-best, .g-opt-label, .g-keyname, .g-rankpill) { letter-spacing: .02em; }
+.g-ov[dir="rtl"], .g-toast[dir="rtl"] { font-family: 'Rubik', var(--font); }
+.g-ov[dir="rtl"] :is(.g-title, .g-big) { font-family: 'Rubik', var(--display); }

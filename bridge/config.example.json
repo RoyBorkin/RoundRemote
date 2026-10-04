@@ -2,11 +2,19 @@
   "port": 8765,
   "allowedOrigins": ["https://royborkin.github.io"],
 
-  "adapters": { "roon": true, "upnp": true, "cast": true, "youtubetv": true, "androidtv": true, "appletv": true, "googlehome": true, "cider": true, "mpris": true, "winmedia": true, "airplay": true, "mock": false },
+  "adapters": { "roon": true, "upnp": true, "cast": true, "youtubetv": true, "androidtv": true, "appletv": true, "googlehome": true, "cider": true, "mpris": true, "winmedia": true, "airplay": true, "psn": true, "steam": true, "streamsdk": true, "mock": false },
 
   "cider": { "host": "127.0.0.1", "port": 10767, "token": "" },
 
+  "psn": { "npsso": "", "language": "en-US", "playactor": { "bin": "playactor", "ip": "", "hostId": "" } },
+
+  "steam": { "apiKey": "", "steamId": "", "language": "english", "control": true },
+
+  "streamsdk": { "host": "" },
+
   "airplay": { "metadataPipe": "/tmp/shairport-sync-metadata", "bus": "system", "name": "Round Display" },
+
+  "tasks": { "file": "tasks.json", "publicUrl": "" },
 
   "audio": {
     "enabled": true,

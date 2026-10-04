@@ -44,7 +44,8 @@
 //   R.handle                    { destroy, pause, resume } → return it from create()
 // Input: handlers a game registers with g.on(...) AFTER rhythmGame() only fire during 'count' and 'play'.
 // cfg: { game, lanes = 4, holds = true, chords = true, leadMs = 1800, rim = true, comboHud = true, hud = true,
-//        countMs = 3000, popupAt(note) → [x, y], chart: {…extra makeChart options} }
+//        countMs = 3000, popupAt(note) → [x, y], chart: {…extra makeChart options},
+//        authored (use a chart-library song's own notes; default: only for Fret Fire) }
 import { THEME, TAU, clamp, ease } from '../games/kit.js';
 import { go } from '../js/core/router.js';
 import { player } from '../js/core/player.js';
@@ -169,6 +170,8 @@ export function rhythmGame(g, cfg = {}) {
     },
   };
 
+  if (globalThis.__RR_TEST__) globalThis.__RR_TEST__.R = R;   // tests only: the running round
+
   // ---------------------------------------------------------------- the game's loop & input are wrapped
   const origLoop = g.loop.bind(g), origOn = g.on.bind(g);
   g.loop = (fn) => origLoop((dt, t) => { fn(dt, t); if (['count', 'play', 'done'].includes(R.state)) post(dt); });
@@ -287,7 +290,12 @@ export function rhythmGame(g, cfg = {}) {
     }
     const { makeChart } = await import('./chart.js');
     if (!alive) return;
-    const chart = makeChart(analysis, { lanes: C.lanes, difficulty: D, seed: ver.seed || 1, holds: C.holds, chords: C.chords, leadMs: C.leadMs, ...(C.chart || {}) });
+    // a chart-library song: Fret Fire plays the charter's own notes (cfg.authored overrides); the others generate
+    const chart = makeChart(analysis, { lanes: C.lanes, difficulty: D, seed: ver.seed || 1, holds: C.holds, chords: C.chords, leadMs: C.leadMs, authored: C.authored ?? C.game === 'frets', ...(C.chart || {}) });
+    // the version's sync nudge (Rhythm screen → Versions): + = the notes come later
+    const off = Math.round(+ver.offsetMs || 0);
+    if (off) { for (const n of chart.notes) n.t += off; chart.beats = chart.beats.map((b) => b + off); }
+    chart.offsetMs = off;
     chart.notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
     chart.notes.forEach((n, i) => { n.id = i; });
     Object.assign(R, { chart, notes: chart.notes, version: ver, analysis });

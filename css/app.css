@@ -172,7 +172,7 @@ input { font: inherit; color: inherit; }
 /* Music ⇄ Movies & TV switch */
 .home-mode { display: flex; gap: .3cqmin; margin-top: 2cqmin; padding: .6cqmin; border-radius: 4cqmin; background: rgb(var(--ink) / .06); border: 1px solid var(--line); }
 /* six categories (Music · Media · Home · Games · Rhythm · Settings) fit between the service tiles at every control size */
-.hm-btn { display: flex; flex-direction: column; align-items: center; gap: .4cqmin; width: 8cqmin; padding: 1.1cqmin 0 .9cqmin; border-radius: 3cqmin; font-size: 1.68cqmin; font-weight: 700; color: var(--dim); transition: background .25s, color .25s; }
+.hm-btn { display: flex; flex-direction: column; align-items: center; gap: .4cqmin; width: 7cqmin; padding: 1.1cqmin 0 .9cqmin; border-radius: 2.8cqmin; font-size: 1.5cqmin; font-weight: 700; color: var(--dim); transition: background .25s, color .25s; }
 .hm-btn span { white-space: nowrap; letter-spacing: -.01em; }
 .hm-btn .ic { font-size: 3.6cqmin; width: 3.6cqmin; height: 3.6cqmin; }
 .hm-btn.on { background: var(--fg); color: var(--on-fg); }

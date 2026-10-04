@@ -1,7 +1,27 @@
-// Hit Timeline — a music party game. The app plays a mystery song on the music service you chose; the player
+// Hitster — a music party game. The app plays a mystery song on the music service you chose; the player
 // whose turn it is places it in their timeline of years (before, between or after the cards they already have).
-// The reveal flips the card: right spot → the card stays, wrong → it's gone. First to the goal wins.
-// Solo: how long a timeline can you build before your third mistake?
+// The reveal flips the card: right spot → the card stays, wrong → it's gone. Four modes (the start card):
+//  • Original (mode id 'party' — its top 5 is the old Party one): 2–6 players, the real Hitster rules with tokens —
+//    each player starts with 1 card and 2 tokens (max 5). Name the title + artist ("I knew it!") → +1 token, even if
+//    the card is misplaced. A token skips a song. After the active player locks in, the others may shout HITSTER!:
+//    each puts a token on a different gap of the active player's timeline (first to shout goes first); if the active
+//    player is wrong and a challenger is right, the challenger wins the card (it goes into their own timeline);
+//    either way the tokens are spent. 3 tokens buy a card (placed for you) at the start of your turn. First to the
+//    goal wins. Rules: Pro = start with 5 tokens, you must also name title + artist to keep the card, no tokens
+//    earned; Expert = Pro + the exact year.
+//  • Classic: the same race to the goal, no tokens at all.
+//  • Bingo (hits-bingo.js): Hitster Bingo — spin the wheel for a category, listen, everyone answers, the right ones
+//    cross a box of that colour on their 4×4 card; first to complete a line wins.
+//  • Co-op / Solo (mode id 'solo' — Solo keeps its old top 5): Solo = how long a timeline before the third mistake;
+//    Team = 2–6 players build ONE timeline together, taking turns, with shared tokens; 10 cards wins, 3 mistakes lose.
+//
+// Before a game (the setup screen): the players, the song languages (English / Hebrew / both / other languages) and
+// the genres to block (hits-deck.js; remembered), and "Update songs" — more songs from Wikidata, kept for good
+// (hits-update.js). The time period is the start card's Songs option, as before.
+//
+// English or Hebrew (Settings → Rhythm → Hitster language, or the EN | עב switch on the setup screen; Auto follows
+// the keyboard language). In Hebrew everything reads right to left — the timeline too (older on the right) — the
+// shell's cards follow (def.lang()). The song language is separate from that.
 //
 // The song is never shown before the reveal: a spinning mystery record stands in for it, and the pause card's
 // now-playing box hides the song (hideTrack) while it is still a mystery. When the game ends or you quit, the music keeps playing.
@@ -9,25 +29,25 @@ import { TAU, clamp, lerp, ease, polar, angDiff, rand, THEME } from '../games/ki
 import { player } from '../js/core/player.js';
 import { store } from '../js/core/store.js';
 import { editText } from '../js/ui/keyboard.js';
-import { SONGS, DEMO_SONGS, ERAS } from './hits-songs.js';
+import { tr, hitsterLang, GENRES, SONG_LANGS, nameOf } from './hits-text.js';
+import { norm, baseTitle, mainArtist, firstArtist, buildPool, poolSize, deckPrefs, saveDeckPrefs, genreCounts, DEMO_SONGS, builtinCount, extraCount } from './hits-deck.js';
+import { loadExtra, updateSongs, extraInfo, updating } from './hits-update.js';
+import { makeUi, PLAYER_COLORS, INK_DARK, decCol, showTitle, showArtist } from './hits-ui.js';
+import { createBingo } from './hits-bingo.js';
 
+export { hitsterLang };
 const DEG = Math.PI / 180;
-const INK_DARK = '#0a0a0b';
-const PLAYER_COLORS = ['#ff5a6a', '#4d9bff', '#3ddc84', '#ffc857', '#b57bff', '#ff8ad8'];
-const DECADE = { 1930: '#d6a77a', 1940: '#e0b07c', 1950: '#ff8ad8', 1960: '#ff9f43', 1970: '#ffc857', 1980: '#7be08a', 1990: '#2ee6d6', 2000: '#6aa8ff', 2010: '#b98cff', 2020: '#ff6f86' };
-const decCol = (y) => DECADE[clamp(Math.floor(y / 10) * 10, 1930, 2020)];
-const MAX_TOKENS = 5, START_TOKENS = 1, SOLO_LIVES = 3;
+const MAX_TOKENS = 5, SOLO_LIVES = 3, TEAM_GOAL = 10, BUY_COST = 3, MIN_SONGS = 4;
 const SERVICE_NAME = { spotify: 'Spotify', apple: 'Apple Music', ytmusic: 'YouTube Music', youtube: 'YouTube', plex: 'Plex', jellyfin: 'Jellyfin', demo: 'Demo' };
+loadExtra();   // the downloaded songs join the deck as soon as they're read
+
+/** A default player name ("Player 2" / "שחקן 2") in the current language; other names stay as they are. */
+const DEFAULT_NAME = /^(?:Player|שחקן) (\d+)$/;
+const localName = (n) => { const m = DEFAULT_NAME.exec(n || ''); return m ? tr('player', +m[1]) : n; };
 
 // ------------------------------------------------------------------ song matching (per service)
-const norm = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  .replace(/&/g, ' and ').replace(/[’'`´"“”]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-/** Title without "(Remastered 2011)", "[Live]", " - Single Version" … */
-const baseTitle = (s) => norm(String(s || '').replace(/\s*[([][^)\]]*[)\]]/g, ' ').replace(/\s+[-–—]\s+.*$/, '')) || norm(s);
 const BAD = /\b(live|karaoke|instrumental|cover|tribute|remix|re-?recorded|rerecorded|made famous|in the style of|originally performed|8-?bit|lullaby|sped up|slowed|nightcore|demo version|medley|reprise)\b/i;
 const artistParts = (a) => String(a || '').split(/\s*(?:,|&|\+|\/|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b|\band\b|\bx\b)\s*/i).map(norm).filter((p) => p.length >= 2);
-const mainArtist = (a) => String(a || '').split(/\s+(?:feat\.?|ft\.?|featuring)\s+/i)[0].trim();
-const firstArtist = (a) => mainArtist(a).split(/\s+&\s+|,\s*/)[0].trim();
 const unquote = (s) => String(s).replace(/["“”]/g, '');
 
 function itemArtist(it) { return it.artist || String(it.subtitle || '').split(' · ')[0] || ''; }
@@ -150,53 +170,87 @@ export { pickBest, queriesFor, scoreItem };
 const libraryKind = (prov) => (['spotify', 'plex', 'jellyfin', 'demo'].includes(prov?.id) || (prov?.id === 'apple' && !prov.remote)) && prov.caps?.playlists;
 
 // ------------------------------------------------------------------ the game
-const SONGS_OPT = { id: 'deck', name: 'Songs', default: 'all', choices: [{ id: 'all', name: 'All' }, { id: 'old', name: '60s–80s' }, { id: 'new', name: '90s–now' }, { id: 'lib', name: 'Your library' }] };
+// the start card's texts follow the language: the shell reads howTo / modes / unit each time it renders a card
+const songsOpt = () => ({ id: 'deck', name: tr('songs'), default: 'all', choices: [{ id: 'all', name: tr('deckAll') }, { id: 'il', name: tr('deckIl') },
+  { id: 'old', name: tr('deckOld') }, { id: 'new', name: tr('deckNew') }, { id: 'lib', name: tr('deckLib') }] });
+const goalOpt = () => ({ id: 'goal', name: tr('goal'), default: '10', choices: [{ id: '5', name: tr('cards5') }, { id: '10', name: '10' }, { id: '15', name: '15' }] });
+const shownMode = () => (store.get('gameModes') || {}).hits;
 
 export default {
-  howTo: 'A mystery song plays — place it in your timeline by year: before, between or after your cards. Right spot = you keep the card.',
+  get howTo() { return tr(shownMode() === 'bingo' ? 'howToBingo' : 'howTo'); },
   hud: false,
-  unit: 'cards',
+  get unit() { return tr('unit'); },
   keyRepeat: true,
-  modes: [
-    { id: 'party', name: 'Party', options: [{ id: 'goal', name: 'Win at', default: '10', choices: [{ id: '5', name: '5 cards' }, { id: '10', name: '10' }, { id: '15', name: '15' }] }, SONGS_OPT] },
-    { id: 'solo', name: 'Solo', options: [SONGS_OPT] },
-  ],
+  get modes() {
+    return [
+      // 'party' and 'solo' keep their ids (and with key '' on the new choices, their old top-5 lists)
+      { id: 'party', name: tr('original'), options: [goalOpt(), { id: 'rules', name: tr('rules'), default: 'std',
+        choices: [{ id: 'std', name: tr('rulesStd'), key: '' }, { id: 'pro', name: tr('rulesPro') }, { id: 'expert', name: tr('rulesExpert') }] }, songsOpt()] },
+      { id: 'classic', name: tr('classic'), options: [goalOpt(), songsOpt()] },
+      { id: 'bingo', name: tr('bingo'), scoring: 'low', unit: tr('unitRounds'), options: [{ id: 'level', name: tr('level'), default: 'a',
+        choices: [{ id: 'a', name: tr('lvlBeginner') }, { id: 'b', name: tr('lvlExpert') }] }, songsOpt()] },
+      { id: 'solo', name: tr('coop'), options: [{ id: 'players', name: tr('players'), default: 'solo',
+        choices: [{ id: 'solo', name: tr('solo'), key: '' }, { id: 'team', name: tr('team') }] }, songsOpt()] },
+    ];
+  },
+  /** The shell's cards (start, pause, game over) use this language too — and read right to left in Hebrew. */
+  lang: () => hitsterLang(),
 
   create(g, { mode, opts }) {
     const { ctx } = g;
-    const solo = mode === 'solo';
-    const goal = solo ? Infinity : parseInt(opts.goal || '10', 10);
+    // ---------- the mode
+    const kind = mode === 'classic' ? 'classic' : mode === 'bingo' ? 'bingo' : mode === 'solo' ? 'coop' : 'party';
+    const team = kind === 'coop' && opts.players === 'team';
+    const solo = kind === 'coop' && !team;
+    const coop = kind === 'coop';                        // one shared timeline
+    const rules = kind === 'party' ? (opts.rules || 'std') : 'std';
+    const useTokens = kind !== 'classic' && kind !== 'bingo';
+    const canChallenge = kind === 'party';
+    const goal = solo ? Infinity : team ? TEAM_GOAL : parseInt(opts.goal || '10', 10);
+    const startTokens = kind === 'party' ? (rules === 'std' ? 2 : 5) : team ? 2 : 1;
+    const earnTokens = rules === 'std';                  // Pro / Expert: naming the song is required, no tokens for it
     const prov = player.provider;
     const pid = prov?.id || '';
-    const svc = prov?.name || SERVICE_NAME[pid] || 'your music service';
+    const svcName = () => prov?.name || SERVICE_NAME[pid] || tr('yourService');
+    // language: he = Hebrew, right to left; M mirrors left / right (1 = English, −1 = Hebrew)
+    let he = hitsterLang() === 'he', M = he ? -1 : 1;
+    if (document.fonts?.load) for (const w of [500, 700, 800]) document.fonts.load(`${w} 20px Rubik`, 'אב').catch(() => {});
     const saved = { names: [], skipIntro: true, count: 3, ...(store.get('gameProgress')?.hits || {}) };
     const save = (patch) => { Object.assign(saved, patch); const all = store.get('gameProgress') || {}; store.set('gameProgress', { ...all, hits: { ...(all.hits || {}), ...patch } }); };
 
     // ---------- can this service play the game?
-    if (!prov) return bail('No music service', 'Choose a music service first (Rhythm → pick a service), then start Hit Timeline.');
-    if (!prov.caps?.search || typeof prov.search !== 'function') {
-      return bail(`${svc} can’t search`, `Hit Timeline finds each song by searching ${svc}, which this service can’t do here. Use Spotify, Apple Music, YouTube Music, Plex, Jellyfin — or Demo to try the game.`);
-    }
+    if (!prov) return bail(tr('noSvc'), tr('noSvcNote'));
+    if (!prov.caps?.search || typeof prov.search !== 'function') return bail(tr('cantSearch', svcName()), tr('cantSearchNote', svcName()));
     function bail(title, note) { setTimeout(() => g.over(null, { title, note, sfx: false, delay: 150 }), 30); g.loop(() => g.draw.bg({ glow: 0.12 })); return {}; }
 
     // ---------- state
-    let phase = 'setup';            // setup → pick → (handoff) → load → guess → reveal → settle … → won
+    let phase = 'setup';            // setup (genres, update) → pick → (handoff) → load → guess → (challenge ⇄ cpick) → reveal → settle … → won | bingo
     let phaseT = 0;
     let players = [], cur = 0, deck = [], drawn = new Set(), lastSong = null;
-    let names = solo ? ['You'] : Array.from({ length: clamp(saved.count, 2, 6) }, (_, i) => saved.names[i] || `Player ${i + 1}`);
+    let crew = [], turn = 0;        // Team: who's playing (the timeline is players[0]) and whose turn it is
+    const minPlayers = kind === 'bingo' ? 1 : 2;
+    let names = solo ? [tr('you')] : Array.from({ length: clamp(saved.count, minPlayers, 6) }, (_, i) => localName(saved.names[i]) || tr('player', i + 1));
     let song = null;                // the mystery card { t, a, y, item?, art? }
     let ghost = null;               // slot index where the mystery card would go (0…n)
     let claimed = false;            // "I knew it!" pressed for this song
+    let yearGuess = null, yearTouched = false;   // Expert: the exact year
+    let challenges = [], challenger = null, cGap = null;   // Original: HITSTER! challenges { p, slot } and the one being placed
     let rv = null;                  // reveal info
     let loadMsg = '', failMsg = '', failCount = 0, loadToken = 0, guessT = 0;
     let artImg = null, artFor = null;
     let playlists = null, plSel = 0, plScroll = 0, plMsg = '';
-    let drag = null, pressed = null, focus = null;
+    let drag = null;
     let spin = 0, confetti = [], hint = '', hintT = 0;
     let destroyed = false;
+    let bingo = null;
+    let prefs = deckPrefs();
+    let upd = { state: updating() ? 'run' : 'idle', i: 0, n: 1, label: '', added: 0, msg: '', ctrl: null };
     const view = { cards: [], ghost: { a: Math.PI, w: 0, h: 0, k: 0 } }; // animated timeline of the current player
     const P = () => players[cur];
-    const color = () => (solo ? g.color : P()?.color || g.color);
+    const turnName = () => (team ? crew[turn]?.name : P()?.name) || '';
+    const color = () => (solo || kind === 'bingo' ? g.color : team ? crew[turn]?.color || g.color : P()?.color || g.color);
+    const U = makeUi(g, { he: () => he, color });
+    const { text, fit, wrap, button, coins, coin, yearCard, record } = U;
 
     // ---------- deck
     function buildDeck(src) {
@@ -213,14 +267,29 @@ export default {
       if (s) drawn.add(s);
       return s || null;
     }
+    const deckSource = () => ({ deck: opts.deck || 'all', demo: pid === 'demo' && opts.deck !== 'lib' });
+    const songCount = () => (opts.deck === 'lib' ? Infinity : poolSize({ ...deckSource(), prefs }));
 
-    // ---------- layout of a timeline: k items on an arc around the bottom, earliest at the upper left
+    /** The language changed (setup switch, Settings, keyboard): default names follow, the timeline mirrors. */
+    function syncLang() {
+      const now = hitsterLang() === 'he';
+      if (now === he) return;
+      he = now; M = he ? -1 : 1;
+      names = names.map(localName);
+      for (const p of players) p.name = localName(p.name);
+      for (const p of crew) p.name = localName(p.name);
+      if (solo && /^(?:You|אני)$/.test(names[0])) names[0] = tr('you');
+      if (team && players[0]) players[0].name = tr('team');
+      syncView();
+    }
+
+    // ---------- layout of a timeline: k items on an arc around the bottom, earliest at the upper left (upper right in Hebrew)
     const ARC = () => g.R * 0.715;
     function layout(k) {
       const step = Math.min(34, 240 / Math.max(1, k - 1)) * DEG;
       const px = ARC() * step;
       const w = Math.min(g.R * 0.25, px * 0.86), h = Math.min(w * 1.24, px * 0.9);
-      const angs = []; for (let i = 0; i < k; i++) angs.push(Math.PI + ((k - 1) / 2 - i) * step);
+      const angs = []; for (let i = 0; i < k; i++) angs.push(Math.PI + M * ((k - 1) / 2 - i) * step);
       return { angs, w, h, step };
     }
     function syncView(snap = false) {
@@ -244,89 +313,139 @@ export default {
       return best;
     }
     const correctSlot = (p, y, slot) => (slot === 0 || p.cards[slot - 1].s.y <= y) && (slot === p.cards.length || p.cards[slot].s.y >= y);
+    const sortedSlot = (p, y) => { let c = 0; while (c < p.cards.length && p.cards[c].s.y < y) c++; return c; };
+    /** Where gap s (0…n, between the cards before the ghost went in) sits on the ring right now. */
+    function gapAngle(s) {
+      const p = P(), cards = p.cards, n = cards.length;
+      if (ghost != null && s === ghost) return view.ghost.a;
+      const half = layout(n + 1).step * 0.5;
+      const left = cards[s - 1]?.a, right = cards[s]?.a;
+      if (left != null && right != null) return left + angDiff(left, right) / 2;
+      if (left != null) return left - M * half * 1.05;
+      if (right != null) return right + M * half * 1.05;
+      return Math.PI;
+    }
+    /** The gap nearest to angle a that a challenger may still take. */
+    function freeGapAt(a) {
+      const n = P().cards.length;
+      let best = null, bd = Infinity;
+      for (let s = 0; s <= n; s++) {
+        if (!gapFree(s)) continue;
+        const d = Math.abs(angDiff(a, gapAngle(s)));
+        if (d < bd) { bd = d; best = s; }
+      }
+      return best;
+    }
+    const gapFree = (s) => s !== ghost && !challenges.some((c) => c.slot === s);
 
     // ---------- flow
-    function setPhase(ph) { phase = ph; phaseT = 0; focus = null; pressed = null; drag = null; }
+    function setPhase(ph) { phase = ph; phaseT = 0; U.focus = null; U.pressed = null; drag = null; }
+    const newPlayer = (name, i) => ({ name: name || tr('player', i + 1), color: PLAYER_COLORS[i % PLAYER_COLORS.length], cards: [], tokens: startTokens, misses: 0, right: 0 });
     function startGame() {
-      players = names.map((name, i) => ({ name: name || `Player ${i + 1}`, color: solo ? g.color : PLAYER_COLORS[i % PLAYER_COLORS.length], cards: [], tokens: START_TOKENS, misses: 0, right: 0 }));
+      if (kind === 'bingo') { startBingo(); return; }
+      if (coop) {
+        crew = names.map((name, i) => ({ name: name || tr('player', i + 1), color: PLAYER_COLORS[i % PLAYER_COLORS.length] }));
+        players = [{ name: solo ? tr('you') : tr('team'), color: g.color, cards: [], tokens: startTokens, misses: 0, right: 0 }];
+        turn = 0;
+      } else players = names.map(newPlayer);
       cur = 0;
       for (const p of players) { const s = draw(p); if (s) p.cards.push({ s, born: 0 }); }
       ghost = null; syncView('fan');
       updateScore();
       if (solo) loadNext(); else setPhase('handoff');
     }
+    function startBingo() {
+      players = names.map(newPlayer);
+      setPhase('bingo');
+      bingo = createBingo({
+        g, U, players, deck, drawn, level: opts.level === 'b' ? 'b' : 'a', he: () => he, M: () => M, color,
+        play: playCard, preloadArt: (s) => preloadArt(s), art: () => artImg, bigCard: drawBigCard, record, spin: () => spin,
+        hud, svcName, over: (score, info) => { setPhase('won'); g.over(score, info); },
+        confetti: () => startConfetti(),
+      });
+    }
     async function openLibrary() {
-      setPhase('pick'); playlists = null; plMsg = 'Loading your playlists…';
+      setPhase('pick'); playlists = null; plMsg = tr('loadingPl');
       try {
         const list = await prov.getPlaylists();
         if (destroyed) return;
         playlists = (list || []).filter((x) => x && x.name);
         plSel = 0; plScroll = 0;
-        plMsg = playlists.length ? '' : `No playlists found on ${svc}.`;
-      } catch (e) { plMsg = e?.userMessage || e?.message || 'Couldn’t load your playlists.'; playlists = []; }
+        plMsg = playlists.length ? '' : tr('noPl', svcName());
+      } catch (e) { plMsg = e?.userMessage || e?.message || tr('plErr'); playlists = []; }
     }
     async function pickPlaylist(pl) {
-      plMsg = `Reading “${pl.name}”…`; const tok = ++loadToken;
+      plMsg = tr('reading', pl.name); const tok = ++loadToken;
       try {
         const songs = await libraryTracks(prov, pl);
         if (destroyed || tok !== loadToken) return;
         const uniq = []; const seen = new Set();
         for (const s of songs || []) { const k = `${norm(s.t)}|${norm(s.a)}`; if (!seen.has(k)) { seen.add(k); uniq.push(s); } }
-        if (uniq.length < 4) { plMsg = `“${pl.name}” has too few songs with a release year — pick another.`; return; }
+        if (uniq.length < 4) { plMsg = tr('fewSongs', pl.name); return; }
         buildDeck(uniq); startGame();
-      } catch (e) { plMsg = e?.userMessage || e?.message || 'Couldn’t read that playlist.'; }
+      } catch (e) { plMsg = e?.userMessage || e?.message || tr('readErr'); }
     }
-    function begin() {
+    async function begin() {
       save({ names: solo ? saved.names : names, count: solo ? saved.count : names.length });
-      if (pid === 'demo' && opts.deck !== 'lib') { buildDeck(DEMO_SONGS); startGame(); return; }
+      await loadExtra();
+      if (destroyed || phase !== 'setup') return;
       if (opts.deck === 'lib') {
-        if (!libraryKind(prov)) g.toast(`${svc} has no song years — using the song list`, 2600);
+        if (!libraryKind(prov)) g.toast(tr('noYears', svcName()), 2600);
         else { openLibrary(); return; }
       }
-      const era = ERAS[opts.deck] || ERAS.all;
-      buildDeck(SONGS.filter((s) => s.y >= era.from && s.y <= era.to));
+      const pool = buildPool(opts.deck === 'lib' ? { deck: 'all', prefs } : { ...deckSource(), prefs });
+      if (pool.length < MIN_SONGS) { g.toast(tr('tooFew'), 2200); return; }
+      buildDeck(pool);
       startGame();
     }
 
+    // ---------- playing a song on the service (the timeline modes and Bingo)
+    /** Find the card on the service and start it. → true, or false when the service doesn't have it; throws on errors. */
+    async function playCard(card, isLive = () => true) {
+      let item = card.item || await findItem(prov, card);
+      if (destroyed || !isLive()) return null;
+      if (!item) return false;
+      if (pid === 'spotify' && item.albumUri) item = { ...item, albumUri: undefined };   // just this song, not its album
+      const before = player.state.track?.id || null;
+      await prov.playItem(item);
+      if (destroyed || !isLive()) return null;
+      setTimeout(() => prov.refresh?.().catch(() => {}), 700);
+      // wait until the service reports the new song (or give up waiting after a few seconds)
+      const t0 = performance.now();
+      while (performance.now() - t0 < 7000) {
+        const t = player.state.track;
+        if (t && (isThisSong(t, card) || (t.id && t.id !== before && t.id === item.id))) break;
+        await new Promise((r) => setTimeout(r, 250));
+        if (destroyed || !isLive()) return null;
+      }
+      if (saved.skipIntro && player.caps.seek) {
+        const dur = player.state.track?.durationMs || 0;
+        if (dur > 75000 && isThisSong(player.state.track, card)) { try { await player.seek(30000); } catch {} }
+      }
+      return destroyed || !isLive() ? null : true;
+    }
     async function loadNext(again = false) {
       const p = P();
       if (!again) { lastSong = song; song = draw(p); }
-      ghost = null; claimed = false; rv = null; artImg = null; artFor = null; guessT = 0;
+      ghost = null; claimed = false; rv = null; artImg = null; artFor = null; guessT = 0; challenges = []; challenger = null; cGap = null;
+      yearGuess = null; yearTouched = false;
       syncView();
       if (!song) { deckOut(); return; }
-      setPhase('load'); loadMsg = 'Finding a song…';
+      setPhase('load'); loadMsg = 'finding';
       const tok = ++loadToken;
       const card = song;
       try {
-        let item = card.item || await findItem(prov, card);
-        if (destroyed || tok !== loadToken) return;
-        if (!item) return notFound();
-        loadMsg = 'Starting the music…';
-        if (pid === 'spotify' && item.albumUri) item = { ...item, albumUri: undefined };   // just this song, not its album
-        const before = player.state.track?.id || null;
-        await prov.playItem(item);
-        if (destroyed || tok !== loadToken) return;
-        setTimeout(() => prov.refresh?.().catch(() => {}), 700);
-        // wait until the service reports the new song (or give up waiting after a few seconds)
-        const t0 = performance.now();
-        while (performance.now() - t0 < 7000) {
-          const t = player.state.track;
-          if (t && (isThisSong(t, card) || (t.id && t.id !== before && t.id === item.id))) break;
-          await new Promise((r) => setTimeout(r, 250));
-          if (destroyed || tok !== loadToken) return;
-        }
-        if (saved.skipIntro && player.caps.seek) {
-          const dur = player.state.track?.durationMs || 0;
-          if (dur > 75000 && isThisSong(player.state.track, card)) { try { await player.seek(30000); } catch {} }
-        }
-        if (destroyed || tok !== loadToken) return;
+        setTimeout(() => { if (tok === loadToken && phase === 'load' && loadMsg === 'finding') loadMsg = 'starting'; }, 900);
+        const ok = await playCard(card, () => tok === loadToken);
+        if (ok === null) return;
+        if (!ok) return notFound();
         failCount = 0;
-        preloadArt();
+        preloadArt(song);
         setPhase('guess');
         g.sfx('whoosh');
       } catch (e) {
         if (destroyed || tok !== loadToken) return;
-        failMsg = e?.userMessage || e?.message || `${svc} couldn’t play the song.`;
+        failMsg = e?.userMessage || e?.message || tr('playErr', svcName());
         setPhase('fail');
       }
     }
@@ -338,111 +457,207 @@ export default {
     function notFound() {
       failCount++;
       drawn.add(song);
-      if (failCount >= 5) { failMsg = `Couldn’t find these songs on ${svc}.`; setPhase('fail'); return; }
-      loadMsg = `Not on ${svc} — drawing another…`;
+      if (failCount >= 5) { failMsg = tr('notFoundAll', svcName()); setPhase('fail'); return; }
+      loadMsg = 'notOn';
       setTimeout(() => { if (!destroyed && phase === 'load') { deck = deck.filter((x) => x !== song); song = null; loadNext(); } }, 900);
     }
-    function preloadArt() {
+    function preloadArt(card = song) {
       const t = player.state.track;
-      const url = song?.art || (t && isThisSong(t, song) ? t.art : '') || '';
-      if (!url) return;
+      const url = card?.art || (t && isThisSong(t, card) ? t.art : '') || '';
+      if (!url) { artImg = null; artFor = null; return; }
+      if (artFor === url) return;
       const img = new Image(); img.decoding = 'async';
       img.onload = () => { if (artFor === url) artImg = img; };
-      artFor = url; img.src = url;
+      artFor = url; artImg = null; img.src = url;
     }
     function lockIn() {
       if (phase !== 'guess' || ghost == null) return;
-      const p = P();
-      const ok = correctSlot(p, song.y, ghost);
       if (!artImg) preloadArt();
-      rv = { ok, slot: ghost, claimed, t: 0 };
-      // where it really belongs (for the "it goes here" marker)
-      let c = 0; while (c < p.cards.length && p.cards[c].s.y < song.y) c++;
-      rv.correct = c;
+      // others with a token may challenge first (Original)
+      if (canChallenge && players.some(canStillChallenge)) { setPhase('challenge'); g.sfx('drop'); return; }
+      reveal();
+    }
+    function reveal() {
+      const p = P();
+      const place = correctSlot(p, song.y, ghost);
+      rv = { place, slot: ghost, claimed, yearOk: rules !== 'expert' || yearGuess === song.y, t: 0, correct: sortedSlot(p, song.y) };
+      evalReveal();
       setPhase('reveal');
       g.sfx('flap');
+    }
+    /** Whether the active player keeps the card, and which challenger (if any) wins it. */
+    function evalReveal() {
+      const p = P();
+      rv.ok = rv.place && (rules === 'std' || rv.claimed) && rv.yearOk;
+      rv.thief = !rv.place ? challenges.find((c) => correctSlot(p, song.y, c.slot))?.p || null : null;
     }
     function finishReveal() {
       if (phase !== 'reveal' || phaseT < 0.9) return;
       const p = P();
-      if (rv.claimed) p.tokens = Math.min(MAX_TOKENS, p.tokens + 1);
+      if (rv.claimed && useTokens && earnTokens) p.tokens = Math.min(MAX_TOKENS, p.tokens + 1);
       if (rv.ok) { p.right++; g.sfx('place'); } else { p.misses++; }
+      if (rv.thief) g.sfx('coin');
       setPhase('settle');
     }
     function afterSettle() {
       const p = P();
       if (rv.ok) { p.cards.splice(rv.slot, 0, { s: song, born: 1, a: view.ghost.a, w: view.ghost.w, h: view.ghost.h }); }
+      if (rv.thief) { const q = rv.thief; q.cards.splice(sortedSlot(q, song.y), 0, { s: song, born: 0 }); q.right++; }
       ghost = null; syncView(); updateScore();
-      if (!solo && p.cards.length >= goal) return win(p);
-      if (solo && p.misses >= SOLO_LIVES) return soloOver();
+      if (!coop && p.cards.length >= goal) return win(p);
+      if (rv.thief && rv.thief.cards.length >= goal) return win(rv.thief);
+      if (team && p.cards.length >= goal) return teamWin();
+      if (coop && p.misses >= SOLO_LIVES) return solo ? soloOver() : teamLose();
       if (solo) { loadNext(); return; }
-      cur = (cur + 1) % players.length;
+      nextTurn();
+    }
+    function nextTurn() {
+      if (team) turn = (turn + 1) % crew.length;
+      else cur = (cur + 1) % players.length;
       syncView('fan');
       setPhase('handoff');
     }
     function skipSong(free) {
       if (phase !== 'guess' && phase !== 'fail') return;
       const p = P();
-      if (!free) { if (p.tokens <= 0) return; p.tokens--; g.sfx('coin'); }
+      if (!free) { if (!useTokens || p.tokens <= 0) return; p.tokens--; g.sfx('coin'); }
       else g.sfx('whoosh');
       if (free) deck = deck.filter((x) => x !== song);
       loadNext();
     }
+    /** 3 tokens → a card placed for you (start of your turn). */
+    function buyCard() {
+      const p = P();
+      if (phase !== 'handoff' || !useTokens || p.tokens < BUY_COST) return;
+      const s = draw(p);
+      if (!s) return;
+      p.tokens -= BUY_COST;
+      p.cards.splice(sortedSlot(p, s.y), 0, { s, born: 0 });
+      syncView(); updateScore();
+      g.sfx('coin'); g.toast(tr('bought'), 1300);
+      if (p.cards.length >= goal) { if (team) teamWin(); else win(p); }
+    }
     function updateScore() { const p = P(); if (p) g.score(solo ? p.right : p.cards.length); }
-    function win(p) {
-      setPhase('won'); g.sfx('win'); g.vibrate(60);
+    function startConfetti() {
       for (let i = 0; i < 170; i++) {
         confetti.push({ x: g.cx + rand(-1, 1) * g.R * 0.9, y: g.cy - g.R * rand(0.95, 1.6), vx: rand(-0.25, 0.25) * g.R, vy: rand(0.1, 0.5) * g.R,
           r: rand(TAU), vr: rand(-8, 8), w: g.R * rand(0.018, 0.034), h: g.R * rand(0.01, 0.018), c: THEME.pieces[i % THEME.pieces.length] });
       }
+    }
+    function win(p) {
+      setPhase('won'); g.sfx('win'); g.vibrate(60);
+      cur = players.indexOf(p); syncView();
+      startConfetti();
       const board = players.map((x) => `${x.name}: ${x.cards.length}`).join(' · ');
-      g.over(p.cards.length, { title: `${p.name} wins!`, label: p.name, name: p.name, win: true, note: `Cards — ${board}`, delay: 3200, sfx: false });
+      g.over(p.cards.length, { title: tr('wins', p.name), name: p.name, win: true, note: tr('board', board), delay: 3200, sfx: false });
+    }
+    /** The team's name on the top 5: "Dana, Roy" — or "Dana +3" when that's too long. */
+    const crewName = () => { const all = crew.map((c) => c.name).join(', '); return all.length <= 16 ? all : `${crew[0].name.slice(0, 12)} +${crew.length - 1}`; };
+    // Team score = the cards on the shared timeline
+    function teamWin() {
+      const p = P();
+      setPhase('won'); g.sfx('win'); g.vibrate(60); startConfetti();
+      g.over(p.cards.length, { title: tr('teamWin'), note: tr('teamWinNote', p.cards.length, p.tokens), win: true, delay: 3000, sfx: false, name: crewName() });
+    }
+    function teamLose() {
+      const p = P();
+      setPhase('won');
+      g.over(p.cards.length, { title: tr('strikesT'), note: tr('teamNote', p.cards.length), delay: 1400, name: crewName() });
     }
     function soloOver() {
       const p = P();
       setPhase('won');
-      g.over(p.right, { title: 'Three strikes!', note: `You placed ${p.right} song${p.right === 1 ? '' : 's'} — a ${p.cards.length}-card timeline.`, delay: 1400 });
+      g.over(p.right, { title: tr('strikesT'), note: tr('soloNote', p.right, p.cards.length), delay: 1400 });
     }
     function deckOut() {
       setPhase('won');
-      if (solo) { const p = P(); g.over(p.right, { title: 'You heard every song!', note: `A ${p.cards.length}-card timeline — the deck ran out.`, win: true, delay: 1600 }); return; }
+      if (coop) { const p = P(); g.over(solo ? p.right : p.cards.length, { title: tr('heardAll'), note: tr(solo ? 'heardAllNote' : 'teamNote', p.cards.length), win: true, delay: 1600, ...(team ? { name: crewName() } : {}) }); return; }
       const best = Math.max(...players.map((x) => x.cards.length));
       const top = players.filter((x) => x.cards.length === best);
       const board = players.map((x) => `${x.name}: ${x.cards.length}`).join(' · ');
       if (top.length === 1) { win(top[0]); return; }
-      g.over(null, { title: 'Out of songs — a tie!', note: board, delay: 1200 });
+      g.over(null, { title: tr('tie'), note: board, delay: 1200 });
+    }
+
+    // ---------- challenges (Original)
+    // a challenger needs a token and a free gap (not the active player's, not one another challenger took)
+    const canStillChallenge = (q) => q !== P() && q.tokens > 0 && !challenges.some((c) => c.p === q) && P().cards.length - challenges.length > 0;
+    function startChallenge(q) { challenger = q; cGap = null; setPhase('cpick'); g.sfx('coin'); }
+    function lockChallenge() {
+      if (phase !== 'cpick' || cGap == null) return;
+      challenger.tokens--;
+      challenges.push({ p: challenger, slot: cGap });
+      challenger = null; cGap = null;
+      g.sfx('drop');
+      if (players.some(canStillChallenge)) setPhase('challenge'); else reveal();
     }
 
     // ---------- pause: the shell's pause card shows what's playing — mask it while the song is a mystery
-    const mystery = () => ['load', 'guess', 'fail'].includes(phase) || (phase === 'reveal' && phaseT < 0.5);
+    const mystery = () => (phase === 'bingo' ? !!bingo?.mystery() : ['load', 'guess', 'fail', 'challenge', 'cpick'].includes(phase) || (phase === 'reveal' && phaseT < 0.5));
 
-    // ---------- names (party setup)
+    // ---------- names (setup)
     async function rename(i) {
-      const v = await editText({ title: `Player ${i + 1}`, value: names[i], placeholder: `Player ${i + 1}` });
+      const v = await editText({ title: tr('player', i + 1), value: names[i], placeholder: tr('player', i + 1), okLabel: he ? 'שמירה' : 'Save' });
       if (v === null || destroyed) return;
-      names[i] = v.trim().slice(0, 14) || `Player ${i + 1}`;
+      names[i] = v.trim().slice(0, 14) || tr('player', i + 1);
+    }
+    function toggleLang(id) {
+      const on = prefs.langs.includes(id);
+      if (on && prefs.langs.length === 1) { g.sfx('tick'); return; }   // at least one language
+      const langs = on ? prefs.langs.filter((x) => x !== id) : [...prefs.langs, id];
+      prefs = { ...prefs, langs: SONG_LANGS.map((l) => l.id).filter((x) => langs.includes(x)) };
+      saveDeckPrefs({ langs: prefs.langs });
+    }
+    function toggleGenre(id) {
+      const blocked = prefs.blocked.includes(id) ? prefs.blocked.filter((x) => x !== id) : [...prefs.blocked, id];
+      prefs = { ...prefs, blocked };
+      saveDeckPrefs({ blocked });
+    }
+    function runUpdate() {
+      if (upd.state === 'run' && upd.ctrl) return;
+      const ctrl = new AbortController();
+      upd = { state: 'run', i: 0, n: 1, label: '', added: 0, msg: '', ctrl };
+      updateSongs({
+        signal: ctrl.signal,
+        onProgress: ({ i, n, bucket, added }) => {
+          if (upd.ctrl !== ctrl) return;
+          upd.i = i; upd.n = n; upd.added = added;
+          upd.label = !bucket ? '' : bucket.kind === 'he' ? tr('updHe') : bucket.kind === 'il' ? tr('updIl') : tr('updDecade', bucket.label);
+        },
+      }).then((r) => {
+        if (upd.ctrl !== ctrl) return;
+        upd = { state: 'done', i: 1, n: 1, label: '', added: r.added, msg: '', ctrl: null };
+        g.sfx(r.added ? 'score' : 'tick');
+      }).catch((e) => {
+        if (upd.ctrl !== ctrl) return;
+        upd = ctrl.signal.aborted ? { state: 'idle', i: 0, n: 1, label: '', added: 0, msg: '', ctrl: null }
+          : { state: 'err', i: 0, n: 1, label: '', added: 0, msg: tr('updErr'), ctrl: null };
+      });
     }
 
     // ------------------------------------------------------------------ input
-    let ui = [];                 // buttons drawn this frame: { id, x, y, w, h, fn, round, disabled }
-    const hitUi = (x, y) => [...ui].reverse().find((b) => !b.disabled && (b.round ? Math.hypot(x - b.x, y - b.y) <= b.w / 2 : Math.abs(x - b.x) <= b.w / 2 && Math.abs(y - b.y) <= b.h / 2));
-    const recPos = () => ({ x: g.cx, y: g.cy - g.R * 0.165, r: g.R * 0.18 });
+    // the mystery record (smaller and higher in Expert, which needs room for the year picker)
+    const recPos = () => (rules === 'expert' ? { x: g.cx, y: g.cy - g.R * 0.26, r: g.R * 0.13 } : { x: g.cx, y: g.cy - g.R * 0.165, r: g.R * 0.18 });
 
     g.on('down', (p) => {
-      const b = hitUi(p.x, p.y);
-      if (b) { pressed = { b, x: p.x, y: p.y }; return; }
+      const b = U.hit(p.x, p.y);
+      if (b) { U.pressed = { b, x: p.x, y: p.y }; return; }
       if (phase === 'guess') {
         const rp = recPos();
         if (Math.hypot(p.x - rp.x, p.y - rp.y) < rp.r * 1.15) { drag = { kind: 'rec', x: p.x, y: p.y, x0: p.x, y0: p.y }; return; }
         if (p.r > 0.47) { drag = { kind: 'ring' }; setGhost(slotAt(p.a)); return; }
       }
+      if (phase === 'cpick' && p.r > 0.42) { drag = { kind: 'cring' }; setCGap(freeGapAt(p.a)); return; }
       if (phase === 'pick' && playlists?.length) { drag = { kind: 'list', y0: p.y, s0: plScroll, moved: false }; return; }
-      pressed = { b: null, x: p.x, y: p.y };
+      if (phase === 'bingo' && bingo?.down(p)) { drag = { kind: 'bingo' }; return; }
+      U.pressed = { b: null, x: p.x, y: p.y };
     });
     g.on('move', (p) => {
       if (!drag) return;
       if (drag.kind === 'rec') { drag.x = p.x; drag.y = p.y; if (p.r > 0.42) setGhost(slotAt(p.a)); }
       else if (drag.kind === 'ring' && p.r > 0.3) setGhost(slotAt(p.a));
+      else if (drag.kind === 'cring' && p.r > 0.3) setCGap(freeGapAt(p.a));
+      else if (drag.kind === 'bingo') bingo?.move(p);
       else if (drag.kind === 'list') { const rowH = g.R * 0.15; const d = (p.y - drag.y0) / rowH; if (Math.abs(d) > 0.15) drag.moved = true; plScroll = clamp(drag.s0 - d, 0, Math.max(0, playlists.length - 5)); }
     });
     g.on('up', (p) => {
@@ -450,43 +665,65 @@ export default {
       if (d?.kind === 'rec') {
         const moved = Math.hypot(p.x - d.x0, p.y - d.y0) > g.R * 0.05;
         if (moved && ghost != null) g.sfx('drop');
-        if (!moved) { hint = ghost == null ? 'Drag the record to a gap — or tap a gap' : 'Tap Lock in when you’re sure'; hintT = 2; }
+        if (!moved) { hint = ghost == null ? 'hintDrag' : 'hintLock'; hintT = 2; }
         return;
       }
-      if (d?.kind === 'ring') return;
+      if (d?.kind === 'ring' || d?.kind === 'cring') return;
+      if (d?.kind === 'bingo') { bingo?.up(p); return; }
       if (d?.kind === 'list') {
         if (!d.moved) { const row = listRowAt(p.y); if (row != null) { plSel = row; pickPlaylist(playlists[row]); g.sfx('click'); } }
         return;
       }
-      const pr = pressed; pressed = null;
+      const pr = U.pressed; U.pressed = null;
       if (!pr) return;
-      if (pr.b) { const b = hitUi(p.x, p.y); if (b && b.id === pr.b.id) { g.sfx('click'); b.fn(); } return; }
-      if (Math.hypot(p.x - pr.x, p.y - pr.y) < g.R * 0.08) tapScreen();
+      if (pr.b) { const b = U.hit(p.x, p.y); if (b && b.id === pr.b.id) { g.sfx('click'); b.fn(); } return; }
+      if (Math.hypot(p.x - pr.x, p.y - pr.y) < g.R * 0.08) tapScreen(p);
     });
     g.on('wheel', (e) => key(e.delta > 0 ? 'ArrowRight' : 'ArrowLeft'));
     g.on('key', (e) => { if (e.repeat && (e.key === 'Enter' || e.key === ' ')) return; key(e.key); });   // arrows may auto-repeat, Enter may not
-    function tapScreen() {
+    function tapScreen(p) {
       if (phase === 'handoff' && phaseT > 0.35) loadNext();
       else if (phase === 'reveal') finishReveal();
+      else if (phase === 'bingo') bingo?.tap(p);
     }
     function setGhost(i) {
       if (phase !== 'guess') return;
-      if (i !== ghost) { ghost = i; syncView(); g.sfx('tick'); }
+      if (i !== ghost) { ghost = i; syncView(); g.sfx('tick'); if (rules === 'expert' && !yearTouched) yearGuess = defaultYear(); }
     }
+    function setCGap(s) { if (s != null && s !== cGap) { cGap = s; g.sfx('tick'); } }
+    /** Expert: the year picker starts between the neighbours of the chosen gap. */
+    function defaultYear() {
+      const c = P().cards, lo = c[ghost - 1]?.s.y, hi = c[ghost]?.s.y;
+      if (lo != null && hi != null) return Math.round((lo + hi) / 2);
+      if (lo != null) return Math.min(new Date().getFullYear(), lo + 5);
+      if (hi != null) return hi - 5;
+      return 1990;
+    }
+    function nudgeYear(d) { yearGuess = clamp((yearGuess ?? defaultYear()) + d, 1900, new Date().getFullYear()); yearTouched = true; g.sfx('tick'); }
     function key(k) {
-      const btns = ui.filter((b) => !b.disabled && !b.noFocus);
+      const btns = U.list.filter((b) => !b.disabled && !b.noFocus);
+      const later = k === (he ? 'ArrowLeft' : 'ArrowRight');   // newer songs sit to the left in Hebrew
+      if (phase === 'bingo') { if (bingo?.key(k, btns)) return; }
       if (phase === 'guess') {
         if (k === 'ArrowLeft' || k === 'ArrowRight') {
-          focus = null;
+          U.focus = null;
           const n = P().cards.length;
-          if (ghost == null) setGhost(k === 'ArrowLeft' ? Math.floor(n / 2) : Math.ceil(n / 2));
-          else setGhost(clamp(ghost + (k === 'ArrowRight' ? 1 : -1), 0, n));
+          if (ghost == null) setGhost(later ? Math.ceil(n / 2) : Math.floor(n / 2));
+          else setGhost(clamp(ghost + (later ? 1 : -1), 0, n));
           return;
         }
-        if (k === 'ArrowUp' || k === 'ArrowDown') { cycleFocus(btns.filter((b) => b.id !== 'lock'), k === 'ArrowDown' ? 1 : -1); return; }
-        if (k === 'Enter' || k === ' ') { const f = btns.find((b) => b.id === focus); if (f) { g.sfx('click'); f.fn(); } else lockIn(); }
+        if ((k === 'ArrowUp' || k === 'ArrowDown') && rules === 'expert' && ghost != null) { nudgeYear(k === 'ArrowUp' ? 1 : -1); return; }
+        if (k === 'ArrowUp' || k === 'ArrowDown') { U.cycleFocus(btns.filter((b) => b.id !== 'lock'), k === 'ArrowDown' ? 1 : -1); return; }
+        if (k === 'Enter' || k === ' ') { const f = btns.find((b) => b.id === U.focus); if (f) { g.sfx('click'); f.fn(); } else lockIn(); }
         return;
       }
+      if (phase === 'cpick' && (k === 'ArrowLeft' || k === 'ArrowRight')) {
+        const n = P().cards.length, dir = later ? 1 : -1;
+        let s = cGap == null ? (dir > 0 ? -1 : n + 1) : cGap;
+        for (let i = 0; i <= n + 1; i++) { s += dir; if (s >= 0 && s <= n && gapFree(s)) { setCGap(s); break; } }
+        return;
+      }
+      if (phase === 'cpick' && (k === 'Enter' || k === ' ') && !U.focus && cGap != null) { lockChallenge(); return; }
       if (phase === 'pick' && playlists?.length) {
         if (k === 'ArrowDown' || k === 'ArrowRight') plSel = Math.min(playlists.length - 1, plSel + 1);
         else if (k === 'ArrowUp' || k === 'ArrowLeft') plSel = Math.max(0, plSel - 1);
@@ -494,102 +731,14 @@ export default {
         plScroll = clamp(plScroll, plSel - 4, plSel);
         return;
       }
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) { cycleFocus(btns, k === 'ArrowRight' || k === 'ArrowDown' ? 1 : -1); return; }
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) { U.cycleFocus(btns, later || k === 'ArrowDown' ? 1 : -1); return; }
       if (k === 'Enter' || k === ' ') {
-        const f = btns.find((b) => b.id === focus) || btns.find((b) => b.primary);
-        if (f) { g.sfx('click'); f.fn(); } else tapScreen();
+        const f = btns.find((b) => b.id === U.focus) || btns.find((b) => b.primary);
+        if (f) { g.sfx('click'); f.fn(); } else tapScreen(null);
       }
-    }
-    function cycleFocus(list, dir) {
-      if (!list.length) return;
-      const i = list.findIndex((b) => b.id === focus);
-      focus = list[(i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length)].id;
-      g.sfx('tick');
     }
 
-    // ------------------------------------------------------------------ drawing helpers
-    const font = (size, weight = 700, fam = THEME.display) => `${weight} ${Math.round(size)}px ${fam}`;
-    function fit(str, maxW, size, weight = 700, fam = THEME.display) {
-      ctx.font = font(size, weight, fam);
-      if (ctx.measureText(str).width <= maxW) return str;
-      let s = str;
-      while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
-      return s.trimEnd() + '…';
-    }
-    function wrap(str, maxW, size, lines = 2, weight = 700, fam = THEME.display) {
-      ctx.font = font(size, weight, fam);
-      const words = String(str).split(/\s+/); const out = []; let line = '';
-      for (let i = 0; i < words.length; i++) {
-        const tryLine = line ? `${line} ${words[i]}` : words[i];
-        if (ctx.measureText(tryLine).width <= maxW || !line) line = tryLine;
-        else { out.push(line); line = words[i]; if (out.length === lines - 1) { line = words.slice(i).join(' '); break; } }
-      }
-      if (line) out.push(line);
-      return out.slice(0, lines).map((l, i) => (i === lines - 1 ? fit(l, maxW, size, weight, fam) : l));
-    }
-    function text(str, x, y, size, o = {}) { g.draw.text(str, x, y, size, o); }
-    function button(id, label, x, y, w, h, fn, { primary = false, disabled = false, col = color(), round = false, noFocus = false, small = false } = {}) {
-      ui.push({ id, x, y, w, h, fn, disabled, primary, round, noFocus });
-      const isF = focus === id && !disabled;
-      const down = pressed?.b?.id === id;
-      const s = down ? 0.94 : 1;
-      const W = w * s, H = h * s;
-      ctx.save();
-      ctx.globalAlpha = disabled ? 0.4 : 1;
-      const fill = primary ? col : THEME.glass2;
-      if (round) g.draw.circle(x, y, W / 2, fill, { glow: primary && !disabled ? g.R * 0.05 : 0 });
-      else g.draw.roundRect(x - W / 2, y - H / 2, W, H, H / 2, fill, { glow: primary && !disabled ? col : 0 });
-      if (isF) {
-        ctx.lineWidth = Math.max(2, g.R * 0.008); ctx.strokeStyle = THEME.fg;
-        ctx.beginPath(); if (round) ctx.arc(x, y, W / 2 + g.R * 0.016, 0, TAU); else ctx.roundRect(x - W / 2 - g.R * 0.014, y - H / 2 - g.R * 0.014, W + g.R * 0.028, H + g.R * 0.028, H / 2 + g.R * 0.014); ctx.stroke();
-      }
-      ctx.restore();
-      if (label) text(fit(label, W * 0.86, H * (small ? 0.4 : 0.44), 800), x, y + H * 0.02, H * (small ? 0.4 : 0.44), { color: primary ? INK_DARK : THEME.fg, weight: 800, alpha: disabled ? 0.45 : 1 });
-    }
-    function coins(x, y, n, size, align = 'center') {
-      const gap = size * 2.5, w = (Math.max(1, MAX_TOKENS) - 1) * gap;
-      const x0 = align === 'center' ? x - ((n - 1) * gap) / 2 : x;
-      for (let i = 0; i < n; i++) {
-        g.draw.ball(x0 + i * gap, y, size, '#ffc857');
-        g.draw.circle(x0 + i * gap, y, size * 0.55, null, { stroke: 'rgba(120,80,0,.55)', lw: Math.max(1, size * 0.22) });
-      }
-      return w;
-    }
-    /** A year card: flat, in its decade's colour, with the year big. */
-    function yearCard(x, y, w, h, s, { alpha = 1, rot = 0, details = true } = {}) {
-      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); if (rot) ctx.rotate(rot);
-      const col = decCol(s.y);
-      g.draw.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.16, col);
-      const ys = Math.min(w * 0.31, h * 0.4);
-      const showT = details && w > g.R * 0.15 && h > g.R * 0.2;
-      g.draw.text(String(s.y), 0, showT ? -h * 0.1 : h * 0.02, ys, { color: INK_DARK, weight: 800 });
-      if (showT) {
-        const ts = Math.max(9, w * 0.105);
-        g.draw.text(fit(s.t, w * 0.86, ts, 700, THEME.font), 0, h * 0.2, ts, { color: 'rgba(10,10,11,.78)', weight: 700, font: THEME.font });
-        g.draw.text(fit(s.a, w * 0.86, ts * 0.92, 500, THEME.font), 0, h * 0.33, ts * 0.92, { color: 'rgba(10,10,11,.55)', weight: 500, font: THEME.font });
-      }
-      ctx.restore();
-    }
-    /** The mystery record: a flat vinyl disc with a "?" label, spinning. */
-    function record(x, y, r, col, rot) {
-      const disc = THEME.light ? '#1b1b20' : '#18181c';
-      g.draw.ball(x, y, r, disc);
-      g.draw.circle(x, y, r, null, { stroke: g.draw.alpha(col, THEME.light ? 0.9 : 0.75), lw: Math.max(2, r * 0.035) });
-      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 4; i++) {           // grooves
-        const rr = r * (0.52 + i * 0.11);
-        ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = Math.max(1, r * 0.012);
-        ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.stroke();
-      }
-      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = Math.max(1.5, r * 0.025);   // two light arcs show the spin
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.78, -0.5, 0.35); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.66, Math.PI - 0.4, Math.PI + 0.3); ctx.stroke();
-      g.draw.ball(0, 0, r * 0.38, col);
-      g.draw.text('?', 0, r * 0.02, r * 0.42, { color: INK_DARK, weight: 800 });
-      ctx.restore();
-      g.draw.ball(x, y, r * 0.045, disc);
-    }
+    // ------------------------------------------------------------------ drawing
     function drawTimeline(dt, { dim = 0 } = {}) {
       const p = P(); if (!p) return;
       const k = 1 - Math.exp(-dt * 11);
@@ -610,11 +759,12 @@ export default {
       ctx.restore();
       // era hints at both ends
       const L = layout(Math.max(1, p.cards.length + (ghost != null ? 1 : 0)));
-      if (phase === 'guess' || phase === 'handoff') {
-        const [ex, ey] = polar(g.cx, g.cy, 302 * DEG, ARC() + g.R * 0.0);
-        const [lx, ly] = polar(g.cx, g.cy, 58 * DEG, ARC());
-        text('older', ex + g.R * 0.02, ey - L.h * 0.5 - g.R * 0.05, g.R * 0.034, { color: THEME.dim, weight: 700 });
-        text('newer', lx - g.R * 0.02, ly - L.h * 0.5 - g.R * 0.05, g.R * 0.034, { color: THEME.dim, weight: 700 });
+      if (phase === 'guess' || phase === 'handoff' || phase === 'cpick') {
+        // older at the upper left end, newer at the upper right (mirrored in Hebrew)
+        const [ex, ey] = polar(g.cx, g.cy, (M > 0 ? 302 : 58) * DEG, ARC());
+        const [lx, ly] = polar(g.cx, g.cy, (M > 0 ? 58 : 302) * DEG, ARC());
+        text(tr('older'), ex + M * g.R * 0.02, ey - L.h * 0.5 - g.R * 0.05, g.R * 0.034, { color: THEME.dim, weight: 700 });
+        text(tr('newer'), lx - M * g.R * 0.02, ly - L.h * 0.5 - g.R * 0.05, g.R * 0.034, { color: THEME.dim, weight: 700 });
       }
       ctx.save(); if (dim) ctx.globalAlpha = 1 - dim;
       for (const c of p.cards) {
@@ -623,7 +773,8 @@ export default {
         yearCard(x, y, c.w * pop, c.h * pop, c.s);
       }
       ctx.restore();
-      if (ghost != null && (phase === 'guess' || phase === 'reveal')) {
+      const pc = team ? crew[turn]?.color || color() : P().color && !solo ? P().color : color();
+      if (ghost != null && ['guess', 'reveal', 'challenge', 'cpick'].includes(phase)) {
         const [x, y] = polar(g.cx, g.cy, gh.a, ARC());
         const s = ease.out(gh.k), w = gh.w * s, h = gh.h * s;
         if (phase === 'guess') {
@@ -633,14 +784,37 @@ export default {
           g.draw.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) * 0.16, g.draw.alpha(color(), 0.16 + 0.1 * pulse), { stroke: color(), lw: Math.max(2, g.R * 0.009) });
           ctx.restore();
           text('?', x, y, Math.min(w, h) * 0.45, { color: color(), weight: 800 });
+        } else if (phase === 'challenge' || phase === 'cpick') {
+          g.draw.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) * 0.16, g.draw.alpha(pc, 0.85));
+          text('?', x, y, Math.min(w, h) * 0.45, { color: INK_DARK, weight: 800 });
         } else {
-          g.draw.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) * 0.16, null, { stroke: rv?.ok ? THEME.ok : THEME.danger, lw: Math.max(2, g.R * 0.009) });
+          g.draw.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) * 0.16, null, { stroke: rv?.place ? THEME.ok : THEME.danger, lw: Math.max(2, g.R * 0.009) });
+        }
+      }
+      // challengers' tokens on the gaps they chose
+      if (challenges.length || (phase === 'cpick' && cGap != null)) {
+        const list = [...challenges.map((c) => ({ ...c, set: true })), ...(phase === 'cpick' && cGap != null ? [{ p: challenger, slot: cGap, set: false }] : [])];
+        for (const c of list) {
+          const a = gapAngle(c.slot);
+          const [x, y] = polar(g.cx, g.cy, a, ARC() - L.h * 0.5 - g.R * 0.045);
+          const r = g.R * 0.032 * (c.set ? 1 : 1 + 0.12 * Math.sin(g.time * 6));
+          ctx.save();
+          const [x2, y2] = polar(g.cx, g.cy, a, ARC() - L.h * 0.5 + g.R * 0.015);
+          ctx.strokeStyle = c.p.color; ctx.lineWidth = g.R * 0.008; ctx.lineCap = 'round'; ctx.globalAlpha = 0.8;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+          g.draw.circle(x, y, r * 1.25, c.p.color);
+          coin(x, y, r * 0.8);
+          if (phase === 'reveal' && phaseT > 0.9) {
+            const ok = correctSlot(P(), song.y, c.slot);
+            g.draw.circle(x + r, y - r, r * 0.6, ok ? THEME.ok : THEME.danger);
+            text(ok ? '✓' : '✕', x + r, y - r + r * 0.03, r * 0.7, { color: INK_DARK, weight: 800 });
+          }
         }
       }
     }
     /** The marker where a wrongly placed song really belongs. */
     function drawCorrectMarker(alpha) {
-      const p = P(); if (!rv || rv.ok) return;
+      const p = P(); if (!rv || rv.place) return;
       const cards = p.cards;
       const ang = (i) => (cards[i] ? cards[i].a : null);
       let a;
@@ -648,7 +822,7 @@ export default {
       const left = ang(c - 1), right = ang(c);
       const half = layout(cards.length + 1).step * 0.5;
       if (left != null && right != null) a = left + angDiff(left, right) / 2;
-      else if (left != null) a = left - half * 1.15; else if (right != null) a = right + half * 1.15; else return;
+      else if (left != null) a = left - M * half * 1.15; else if (right != null) a = right + M * half * 1.15; else return;
       const [x, y] = polar(g.cx, g.cy, a, ARC());
       const [x2, y2] = polar(g.cx, g.cy, a, ARC() - g.R * 0.2);
       ctx.save(); ctx.globalAlpha = alpha;
@@ -659,52 +833,156 @@ export default {
       ctx.restore();
     }
     function hud(line1, line2, col = THEME.fg) {
-      text(fit(line1, g.R * 1.2, g.R * 0.072, 800), g.cx, g.cy - g.R * 0.705, g.R * 0.072, { color: col, weight: 800 });
+      if (line1) text(fit(line1, g.R * 1.2, g.R * 0.072, 800), g.cx, g.cy - g.R * 0.705, g.R * 0.072, { color: col, weight: 800 });
       if (line2) text(fit(line2, g.R * 1.3, g.R * 0.04, 700), g.cx, g.cy - g.R * 0.605, g.R * 0.04, { color: THEME.muted, weight: 700 });
     }
+    const hearts = (p) => `${'♥'.repeat(Math.max(0, SOLO_LIVES - p.misses))}${'♡'.repeat(Math.min(SOLO_LIVES, p.misses))}`;
     function playerHud(extra) {
       const p = P();
-      const name = solo ? 'Solo streak' : p.name;
-      const sub = solo ? `${p.right} placed  ·  ${'♥'.repeat(Math.max(0, SOLO_LIVES - p.misses))}${'♡'.repeat(Math.min(SOLO_LIVES, p.misses))}` : `${p.cards.length} / ${goal} cards`;
-      hud(name, extra ?? sub, solo ? THEME.fg : p.color);
+      const name = solo ? tr('soloStreak') : team ? turnName() : p.name;
+      const sub = solo ? tr('placedHearts', p.right, hearts(p)) : team ? tr('teamOf', p.cards.length, goal, hearts(p)) : tr('cardsOf', p.cards.length, goal);
+      hud(name, extra ?? sub, solo ? THEME.fg : color());
       // tokens under the name
-      if (p.tokens > 0) coins(g.cx, g.cy - g.R * 0.535, p.tokens, g.R * 0.021);
+      if (useTokens && p.tokens > 0) coins(g.cx, g.cy - g.R * 0.535, p.tokens, g.R * 0.021);
     }
 
     // ------------------------------------------------------------------ screens
+    const eraName = () => {
+      const deckKey = { all: 'eraAll', il: 'eraIl', old: 'eraOld', new: 'eraNew', lib: 'eraLib' }[opts.deck] || 'eraAll';
+      return tr(pid === 'demo' && opts.deck !== 'lib' ? 'eraDemo' : deckKey);
+    };
     function drawSetup() {
-      text(solo ? 'Solo streak' : 'Who’s playing?', g.cx, g.cy - g.R * 0.62, g.R * 0.085, { weight: 800 });
-      const era = pid === 'demo' && opts.deck !== 'lib' ? 'Demo songs' : opts.deck === 'lib' ? 'Your library' : `${(ERAS[opts.deck] || ERAS.all).name === 'All' ? 'All decades' : (ERAS[opts.deck] || ERAS.all).name}`;
-      text(solo ? `${era} · 3 mistakes and you’re out` : `${era} · first to ${goal} cards`, g.cx, g.cy - g.R * 0.5, g.R * 0.04, { color: THEME.muted, weight: 700 });
+      const title = solo ? tr('soloStreak') : team ? tr('whosTeam') : tr('whosPlaying');
+      text(fit(title, g.R * 1.2, g.R * 0.075, 800), g.cx, g.cy - g.R * 0.7, g.R * 0.075, { weight: 800 });
+      const era = eraName();
+      const sub = solo ? tr('soloSub', era) : team ? tr('teamSub', era, goal) : kind === 'bingo' ? tr('bingoSub', era) : tr('partySub', era, goal);
+      text(fit(sub, g.R * 1.25, g.R * 0.038, 700), g.cx, g.cy - g.R * 0.6, g.R * 0.038, { color: THEME.muted, weight: 700 });
       if (solo) {
-        const lines = wrap('Each song you place in the right spot grows your timeline. How long can you go?', g.R * 1.15, g.R * 0.05, 3, 600, THEME.font);
-        lines.forEach((l, i) => text(l, g.cx, g.cy - g.R * 0.22 + i * g.R * 0.075, g.R * 0.05, { color: THEME.fg, weight: 600, font: THEME.font }));
-        record(g.cx, g.cy - g.R * 0.0 + g.R * 0.1, g.R * 0.1, g.color, spin);
+        U.para(tr('soloPara'), g.cx, g.cy - g.R * 0.44, g.R * 1.15, g.R * 0.048, { lines: 3 });
+        record(g.cx, g.cy - g.R * 0.13, g.R * 0.085, g.color, spin);
       } else {
-        const colW = g.R * 0.62, rowH = g.R * 0.15, top = g.cy - g.R * 0.3;
         const n = names.length;
         const slots = n < 6 ? n + 1 : n;
+        // the rows sit in the middle of the space for four rows
+        const colW = g.R * 0.62, rowH = g.R * 0.12, top = g.cy - g.R * 0.47 + (4 - Math.ceil(slots / 2)) * rowH * 0.5;
         for (let i = 0; i < slots; i++) {
           const col = i % 2, row = Math.floor(i / 2);
-          const x = g.cx + (col ? 1 : -1) * colW * 0.54, y = top + row * rowH;
+          // player 1 in the left column (the right one in Hebrew); the colour dot leads, the × trails
+          const x = g.cx + M * (col ? 1 : -1) * colW * 0.54, y = top + row * rowH;
           if (i < n) {
             const c = PLAYER_COLORS[i];
-            button(`p${i}`, '', x, y, colW, rowH * 0.78, () => rename(i), { col: c });
-            g.draw.ball(x - colW * 0.38, y, rowH * 0.17, c);
-            text(fit(names[i], colW * 0.52, rowH * 0.3, 700), x - colW * 0.06, y + rowH * 0.01, rowH * 0.3, { align: 'center', weight: 700 });
-            if (n > 2) {
-              button(`x${i}`, '', x + colW * 0.38, y, rowH * 0.5, rowH * 0.5, () => { names.splice(i, 1); focus = null; }, { round: true, noFocus: false });
-              text('×', x + colW * 0.38, y - rowH * 0.02, rowH * 0.36, { color: THEME.muted, weight: 700 });
+            button(`p${i}`, '', x, y, colW, rowH * 0.8, () => rename(i), { col: c });
+            g.draw.ball(x - M * colW * 0.38, y, rowH * 0.18, c);
+            text(fit(names[i], colW * 0.52, rowH * 0.32, 700), x - M * colW * 0.06, y + rowH * 0.01, rowH * 0.32, { align: 'center', weight: 700 });
+            if (n > minPlayers) {
+              button(`x${i}`, '', x + M * colW * 0.38, y, rowH * 0.52, rowH * 0.52, () => { names.splice(i, 1); U.focus = null; }, { round: true });
+              text('×', x + M * colW * 0.38, y - rowH * 0.02, rowH * 0.38, { color: THEME.muted, weight: 700 });
             }
           } else {
-            button('add', '+ Add player', x, y, colW, rowH * 0.78, () => { names.push(saved.names[names.length] || `Player ${names.length + 1}`); }, {});
+            button('add', tr('addPlayer'), x, y, colW, rowH * 0.8, () => { names.push(localName(saved.names[names.length]) || tr('player', names.length + 1)); }, {});
           }
         }
       }
-      const iy = g.cy + g.R * 0.3;
-      button('intro', saved.skipIntro ? '✓ Skip the intro (start at 0:30)' : '○ Play songs from the start', g.cx, iy, g.R * 1.0, g.R * 0.1, () => save({ skipIntro: !saved.skipIntro }), { small: true });
-      button('start', 'Start', g.cx, g.cy + g.R * 0.5, g.R * 0.5, g.R * 0.145, begin, { primary: true, col: g.color });
-      if (hintT > 0) text(hint, g.cx, g.cy + g.R * 0.68, g.R * 0.036, { color: THEME.muted });
+      // song filters: languages, genres + update
+      const lib = opts.deck === 'lib';
+      const counts = genreCounts(deckSource());
+      if (!lib) {
+        const langs = SONG_LANGS.filter((l) => l.id !== 'other' || counts.l.other > 0);
+        const lw = g.R * (langs.length > 2 ? 0.3 : 0.4), lh = g.R * 0.085, ly = g.cy + g.R * 0.035, gap = g.R * 0.025;
+        const label = tr('songLangs');
+        const labW = U.measure(label, g.R * 0.034, 700) + g.R * 0.04;
+        const total = labW + langs.length * lw + (langs.length - 1) * gap;
+        let x = g.cx - M * total / 2;
+        text(label, x + M * labW / 2, ly, g.R * 0.034, { color: THEME.muted, weight: 700 });
+        x += M * labW;
+        langs.forEach((l) => {
+          const on = prefs.langs.includes(l.id);
+          button(`lang:${l.id}`, `${on ? '✓ ' : ''}${nameOf(l)}`, x + M * lw / 2, ly, lw, lh, () => toggleLang(l.id), { small: true, primary: on, col: g.color, glow: false });
+          x += M * (lw + gap);
+        });
+        const gy = g.cy + g.R * 0.155, gw = g.R * 0.62, uw = g.R * 0.5;
+        const nb = prefs.blocked.length;
+        button('genres', `♪ ${tr('genres')}: ${nb ? tr('genresOff', nb) : tr('genresAll')}`, g.cx - M * (uw + g.R * 0.03) / 2, gy, gw, lh, () => setPhase('genres'), { small: true });
+        button('update', `⟳ ${tr('update')}`, g.cx + M * (gw + g.R * 0.03) / 2, gy, uw, lh, () => { setPhase('update'); }, { small: true });
+      } else {
+        text(fit(tr('plFrom', svcName()), g.R * 1.2, g.R * 0.04, 700), g.cx, g.cy + g.R * 0.09, g.R * 0.04, { color: THEME.muted, weight: 700 });
+      }
+      const iy = g.cy + g.R * 0.27;
+      button('intro', saved.skipIntro ? tr('skipIntro') : tr('fromStart'), g.cx, iy, g.R * 0.9, g.R * 0.075, () => save({ skipIntro: !saved.skipIntro }), { small: true });
+      const nSongs = songCount();
+      const few = nSongs < MIN_SONGS;
+      if (!lib) text(few ? tr('tooFew') : tr('nSongs', nSongs), g.cx, g.cy + g.R * 0.36, g.R * 0.034, { color: few ? THEME.danger : THEME.dim, weight: 700 });
+      button('start', tr('start'), g.cx, g.cy + g.R * 0.48, g.R * 0.46, g.R * 0.13, begin, { primary: true, col: g.color, disabled: few });
+      // language switch: EN | עב (the same setting as Settings → Rhythm → Hitster language)
+      const lw = g.R * 0.15, lh = g.R * 0.072, ly = g.cy + g.R * 0.67;
+      g.draw.roundRect(g.cx - lw - g.R * 0.012, ly - lh / 2 - g.R * 0.012, lw * 2 + g.R * 0.024, lh + g.R * 0.024, lh / 2 + g.R * 0.012, THEME.glass);
+      button('ui-en', 'EN', g.cx - lw / 2, ly, lw, lh, () => store.set('hitsterLang', 'en'), { small: true, primary: !he, col: g.color });
+      button('ui-he', 'עב', g.cx + lw / 2, ly, lw, lh, () => store.set('hitsterLang', 'he'), { small: true, primary: he, col: g.color });
+    }
+    /** Genres sheet: chips to block genres (with how many songs each has in this deck). */
+    const GENRE_ROWS = [2, 3, 3, 3, 3, 2];
+    function drawGenres() {
+      text(tr('genres'), g.cx, g.cy - g.R * 0.7, g.R * 0.075, { weight: 800 });
+      text(fit(tr('genresHint'), g.R * 1.25, g.R * 0.034, 700), g.cx, g.cy - g.R * 0.605, g.R * 0.034, { color: THEME.muted, weight: 700 });
+      const counts = genreCounts(deckSource()).g;
+      const cw = g.R * 0.5, ch = g.R * 0.098, gap = g.R * 0.022, rowH = g.R * 0.126, top = g.cy - g.R * 0.48;
+      let gi = 0;
+      GENRE_ROWS.forEach((n, row) => {
+        const y = top + row * rowH;
+        for (let j = 0; j < n && gi < GENRES.length; j++, gi++) {
+          const gen = GENRES[gi];
+          const x = g.cx + M * (j - (n - 1) / 2) * (cw + gap);
+          const off = prefs.blocked.includes(gen.id);
+          const cnt = counts[gen.id] || 0;
+          button(`g:${gen.id}`, '', x, y, cw, ch, () => toggleGenre(gen.id), off ? { fill: THEME.paper(0.12), stroke: THEME.ink(0.18) } : { primary: true, col: g.color, glow: false });
+          const label = nameOf(gen);
+          const ink = off ? THEME.dim : INK_DARK;
+          const ts = ch * 0.34;
+          const lab = fit(label, cw * 0.7, ts, 800);
+          text(lab, x - M * cw * 0.05, y + ch * 0.02, ts, { color: ink, weight: 800 });
+          if (off) {   // struck through
+            const w = U.measure(lab, ts, 800);
+            ctx.save(); ctx.strokeStyle = THEME.danger; ctx.lineWidth = Math.max(1.5, g.R * 0.005);
+            ctx.beginPath(); ctx.moveTo(x - M * cw * 0.05 - w / 2, y); ctx.lineTo(x - M * cw * 0.05 + w / 2, y); ctx.stroke(); ctx.restore();
+          }
+          text(off ? '⊘' : String(cnt), x + M * cw * 0.385, y + ch * 0.02, ch * (off ? 0.4 : 0.28), { color: off ? THEME.danger : 'rgba(10,10,11,.55)', weight: 800 });
+        }
+      });
+      const nSongs = songCount(), few = nSongs < MIN_SONGS;
+      text(few ? tr('tooFew') : tr('nSongs', nSongs), g.cx, g.cy + g.R * 0.31, g.R * 0.036, { color: few ? THEME.danger : THEME.muted, weight: 700 });
+      button('done', tr('done'), g.cx, g.cy + g.R * 0.44, g.R * 0.42, g.R * 0.12, () => setPhase('setup'), { primary: true, col: g.color });
+      button('allow', tr('allowAll'), g.cx, g.cy + g.R * 0.6, g.R * 0.4, g.R * 0.075, () => { prefs = { ...prefs, blocked: [] }; saveDeckPrefs({ blocked: [] }); }, { small: true, disabled: !prefs.blocked.length });
+    }
+    /** Update sheet: fetch more songs from Wikidata (kept for good), with progress and the result. */
+    function drawUpdate() {
+      text(fit(tr('updTitle'), g.R * 1.2, g.R * 0.068, 800), g.cx, g.cy - g.R * 0.66, g.R * 0.068, { weight: 800 });
+      U.para(tr('updHint'), g.cx, g.cy - g.R * 0.53, g.R * 1.2, g.R * 0.04, { lines: 3, color: THEME.muted, weight: 600 });
+      // the ring: songs in the deck, filling while an update runs
+      const cy = g.cy - g.R * 0.08, r = g.R * 0.2;
+      const frac = upd.state === 'run' ? clamp((upd.i + 0.5 * (0.5 + 0.5 * Math.sin(g.time * 3))) / Math.max(1, upd.n), 0, 1) : upd.state === 'done' ? 1 : 0;
+      g.draw.circle(g.cx, cy, r, null, { stroke: THEME.ink(0.12), lw: g.R * 0.03 });
+      if (frac > 0) g.draw.arc(g.cx, cy, r, 0, TAU * frac, g.color, g.R * 0.03);
+      const total = builtinCount() + extraCount();
+      text(String(total), g.cx, cy - g.R * 0.02, g.R * 0.1, { weight: 800 });
+      text(tr('songs'), g.cx, cy + g.R * 0.075, g.R * 0.034, { color: THEME.muted, weight: 700 });
+      if (upd.state === 'run') {
+        if (upd.ctrl) g.draw.arc(g.cx, cy, r + g.R * 0.045, g.time * 4, g.time * 4 + 0.9, g.draw.alpha(g.color, 0.6), g.R * 0.01);
+        text(fit(tr('updBusy', upd.label || '…'), g.R * 1.1, g.R * 0.04, 700), g.cx, g.cy + g.R * 0.2, g.R * 0.04, { color: THEME.fg, weight: 700 });
+        if (upd.added) text(tr('updDone', upd.added), g.cx, g.cy + g.R * 0.27, g.R * 0.036, { color: THEME.ok, weight: 800 });
+      } else if (upd.state === 'done') {
+        text(tr('updDone', upd.added), g.cx, g.cy + g.R * 0.21, g.R * 0.06, { color: upd.added ? THEME.ok : THEME.fg, weight: 800 });
+      } else if (upd.state === 'err') {
+        U.para(upd.msg, g.cx, g.cy + g.R * 0.19, g.R * 1.1, g.R * 0.036, { lines: 2, color: THEME.danger, weight: 700 });
+      } else {
+        const info = extraInfo();
+        text(tr('updCount', builtinCount(), extraCount()), g.cx, g.cy + g.R * 0.19, g.R * 0.038, { color: THEME.fg, weight: 700 });
+        text(info.lastUpdated ? tr('updLast', new Date(info.lastUpdated).toLocaleDateString(he ? 'he' : [], { day: 'numeric', month: 'short', year: 'numeric' })) : tr('updNever'),
+          g.cx, g.cy + g.R * 0.26, g.R * 0.034, { color: THEME.dim, weight: 700 });
+      }
+      const running = upd.state === 'run';
+      if (running) button('ucancel', tr('cancel'), g.cx, g.cy + g.R * 0.42, g.R * 0.4, g.R * 0.11, () => { upd.ctrl?.abort(); }, { disabled: !upd.ctrl });
+      else button('urun', upd.state === 'done' ? tr('updAgain') : tr('updRun'), g.cx, g.cy + g.R * 0.42, g.R * 0.52, g.R * 0.12, runUpdate, { primary: true, col: g.color, small: true });
+      button('uback', tr('back'), g.cx, g.cy + g.R * 0.59, g.R * 0.36, g.R * 0.08, () => { if (upd.state !== 'run') upd.state = 'idle'; setPhase('setup'); }, { small: true });
     }
     function listRowAt(y) {
       if (!playlists?.length) return null;
@@ -714,8 +992,8 @@ export default {
       return i >= first && i < Math.min(playlists.length, first + 5) ? i : null;
     }
     function drawPick() {
-      text('Pick a playlist', g.cx, g.cy - g.R * 0.62, g.R * 0.08, { weight: 800 });
-      text(`Songs and years from ${svc}`, g.cx, g.cy - g.R * 0.51, g.R * 0.04, { color: THEME.muted, weight: 700 });
+      text(tr('pickPl'), g.cx, g.cy - g.R * 0.62, g.R * 0.08, { weight: 800 });
+      text(tr('plFrom', svcName()), g.cx, g.cy - g.R * 0.51, g.R * 0.04, { color: THEME.muted, weight: 700 });
       if (playlists?.length) {
         const rowH = g.R * 0.15, top = g.cy - g.R * 0.3, w = g.R * 1.3;
         ctx.save(); ctx.beginPath(); ctx.rect(0, top - rowH * 0.5, g.S, rowH * 5); ctx.clip();
@@ -728,7 +1006,12 @@ export default {
         }
         ctx.restore();
       }
-      button('list', 'Use the song list instead', g.cx, g.cy + g.R * 0.66, g.R * 0.7, g.R * 0.085, () => { loadToken++; buildDeck(pid === 'demo' ? DEMO_SONGS : SONGS); startGame(); }, { small: true });
+      button('list', tr('useList'), g.cx, g.cy + g.R * 0.66, g.R * 0.7, g.R * 0.085, () => {
+        loadToken++;
+        const pool = pid === 'demo' ? buildPool({ demo: true, prefs }) : buildPool({ deck: 'all', prefs });
+        buildDeck(pool.length >= MIN_SONGS ? pool : pid === 'demo' ? DEMO_SONGS : buildPool({ deck: 'all', prefs: { langs: ['en', 'he', 'other'], blocked: [] } }));
+        startGame();
+      }, { small: true });
       if (plMsg) {
         const lines = wrap(plMsg, g.R * 1.2, g.R * 0.045, 3, 600, THEME.font);
         lines.forEach((l, i) => text(l, g.cx, g.cy + (playlists?.length ? g.R * 0.5 : 0) + i * g.R * 0.065, g.R * 0.045, { color: THEME.muted, weight: 600, font: THEME.font }));
@@ -739,35 +1022,59 @@ export default {
       const t = ease.back(Math.min(1, phaseT * 2.2));
       const r = g.R * 0.27 * t;
       const y = g.cy - g.R * 0.12;
-      g.draw.circle(g.cx, y, r, p.color, { glow: g.R * 0.08 });
-      text('Next up', g.cx, y - r * 0.42, r * 0.17, { color: 'rgba(10,10,11,.65)', weight: 800 });
-      text(fit(p.name, r * 1.6, r * 0.34, 800), g.cx, y + r * 0.04, r * 0.34, { color: INK_DARK, weight: 800 });
-      text(`${p.cards.length} / ${goal}`, g.cx, y + r * 0.45, r * 0.16, { color: 'rgba(10,10,11,.65)', weight: 800 });
-      // scoreboard
-      const n = players.length, gap = g.R * 0.24, y2 = g.cy + g.R * 0.27;
-      players.forEach((q, i) => {
-        const x = g.cx + (i - (n - 1) / 2) * gap;
-        const me = i === cur;
-        g.draw.circle(x, y2, g.R * (me ? 0.06 : 0.05), q.color, { stroke: me ? THEME.fg : null, lw: g.R * 0.008 });
-        text(String(q.cards.length), x, y2 + g.R * 0.003, g.R * 0.05, { color: INK_DARK, weight: 800 });
-        text(fit(q.name, gap * 0.92, g.R * 0.03, 700), x, y2 + g.R * 0.095, g.R * 0.03, { color: me ? THEME.fg : THEME.muted, weight: 700 });
-      });
+      const col = color();
+      g.draw.circle(g.cx, y, r, col, { glow: g.R * 0.08 });
+      text(tr('nextUp'), g.cx, y - r * 0.42, r * 0.17, { color: 'rgba(10,10,11,.65)', weight: 800 });
+      text(fit(turnName(), r * 1.6, r * 0.34, 800), g.cx, y + r * 0.04, r * 0.34, { color: INK_DARK, weight: 800 });
+      text(team ? tr('teamOf', p.cards.length, goal, hearts(p)) : tr('ofGoal', p.cards.length, goal), g.cx, y + r * 0.45, r * (team ? 0.13 : 0.16), { color: 'rgba(10,10,11,.65)', weight: 800 });
+      // scoreboard (Team: the team's tokens)
+      const y2 = g.cy + g.R * 0.27;
+      if (team) {
+        if (p.tokens > 0) coins(g.cx, y2 - g.R * 0.065, p.tokens, g.R * 0.026);
+        const n = crew.length, gap = g.R * 0.2;
+        crew.forEach((q, i) => {
+          const x = g.cx + M * (i - (n - 1) / 2) * gap, me = i === turn;
+          g.draw.circle(x, y2, g.R * (me ? 0.022 : 0.016), q.color, { stroke: me ? THEME.fg : null, lw: g.R * 0.006 });
+          text(fit(q.name, gap * 0.92, g.R * 0.028, 700), x, y2 + g.R * 0.05, g.R * 0.028, { color: me ? THEME.fg : THEME.muted, weight: 700 });
+        });
+      } else {
+        const n = players.length, gap = g.R * 0.24;
+        players.forEach((q, i) => {
+          const x = g.cx + M * (i - (n - 1) / 2) * gap;
+          const me = i === cur;
+          g.draw.circle(x, y2, g.R * (me ? 0.06 : 0.05), q.color, { stroke: me ? THEME.fg : null, lw: g.R * 0.008 });
+          text(String(q.cards.length), x, y2 + g.R * 0.003, g.R * 0.05, { color: INK_DARK, weight: 800 });
+          text(fit(q.name, gap * 0.92, g.R * 0.03, 700), x, y2 + g.R * 0.095, g.R * 0.03, { color: me ? THEME.fg : THEME.muted, weight: 700 });
+          if (useTokens && q.tokens > 0) {   // tokens: a coin and the count
+            coin(x - g.R * 0.022, y2 - g.R * 0.078, g.R * 0.014);
+            text(`×${q.tokens}`, x + g.R * 0.014, y2 - g.R * 0.077, g.R * 0.026, { color: THEME.muted, weight: 800, dir: 'ltr' });
+          }
+        });
+      }
       const blink = 0.55 + 0.45 * Math.sin(g.time * 3.5);
-      text('Tap to play the song', g.cx, g.cy + g.R * 0.44, g.R * 0.042, { color: THEME.muted, alpha: blink, weight: 700 });
+      // buy a card with 3 tokens (Original and Team)
+      if (useTokens && !solo && p.tokens >= BUY_COST) {
+        const bw = g.R * 0.52, bh = g.R * 0.085, by = g.cy - g.R * 0.485;
+        button('buy', '', g.cx, by, bw, bh, buyCard, { small: true, col: '#ffc857' });
+        const lab = `${tr('buy')} · ${BUY_COST}`, ts = bh * 0.4;
+        const lw = U.measure(lab, ts, 800);
+        text(lab, g.cx - M * g.R * 0.02, by + bh * 0.02, ts, { weight: 800 });
+        coin(g.cx - M * g.R * 0.02 + M * (lw / 2 + g.R * 0.03), by, g.R * 0.016);
+      }
+      text(tr('tapPlay'), g.cx, g.cy + g.R * 0.44, g.R * 0.042, { color: THEME.muted, alpha: blink, weight: 700 });
     }
     function drawLoad() {
       const rp = recPos();
       record(rp.x, rp.y, rp.r, color(), spin * 0.35);
-      text(loadMsg, g.cx, g.cy + g.R * 0.18, g.R * 0.045, { color: THEME.muted, weight: 700 });
+      text(tr(loadMsg, svcName()), g.cx, g.cy + g.R * 0.18, g.R * 0.045, { color: THEME.muted, weight: 700 });
     }
     function drawFail() {
       const rp = recPos();
       ctx.save(); ctx.globalAlpha = 0.45; record(rp.x, rp.y, rp.r, color(), 0); ctx.restore();
-      const lines = wrap(failMsg, g.R * 1.1, g.R * 0.045, 3, 600, THEME.font);
-      lines.forEach((l, i) => text(l, g.cx, g.cy + g.R * 0.13 + i * g.R * 0.065, g.R * 0.045, { color: THEME.fg, weight: 600, font: THEME.font }));
-      const y = g.cy + g.R * 0.13 + lines.length * g.R * 0.065 + g.R * 0.07;
-      button('retry', 'Try again', g.cx - g.R * 0.2, y, g.R * 0.36, g.R * 0.11, () => { failCount = 0; loadNext(true); }, { primary: true });
-      button('another', 'Another song', g.cx + g.R * 0.2, y, g.R * 0.36, g.R * 0.11, () => { failCount = 0; skipSong(true); }, {});
+      const n = U.para(failMsg, g.cx, g.cy + g.R * 0.13, g.R * 1.1, g.R * 0.045, { lines: 3, lh: 1.45 });
+      const y = g.cy + g.R * 0.13 + n * g.R * 0.065 + g.R * 0.07;
+      button('retry', tr('retry'), g.cx - M * g.R * 0.215, y, g.R * 0.4, g.R * 0.11, () => { failCount = 0; loadNext(true); }, { primary: true });
+      button('another', tr('another'), g.cx + M * g.R * 0.215, y, g.R * 0.4, g.R * 0.11, () => { failCount = 0; skipSong(true); }, {});
     }
     function drawGuess(dt) {
       const p = P();
@@ -790,19 +1097,68 @@ export default {
         }
       }
       const by = g.cy + g.R * 0.205;
-      button('lock', ghost == null ? 'Pick a spot' : 'Lock in', g.cx, by, g.R * 0.44, g.R * 0.13, lockIn, { primary: true, disabled: ghost == null });
+      button('lock', ghost == null ? tr('pickSpot') : tr('lockIn'), g.cx, by, g.R * 0.44, g.R * 0.13, lockIn, { primary: true, disabled: ghost == null || (rules === 'expert' && yearGuess == null) });
       const y2 = g.cy + g.R * 0.375;
-      button('knew', claimed ? '✓ I knew it!' : 'I knew it!', g.cx - g.R * 0.2, y2, g.R * 0.36, g.R * 0.095, () => { claimed = !claimed; if (claimed) g.sfx('coin'); }, { small: true, col: '#ffc857', primary: claimed });
-      button('skip', 'Skip  ', g.cx + g.R * 0.2, y2, g.R * 0.36, g.R * 0.095, () => skipSong(false), { small: true, disabled: p.tokens <= 0 });
-      ctx.save(); ctx.globalAlpha = p.tokens > 0 ? 1 : 0.45;
-      ctx.font = font(g.R * 0.038, 800); const sw = ctx.measureText('Skip').width;
-      coins(g.cx + g.R * 0.2 + sw / 2 + g.R * 0.012, y2, 1, g.R * 0.017); ctx.restore();
+      if (useTokens) {
+        const knewLabel = earnTokens ? tr('knew') : tr('named');
+        button('knew', claimed ? `✓ ${knewLabel}` : knewLabel, g.cx - M * g.R * 0.215, y2, g.R * 0.4, g.R * 0.095, () => { claimed = !claimed; if (claimed) g.sfx('coin'); }, { small: true, col: '#ffc857', primary: claimed });
+        // Skip costs a token: the label with a coin after it (before it, on the left, in Hebrew)
+        const sx = g.cx + M * g.R * 0.215;
+        button('skip', '', sx, y2, g.R * 0.4, g.R * 0.095, () => skipSong(false), { small: true, disabled: p.tokens <= 0 });
+        const sl = tr('skip'), ss = g.R * 0.095 * 0.4;
+        const sw = U.measure(sl, ss, 800), cw = g.R * 0.017 * 2 + g.R * 0.012;
+        text(sl, sx - M * cw / 2, y2 + g.R * 0.002, ss, { color: THEME.fg, weight: 800, alpha: p.tokens > 0 ? 1 : 0.45 });
+        ctx.save(); ctx.globalAlpha = p.tokens > 0 ? 1 : 0.45;
+        coin(sx - M * cw / 2 + M * (sw / 2 + g.R * 0.012 + g.R * 0.017), y2, g.R * 0.017); ctx.restore();
+      }
+      // Expert: the exact year
+      if (rules === 'expert' && ghost != null) {
+        const yy = g.cy + g.R * 0.065, bs = g.R * 0.075;
+        if (yearGuess == null) yearGuess = defaultYear();
+        text(tr('yearQ'), g.cx, yy - g.R * 0.065, g.R * 0.03, { color: THEME.muted, weight: 700 });
+        text(String(yearGuess), g.cx, yy, g.R * 0.056, { weight: 800, color: yearTouched ? THEME.fg : THEME.muted });
+        // minus on the left, plus on the right in both languages (a number line)
+        for (const [d, dx] of [[-5, -0.31], [-1, -0.2], [1, 0.2], [5, 0.31]]) button(`yr${d}`, d > 0 ? `+${d}` : `−${-d}`, g.cx + dx * g.R, yy, bs, bs, () => nudgeYear(d), { round: true, small: true, dir: 'ltr' });
+      }
       // the service may not be playing it: offer a free redraw
       const t = player.state.track;
       const trouble = guessT > 9 && (!player.state.isPlaying || (t && !isThisSong(t, song) && !song.item));
-      if (trouble) button('np', 'Not playing? Draw another', g.cx, g.cy + g.R * 0.475, g.R * 0.62, g.R * 0.07, () => skipSong(true), { small: true });
-      else if (hintT > 0) text(hint, g.cx, g.cy + g.R * 0.49, g.R * 0.034, { color: THEME.muted, weight: 700 });
-      else if (guessT < 6 && ghost == null) text('Drag the record into your timeline', g.cx, g.cy + g.R * 0.49, g.R * 0.034, { color: THEME.dim, weight: 700 });
+      const lowY = g.cy + g.R * (useTokens ? 0.475 : 0.36);
+      if (trouble) button('np', tr('notPlaying'), g.cx, lowY, g.R * 0.62, g.R * 0.07, () => skipSong(true), { small: true });
+      else if (hintT > 0) text(tr(hint), g.cx, lowY + g.R * 0.015, g.R * 0.034, { color: THEME.muted, weight: 700 });
+      else if (guessT < 6 && ghost == null) text(tr('dragRec'), g.cx, lowY + g.R * 0.015, g.R * 0.034, { color: THEME.dim, weight: 700 });
+    }
+    /** HITSTER! — the others may challenge the placement with a token. */
+    function drawChallenge() {
+      hud(tr('hitster'), tr('challengeQ'), THEME.light ? '#c98a00' : '#ffc857');
+      const list = players.filter(canStillChallenge);
+      const cw = g.R * 0.4, ch = g.R * 0.11, gap = g.R * 0.03;
+      const perRow = list.length > 3 ? Math.ceil(list.length / 2) : list.length;
+      const y0 = g.cy - g.R * (list.length > 3 ? 0.39 : 0.3);
+      list.forEach((q, i) => {
+        const row = Math.floor(i / Math.max(1, perRow)), col = i % Math.max(1, perRow);
+        const n = Math.min(perRow, list.length - row * perRow);
+        const x = g.cx + M * (col - (n - 1) / 2) * (cw + gap), y = y0 + row * (ch + gap);
+        button(`ch${players.indexOf(q)}`, '', x, y, cw, ch, () => startChallenge(q), { col: q.color, fill: g.draw.alpha(q.color, 0.9) });
+        text(fit(q.name, cw * 0.6, ch * 0.36, 800), x - M * cw * 0.1, y, ch * 0.36, { color: INK_DARK, weight: 800 });
+        coin(x + M * cw * 0.3, y, ch * 0.2);
+        text(String(q.tokens), x + M * cw * 0.3, y + ch * 0.01, ch * 0.22, { color: 'rgba(120,80,0,.9)', weight: 800 });
+      });
+      if (!list.length) text(tr('tokenNone'), g.cx, g.cy - g.R * 0.3, g.R * 0.04, { color: THEME.dim, weight: 700 });
+      // who already challenged
+      challenges.forEach((c, i) => {
+        const x = g.cx + M * (i - (challenges.length - 1) / 2) * g.R * 0.24, y = g.cy - g.R * 0.1;
+        g.draw.circle(x - M * g.R * 0.06, y, g.R * 0.02, c.p.color);
+        text(fit(c.p.name, g.R * 0.16, g.R * 0.03, 700), x + M * g.R * 0.02, y, g.R * 0.03, { color: THEME.muted, weight: 700 });
+      });
+      U.para(tr('challengeHint'), g.cx, g.cy + g.R * 0.02, g.R * 1.0, g.R * 0.034, { lines: 2, color: THEME.dim, weight: 700, fam: THEME.display });
+      button('reveal', tr('reveal'), g.cx, g.cy + g.R * 0.24, g.R * 0.44, g.R * 0.13, reveal, { primary: true, col: color() });
+    }
+    function drawCPick() {
+      hud(challenger.name, tr('pickGap', challenger.name).replace(`${challenger.name}: `, ''), challenger.color);
+      coin(g.cx, g.cy - g.R * 0.53, g.R * 0.022);
+      button('clock', tr('lockIn'), g.cx, g.cy + g.R * 0.205, g.R * 0.44, g.R * 0.13, lockChallenge, { primary: true, col: challenger.color, disabled: cGap == null });
+      button('ccancel', tr('cancelChallenge'), g.cx, g.cy + g.R * 0.37, g.R * 0.34, g.R * 0.085, () => { challenger = null; cGap = null; setPhase('challenge'); }, { small: true });
     }
     function bigCardGeom() { return { x: g.cx, y: g.cy - g.R * 0.075, w: g.R * 0.66, h: g.R * 0.8 }; }
     function drawBigCard(cx, cy, w, h, flip, s) {
@@ -822,17 +1178,19 @@ export default {
           ctx.drawImage(artImg, -art / 2, ay, art, art); ctx.restore();
         } else {
           g.draw.roundRect(-art / 2, ay, art, art, art * 0.08, 'rgba(10,10,11,.14)');
-          g.draw.text('♪', 0, ay + art / 2, art * 0.4, { color: 'rgba(10,10,11,.4)' });
+          text('♪', 0, ay + art / 2, art * 0.4, { color: 'rgba(10,10,11,.4)' });
         }
         const yy = ay + art + h * 0.13;
-        g.draw.text(String(s.y), 0, yy, h * 0.19, { color: INK_DARK, weight: 800 });
-        const tl = wrap(s.t, w * 0.86, h * 0.06, 2, 800);
-        tl.forEach((l, i) => g.draw.text(l, 0, yy + h * 0.13 + i * h * 0.068, h * 0.06, { color: INK_DARK, weight: 800 }));
-        g.draw.text(fit(s.a, w * 0.86, h * 0.045, 600, THEME.font), 0, yy + h * 0.13 + tl.length * h * 0.068 + h * 0.012, h * 0.045, { color: 'rgba(10,10,11,.66)', weight: 600, font: THEME.font });
+        text(String(s.y), 0, yy, h * 0.19, { color: INK_DARK, weight: 800 });
+        const title = showTitle(s, he);
+        const tl = wrap(title, w * 0.86, h * 0.06, 2, 800);
+        const td = U.dirFor(title);   // a wrapped title keeps one direction on both lines
+        tl.forEach((l, i) => text(l, 0, yy + h * 0.13 + i * h * 0.068, h * 0.06, { color: INK_DARK, weight: 800, dir: td }));
+        text(fit(showArtist(s, he), w * 0.86, h * 0.045, 600, THEME.font), 0, yy + h * 0.13 + tl.length * h * 0.068 + h * 0.012, h * 0.045, { color: 'rgba(10,10,11,.66)', weight: 600, font: THEME.font });
       }
       ctx.restore();
     }
-    function drawReveal(dt) {
+    function drawReveal() {
       const B = bigCardGeom();
       const rp = recPos();
       const t = phaseT;
@@ -844,7 +1202,7 @@ export default {
         rv.sounded = true;
         if (rv.ok) { g.sfx('perfect'); g.draw.burst(B.x, B.y - B.h * 0.1, decCol(song.y), 26, g.R * 0.7, g.R * 0.014); g.draw.burst(B.x, B.y, THEME.ok, 16, g.R * 0.5); }
         else { g.sfx('hit'); g.vibrate(30); }
-        if (rv.claimed) g.draw.float('+1 token', g.cx, g.cy - g.R * 0.5, '#ffc857', g.R * 0.05);
+        if (rv.claimed && useTokens && earnTokens) g.draw.float(tr('token'), g.cx, g.cy - g.R * 0.5, '#ffc857', g.R * 0.05);
       }
       // a soft scrim keeps the card readable over the timeline
       ctx.save(); ctx.globalAlpha = 0.5 * grow; g.draw.circle(B.x, B.y, B.h * 0.62, THEME.paper(0.35)); ctx.restore();
@@ -857,8 +1215,20 @@ export default {
         drawCorrectMarker(clamp((t - 0.9) / 0.3, 0, 1));
         if (t > 0.9) {
           const a = clamp((t - 0.9) / 0.3, 0, 1);
-          text(rv.ok ? 'Right spot — it’s yours!' : 'Not quite!', g.cx, g.cy + g.R * 0.42, g.R * 0.05, { color: rv.ok ? THEME.ok : THEME.danger, weight: 800, alpha: a });
-          text('Tap to continue', g.cx, g.cy + g.R * 0.505, g.R * 0.034, { color: THEME.dim, weight: 700, alpha: a * (0.55 + 0.45 * Math.sin(g.time * 3.5)) });
+          let msg = rv.ok ? tr('right') : tr('wrong'), mcol = rv.ok ? THEME.ok : THEME.danger;
+          if (rv.thief) { msg = tr('stole', rv.thief.name); mcol = rv.thief.color; }
+          else if (rv.place && !rv.ok) msg = !rv.yearOk ? tr('yearMiss') : tr('nameMiss');
+          const mt = fit(msg, g.R * 1.2, g.R * 0.05, 800), mw = U.measure(mt, g.R * 0.05, 800) + g.R * 0.08;
+          ctx.save(); ctx.globalAlpha = a; g.draw.roundRect(g.cx - mw / 2, g.cy + g.R * 0.38, mw, g.R * 0.08, g.R * 0.04, THEME.paper(THEME.light ? 0.75 : 0.6)); ctx.restore();
+          text(mt, g.cx, g.cy + g.R * 0.42, g.R * 0.05, { color: mcol, weight: 800, alpha: a });
+          // the table can overrule a wrong "I knew it!" / "Title + artist" (tapping anywhere else continues)
+          if (rv.claimed && useTokens) {
+            button('wrongname', tr('wrongName'), g.cx, g.cy + g.R * 0.505, g.R * 0.46, g.R * 0.075, () => { rv.claimed = false; evalReveal(); g.sfx('tick'); }, { small: true });
+          } else {
+            let sub = tr('tapCont');
+            if (challenges.length && rv.place) sub = tr('challengeLost');
+            text(sub, g.cx, g.cy + g.R * 0.505, g.R * 0.034, { color: THEME.dim, weight: 700, alpha: a * (sub === tr('tapCont') ? 0.55 + 0.45 * Math.sin(g.time * 3.5) : 1) });
+          }
         }
       }
     }
@@ -870,6 +1240,10 @@ export default {
         const [tx, ty] = polar(g.cx, g.cy, gh.a, ARC());
         const x = lerp(B.x, tx, e), y = lerp(B.y, ty, e), w = lerp(B.w, gh.w, e), h = lerp(B.h, gh.h, e);
         yearCard(x, y, w, h, song, { details: t > 0.6 });
+      } else if (rv.thief) {   // the card goes to the challenger who got it right
+        const x = B.x, y = lerp(B.y, g.cy - g.R * 0.95, e);
+        yearCard(x, y, B.w * (1 - 0.6 * e), B.h * (1 - 0.6 * e), song, { alpha: 1 - e * 0.8 });
+        text(rv.thief.name, g.cx, g.cy + g.R * 0.42, g.R * 0.05, { color: rv.thief.color, weight: 800, alpha: 1 - e });
       } else {
         const x = B.x + e * g.R * 0.15, y = B.y + e * e * g.R * 1.3;
         yearCard(x, y, B.w * (1 - 0.4 * e), B.h * (1 - 0.4 * e), song, { alpha: 1 - e, rot: e * 0.6 });
@@ -888,33 +1262,62 @@ export default {
     // ------------------------------------------------------------------ frame
     g.loop((dt) => {
       phaseT += dt; spin += dt * 3.2; if (hintT > 0) hintT -= dt;
-      ui = [];
-      g.draw.bg({ glow: 0.13, color: phase === 'setup' || phase === 'pick' ? g.color : color() });
+      syncLang();
+      U.list = [];
+      const sheet = ['setup', 'pick', 'genres', 'update'].includes(phase);
+      g.draw.bg({ glow: 0.13, color: sheet || phase === 'bingo' ? g.color : color() });
       if (phase === 'setup') drawSetup();
+      else if (phase === 'genres') drawGenres();
+      else if (phase === 'update') drawUpdate();
       else if (phase === 'pick') drawPick();
+      else if (phase === 'bingo') bingo?.draw(dt);
+      else if (phase === 'won' && kind === 'bingo') bingo?.draw(dt);
       else {
         if (players.length) drawTimeline(dt, { dim: phase === 'reveal' ? 0.25 * clamp(phaseT / 0.35, 0, 1) : 0 });
-        if (phase === 'handoff') { drawHandoff(); hud(solo ? '' : 'Pass the display', 'Only the player whose turn it is looks!'); }
-        else if (phase === 'load') { playerHud(); drawLoad(); }
+        if (phase === 'handoff') {
+          drawHandoff();
+          if (team) hud(tr('teamHud'), tr('everyone'));
+          else hud(tr('passDisplay'), tr('onlyPlayer'));
+        } else if (phase === 'load') { playerHud(); drawLoad(); }
         else if (phase === 'fail') { playerHud(); drawFail(); }
         else if (phase === 'guess') { playerHud(); drawGuess(dt); }
-        else if (phase === 'reveal') { playerHud(); drawReveal(dt); }
+        else if (phase === 'challenge') drawChallenge();
+        else if (phase === 'cpick') drawCPick();
+        else if (phase === 'reveal') { playerHud(); drawReveal(); }
         else if (phase === 'settle') { playerHud(); drawSettle(); }
         else if (phase === 'won') {
           const p = P();
-          if (p) hud(solo ? `${p.right} placed` : `${p.name} wins!`, solo ? 'Three strikes' : `${p.cards.length} cards`, solo ? THEME.fg : p.color);
+          if (p) {
+            if (solo) hud(tr('placed', p.right), tr('strikes'));
+            else if (team) hud(p.cards.length >= goal ? tr('teamWin') : tr('strikesT'), tr('nCards', p.cards.length), p.cards.length >= goal ? g.color : THEME.fg);
+            else hud(tr('wins', p.name), tr('nCards', p.cards.length), p.color);
+          }
         }
       }
-      // keyboard focus can only sit on a button that exists now
-      if (focus && !ui.some((b) => b.id === focus && !b.disabled)) focus = null;
+      U.endFrame();
       g.draw.particles(dt);
       g.draw.floaters(dt);
       if (confetti.length) drawConfetti(dt);
     });
 
+    // test hook (only when a test asks for it): the state, for scripted play
+    if (window.__hitsTest) {
+      window.__hitsDebug = () => ({
+        phase, he, kind, team, solo, rules, cur, turn, ghost, cGap, deckSize: deck.length, prefs,
+        song: song && { t: song.t, a: song.a, y: song.y, b: song.b, l: song.l, g: song.g }, names,
+        deckTags: deck.map((x) => [x.l || '', (x.g || []).join('/')]),
+        players: players.map((p) => ({ name: p.name, tokens: p.tokens, misses: p.misses, right: p.right, years: p.cards.map((c) => c.s.y) })),
+        challenges: challenges.map((c) => ({ p: players.indexOf(c.p), slot: c.slot })), rv: rv && { ok: rv.ok, place: rv.place, thief: rv.thief && players.indexOf(rv.thief) },
+        upd: { state: upd.state, added: upd.added, i: upd.i, n: upd.n }, buttons: U.list.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h, disabled: b.disabled })),
+        bingo: bingo?.debug(),
+      });
+      window.__hitsBingo = () => bingo;
+      window.__hitsPlayers = () => players;
+    }
+
     return {
       hideTrack: () => mystery(),   // the shell's pause card hides the song while it's a mystery
-      destroy() { destroyed = true; loadToken++; },
+      destroy() { destroyed = true; loadToken++; bingo?.destroy?.(); },
     };
   },
 };

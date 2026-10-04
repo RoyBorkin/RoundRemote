@@ -7,3 +7,7 @@ androidtv.json
 appletv.json
 profiles/
 googlehome.json
+cache/
+tasks.json
+tasks.json.tmp
+streamsdk.json

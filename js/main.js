@@ -11,12 +11,16 @@ import { HomeScreen } from './screens/home.js';
 import { PlayerScreen } from './screens/player.js';
 import { MediaScreen } from './screens/media.js';
 import { SmartHomeScreen } from './screens/smarthome.js';
+import { ConsolesScreen } from './screens/consoles.js';
+import { StreamerScreen } from './screens/streamer.js';
 import { applyProfile, loadBridgeProfile } from './core/profiles.js';
 import { ConnectScreen } from './screens/connect.js';
 import { SettingsScreen } from './screens/settings.js';
 import { GamesHubScreen } from '../games/hub.js';
 import { GameScreen } from '../games/shell.js';
 import { RhythmHubScreen } from '../rhythm/hub.js';
+import { AppsHubScreen } from '../apps/hub.js';
+import { AppScreen } from '../apps/shell.js';
 import { openVolume, openLibrary, openSearch } from './screens/panels.js';
 
 const app = document.getElementById('app');
@@ -30,11 +34,21 @@ register('player', () => { playerScreen = PlayerScreen(); return playerScreen; }
 let mediaScreen = null;
 register('media', () => { mediaScreen = MediaScreen(); return mediaScreen; });
 register('smarthome', (p) => { closeAllPanels(); return SmartHomeScreen(p); });
+register('consoles', (p) => { closeAllPanels(); return ConsolesScreen(p); });   // Home → PlayStation / Steam
+register('streamer', (p) => { closeAllPanels(); return StreamerScreen(p); });   // Home → music streamer (Fosi S3)
 register('connect', (p) => { closeAllPanels(); return ConnectScreen(p); });
 register('settings', () => { closeAllPanels(); return SettingsScreen(); });
 register('games', () => { closeAllPanels(); return GamesHubScreen(); });
 register('game', (p) => { closeAllPanels(); return GameScreen(p); });
 register('rhythm', () => { closeAllPanels(); return RhythmHubScreen(); });
+register('apps', () => { closeAllPanels(); return AppsHubScreen(); });
+register('app', (p) => { closeAllPanels(); return AppScreen(p); });
+// Clock alarms and running timers ring on any screen, right from the start
+setTimeout(() => {
+  import('../apps/clock-alarms.js').then((m) => m.startAlarms()).catch(() => {});
+  const t = (store.get('appData') || {}).timer;
+  if (t && ((t.timers || []).some((x) => x.state === 'run') || t.hg?.state === 'run')) import('../apps/timer.js').then((m) => m.startTimers()).catch(() => {});
+}, 1500);
 
 // ---------- control size (XS … XL; L is the original size) ----------
 export const UI_SIZES = { XS: 0.7, S: 0.8, M: 0.9, L: 1, XL: 1.12 };
@@ -81,7 +95,7 @@ app.addEventListener('pointerdown', (e) => {
 // ---------- keyboard / rotary-encoder shortcuts ----------
 window.addEventListener('keydown', (e) => {
   if (e.target.matches?.('input, textarea')) { if (e.key === 'Escape') topPanel()?.close(); return; }
-  if (['games', 'game', 'rhythm'].includes(currentScreen())) return;   // the games (and the Rhythm screen) handle their own keys
+  if (['games', 'game', 'rhythm', 'apps', 'app', 'consoles', 'streamer'].includes(currentScreen())) return;   // the games, Rhythm, Apps, the console and streamer screens handle their own keys
   const inPlayer = currentScreen() === 'player';
   const inMedia = currentScreen() === 'media';
   const k = e.key;

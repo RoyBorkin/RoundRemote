@@ -10,12 +10,16 @@ import { PlexMediaProvider } from './plex-media.js';
 import { JellyfinMediaProvider } from './jellyfin-media.js';
 import { HomeAssistantService } from './homeassistant.js';
 import { GoogleHomeService } from './googlehome.js';
+import { PlayStationService } from './playstation.js';
+import { SteamService } from './steam.js';
+import { StreamerService } from './streamer.js';
 import { StreamingProvider, STREAMING_ADAPTERS } from './streaming.js';
 
 // section: 'media' = Movies & shows (the home screen's Media side); everything else is music.
 // signIn: shares the sign-in of another tile · bridgeAdapter: the bridge adapter behind a bridge tile (default: its id)
 // remote: the service is a TV remote (its screen is the D-pad)
 // kind: 'hass' (Home Assistant address + token)
+// screen: the screen a Home service opens (default 'smarthome'; the game consoles use 'consoles', the music streamer 'streamer')
 // kind: 'oauth' (sign in via redirect/code), 'bridge' (needs bridge/server.js), 'local' (no sign-in)
 // icon: Simple Icons slug (https://simpleicons.org, loaded from jsDelivr); falls back to `mono`.
 export const SERVICES = [
@@ -95,6 +99,15 @@ export const SERVICES = [
   { id: 'googlehome', section: 'home', name: 'Google Home', mono: 'GH', icon: 'googlehome', color: '#4285f4', kind: 'bridge',
     blurb: 'Tell Google Assistant what to do — your own command tiles, routines, broadcasts — and control your Google / Nest speakers and displays.',
     make: (m) => new GoogleHomeService(m) },
+  { id: 'playstation', section: 'home', screen: 'consoles', bridgeAdapter: 'psn', name: 'PlayStation', mono: 'PS', icon: 'playstation', color: '#3b8ef0', kind: 'bridge',
+    blurb: 'Your PSN profile and who’s online, the game you’re playing with its trophy progress and latest trophies, recently played games with play time, your trophy level — and wake or rest your PS5.',
+    make: (m) => new PlayStationService(m) },
+  { id: 'steam', section: 'home', screen: 'consoles', name: 'Steam', mono: 'St', icon: 'steam', color: '#66c0f4', kind: 'bridge',
+    blurb: 'Your Steam status, the game you’re playing with its achievements, recently played games with hours, friends online — and start a game or Big Picture on your PC.',
+    make: (m) => new SteamService(m) },
+  { id: 'streamer', section: 'home', screen: 'streamer', bridgeAdapter: 'streamsdk', name: 'Fosi S3', mono: 'S3', glyph: 'speaker', color: '#f2a33a', kind: 'bridge',
+    blurb: 'Your music streamer (Fosi S3, or any StreamUnlimited-based streamer): what’s playing with artwork and audio format, a volume ring around the rim, play / pause / skip, mute, switch inputs (Line In, Optical, HDMI, Bluetooth), the output and standby.',
+    make: (m) => new StreamerService(m) },
 ];
 
 const instances = new Map();

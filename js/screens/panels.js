@@ -13,6 +13,7 @@ import { sound } from '../core/sound.js';
 import { VIDEO_KINDS } from '../core/youtube.js';
 import { videoKinds } from '../views/video.js';
 import { VINYL_DESIGNS, ARM_DESIGNS, VINYL_COLORS, vinylDesign, armDesign, vinylColor, luminance } from '../views/vinyl-styles.js';
+import { DECKS, TAPE_STYLES, CD_BACK_STYLES, CD_TOP_STYLES, deckId, tapeStyle, cdBackStyle, cdTopStyle } from '../views/deck-styles.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -307,6 +308,35 @@ export function vinylColorSwatches() {
   paint();
   return h('div.opt', h('div.opt-label', 'Record colour'), row);
 }
+/**
+ * Vinyl · Tape · CD: the "Player" choice (record, cassette, CD back / top) and each one's options,
+ * shown only for the chosen player. Used by the Vinyl view's ⋯ sheet and Settings → Music.
+ * `speed` adds the spin + scratch speed chips (records and CDs).
+ */
+export function deckOptions({ speed = true } = {}) {
+  const styleRow = (label, list, key, norm) => h('div.opt', h('div.opt-label', label), chips(list, norm(store.get(key)), (v) => store.set(key, v)));
+  const groups = {
+    vinyl: [vinylDesignChips(), vinylColorSwatches(), armDesignChips(), vinylArtSlider(), armToggle()],
+    tape: [styleRow('Cassette', TAPE_STYLES, 'tapeStyle', tapeStyle)],
+    cdback: [styleRow('CD · data side', CD_BACK_STYLES, 'cdBackStyle', cdBackStyle)],
+    cdtop: [styleRow('CD · label side', CD_TOP_STYLES, 'cdTopStyle', cdTopStyle)],
+  };
+  const title = vinylTitleToggle();
+  const speedRow = speed ? h('div.opt', h('div.opt-label', 'Record speed (spin + scratch)'), chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))) : null;
+  const sync = () => {
+    const d = deckId(store.get('vinylDeck'));
+    for (const [id, els] of Object.entries(groups)) for (const e of els) e.hidden = id !== d;
+    title.querySelector('.opt-label').textContent = d === 'tape' ? 'Show the song on the label' : d === 'vinyl' ? 'Show the title around the label' : 'Show the song on the disc';
+    if (speedRow) {
+      speedRow.hidden = d === 'tape';
+      speedRow.querySelector('.opt-label').textContent = d === 'vinyl' ? 'Record speed (spin + scratch)' : 'Disc speed (spin + scratch)';
+    }
+  };
+  const deckRow = h('div.opt', h('div.opt-label', 'Player'), chips(DECKS, deckId(store.get('vinylDeck')), (v) => { store.set('vinylDeck', v); sync(); }));
+  sync();
+  return [deckRow, ...Object.values(groups).flat(), title, speedRow].filter(Boolean);
+}
+export const deckName = () => ({ tape: 'Cassette', cdback: 'CD', cdtop: 'CD' }[deckId(store.get('vinylDeck'))] || 'Vinyl');
 export const INFO_HIDDEN = [
   { id: 'clear', name: 'Artwork · clear' }, { id: 'milky', name: 'Artwork · milky blur' },
   { id: 'card-black', name: 'Song info · black' }, { id: 'card-blur', name: 'Song info · blurred art' },
@@ -340,10 +370,12 @@ export function openFactsOptions() {
 
 export function openMore(view = 'info') {
   openPanel({
-    title: view === 'vinyl' ? 'Vinyl' : view === 'info' ? 'Classic' : view === 'video' ? 'Video' : 'Playback', className: 'opts-panel',
+    title: view === 'vinyl' ? deckName() : view === 'info' ? 'Classic' : view === 'video' ? 'Video' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
-      if (view === 'vinyl') body.append(vinylDesignChips(), vinylColorSwatches(), armDesignChips(), vinylArtSlider(), armToggle(), vinylTitleToggle());
+      const deckOpts = view === 'vinyl' ? deckOptions() : [];
+      const deckSpeed = deckOpts.pop();   // the speed chips go at the end, as before
+      if (view === 'vinyl') body.append(...deckOpts);
       if (view === 'info') body.append(infoArtChips(), infoArtToggle(), infoAutoHideToggle());
       if (view === 'video') body.append(...videoOpts());
       const toggles = h('div.toggles');
@@ -365,9 +397,7 @@ export function openMore(view = 'info') {
           h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); player.seekBy(15000); } }, '+15s'))));
       }
       body.append(h('div.chips', h('button.chip', { type: 'button', onclick: (e) => { e.stopPropagation(); openCustomizeControls('player'); } }, 'Customize controls')));
-      if (view === 'vinyl') {
-        body.append(h('div.opt', h('div.opt-label', 'Record speed (spin + scratch)'), chips(VINYL_SPEEDS, store.get('vinylSecondsPerTurn'), (v) => store.set('vinylSecondsPerTurn', v))));
-      }
+      if (deckSpeed) body.append(deckSpeed);
     },
   });
 }

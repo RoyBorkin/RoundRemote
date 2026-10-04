@@ -1,0 +1,257 @@
+/* ==========================================================================
+   Vinyl view → the other players (js/views/decks.js, js/views/deck-styles.js):
+     .view-tape.ts-classic | .ts-clear | .ts-metal         a cassette
+     .view-cd.cd-back.cb-silver | .cb-gold | .cb-black     a CD seen from the data side
+     .view-cd.cd-top.ct-print | .ct-marker | .ct-ring      a CD seen from the label side
+   Everything that moves is its own layer that only rotates / scales (no filters, no blend modes on
+   moving layers); the detailed drawings are static and painted once. Fixed colours: like the record,
+   these stay "real objects" in every theme (the player views stay dark in Light mode).
+   ========================================================================== */
+.view-deck { touch-action: none; }
+
+/* ---------------------------------------------------------------- cassette */
+.view-tape { touch-action: none; cursor: grab; border-radius: 50%; overflow: hidden; }
+.view-tape.grab { cursor: grabbing; }
+.tp-floor {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 62% 44% at 50% 53%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 72%),
+    radial-gradient(circle at 50% 46%, rgb(0 0 0 / .2), rgb(0 0 0 / .62) 62%, rgb(0 0 0 / .85) 100%);
+}
+.player[data-view="vinyl"]:has(.view-tape) .bg-art.on { opacity: .75 !important; }
+.tp-cass {
+  position: absolute; left: 50%; top: 50%; width: 80cqmin; aspect-ratio: 1000 / 636;
+  /* controls shown: small enough to sit between the side buttons (they move in at bigger control sizes) */
+  transform: translate(-50%, -50%) scale(calc(.72 - max(0, var(--ui, 1) - 1) * .4));
+  transition: transform .8s var(--ease);
+}
+/* controls hidden → the cassette fills the middle band of the circle */
+.player.chrome-hidden .tp-cass { transform: translate(-50%, -50%) scale(1); }
+.tp-cass::before {   /* soft shadow on the "table" (static) */
+  content: ''; position: absolute; inset: 3% 2% -1%; border-radius: 4cqmin;
+  box-shadow: 0 2.6cqmin 6cqmin rgb(0 0 0 / .75), 0 .6cqmin 1.4cqmin rgb(0 0 0 / .6);
+}
+.ts-clear .tp-cass::before { box-shadow: 0 2.6cqmin 6cqmin rgb(0 0 0 / .45); }
+.tp-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tp-reel { position: absolute; top: 6.289%; width: 46.4%; aspect-ratio: 1; pointer-events: none; }
+.tp-reel.l { left: 5.6%; }
+.tp-reel.r { left: 48%; }
+.tp-pack, .tp-hub { position: absolute; border-radius: 50%; will-change: transform; }
+.tp-pack { inset: 0; }
+.tp-hub { left: 26.29%; top: 26.29%; width: 47.41%; height: 47.41%; }
+.tp-hub svg { display: block; width: 100%; height: 100%; }
+/* the tape pack: wound tape with a faint winding texture; the uneven patches show it turning */
+.tp-pack {
+  --t1: #5d3b25; --t2: #472c1b; --t3: #2f1c10;
+  background:
+    conic-gradient(from 0deg, rgb(255 255 255 / .07) 0 9deg, transparent 9deg 64deg, rgb(0 0 0 / .14) 64deg 92deg, transparent 92deg 158deg,
+      rgb(255 255 255 / .05) 158deg 171deg, transparent 171deg 247deg, rgb(0 0 0 / .1) 247deg 281deg, transparent 281deg),
+    radial-gradient(circle closest-side, transparent 0 95.6%, rgb(255 230 200 / .28) 96.8%, rgb(0 0 0 / .45) 99%, transparent 100%),
+    repeating-radial-gradient(circle, rgb(255 255 255 / .045) 0 .14cqmin, transparent .14cqmin .5cqmin),
+    radial-gradient(circle closest-side, var(--t1) 0, var(--t2) 72%, var(--t3) 100%);
+}
+.ts-clear .tp-pack { --t1: #6a4329; --t2: #55351f; --t3: #3a2414; }
+.ts-metal .tp-pack { --t1: #3d3633; --t2: #2b2624; --t3: #171413; }
+.ts-metal .tp-pack::after {  /* metal tape: a dark mirror with a cool sheen */
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, transparent 0 96%, rgb(200 210 230 / .35) 97.4%, transparent 99.4%),
+    conic-gradient(from 30deg, transparent 0 20deg, rgb(160 175 200 / .2) 40deg, transparent 70deg 200deg, rgb(160 175 200 / .16) 220deg, transparent 250deg);
+}
+.tp-run { stroke: #3e2617; stroke-width: 6.5; stroke-linejoin: round; }
+.ts-clear .tp-run { stroke: #4a2d1b; }
+.ts-metal .tp-run { stroke: #1c1715; }
+/* glass over the window (Classic / Metal) or over the whole shell (Clear) — static */
+.tp-glare {
+  position: absolute; left: 19.6%; top: 30.82%; width: 60.8%; height: 23.9%; border-radius: 1.3cqmin; pointer-events: none;
+  background:
+    linear-gradient(172deg, rgb(255 255 255 / .17), rgb(255 255 255 / .05) 38%, transparent 58%),
+    linear-gradient(112deg, transparent 18%, rgb(255 255 255 / .11) 25%, rgb(255 255 255 / .02) 33%, transparent 36%, transparent 62%, rgb(255 255 255 / .06) 66%, transparent 70%);
+}
+.ts-clear .tp-glare {
+  inset: 0; border-radius: 2.4cqmin;
+  background:
+    linear-gradient(165deg, rgb(255 255 255 / .16), rgb(255 255 255 / .03) 30%, transparent 48%),
+    linear-gradient(115deg, transparent 22%, rgb(255 255 255 / .1) 30%, transparent 38%, transparent 64%, rgb(255 255 255 / .06) 69%, transparent 74%);
+}
+/* label type */
+.tp-front text { font-family: 'Inter', 'Rubik', system-ui, sans-serif; }
+.tp-front .tp-hand { font-family: 'Amatic SC', 'Permanent Marker', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; font-weight: 700; }
+.tp-front .tp-cond { font-family: 'Oswald', 'Archivo', 'Inter', sans-serif; font-weight: 600; }
+.tp-front .tp-heavy { font-family: 'League Spartan', 'Archivo', 'Inter', sans-serif; font-weight: 900; }
+.ts-clear .tp-title { font-weight: 800; letter-spacing: -.5px; }
+.ts-clear .tp-artist { font-weight: 600; }
+.player.vinyl-notitle .deck-title { visibility: hidden; }
+
+/* ---------------------------------------------------------------- CD (shared) */
+.view-cd { touch-action: none; cursor: grab; border-radius: 50%; overflow: hidden; background: var(--bg); }
+.view-cd.grab { cursor: grabbing; }
+.cd-disc { position: absolute; inset: 0; border-radius: 50%; will-change: transform; }
+.cd-data, .cd-scratch, .ct-face, .ct-art { position: absolute; inset: 0; border-radius: 50%; }
+.cd-burn, .cd-art, .cd-sheen, .cd-sheen2, .ct-gloss, .cd-hub, .cd-hole { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+.cd-print { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.cd-back .cd-print, .cd-sheen, .cd-sheen2, .ct-gloss, .cd-burn { will-change: transform; }
+.cd-hole {   /* the 15 mm centre hole, with the player's spindle in it */
+  inset: 43.75%;
+  background: radial-gradient(circle closest-side, #d5d9df 0 18%, #8b9098 30%, #3a3d43 40%, #121316 52% 82%, #2a2c31 90%, #050506 100%);
+}
+.cd-print text { font-family: var(--font); }
+
+/* ---------------------------------------------------------------- CD · back (data side) */
+/* layers: disc (turns) → burn (Gold) → art reflection → rainbow → hub ring (static) → engraved text (turns) → laser */
+.cd-back { --d1: #c6cbd2; --d2: #b6bbc3; --d3: #c9ced5; --d4: #b0b5bd; --mir: #e4e7eb; --mir2: #f4f5f7; --clr: #2a2c32; --clr2: #50545c; --stack: #8a8f97; }
+.cd-back .cd-data {
+  background:
+    conic-gradient(from 7deg, rgb(255 255 255 / .05) 0 4deg, transparent 22deg 60deg, rgb(0 0 0 / .045) 74deg 80deg, transparent 96deg 150deg,
+      rgb(255 255 255 / .04) 166deg 170deg, transparent 190deg 236deg, rgb(0 0 0 / .04) 250deg 262deg, transparent 280deg 318deg, rgb(255 255 255 / .03) 334deg, transparent 352deg),
+    radial-gradient(circle closest-side, transparent 0 39%, rgb(0 0 0 / .08) 39.2% 39.5%, transparent 39.7% 48%, rgb(0 0 0 / .045) 48.1% 48.35%, transparent 48.5% 57%,
+      rgb(0 0 0 / .045) 57.1% 57.35%, transparent 57.5% 64.6%, rgb(0 0 0 / .045) 64.7% 64.95%, transparent 65.1% 72.6%, rgb(0 0 0 / .045) 72.7% 72.95%, transparent 73.1% 80.2%,
+      rgb(0 0 0 / .045) 80.3% 80.55%, transparent 80.7% 87.6%, rgb(0 0 0 / .045) 87.7% 87.95%, transparent 88.1%),
+    radial-gradient(circle closest-side, var(--d1) 0 38.5%, var(--d2) 40%, var(--d3) 62%, var(--d4) 92.4%, var(--mir) 93% 95.6%,
+      color-mix(in srgb, var(--d4) 60%, #000) 96.4%, rgb(150 156 166 / .55) 97.6%, rgb(255 255 255 / .35) 98.8%, rgb(40 42 48 / .7) 100%);
+}
+.cd-back .cd-scratch {
+  opacity: .5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23fff' stroke-linecap='round' stroke-opacity='.5'%3E%3Cpath d='M128 46 Q150 70 158 98' stroke-width='.35'/%3E%3Cpath d='M52 140 Q60 156 80 168' stroke-width='.28'/%3E%3Cpath d='M150 140 L162 126' stroke-width='.22'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.cd-sheen {   /* the rainbow: colours spread along the radius, in two spokes facing the light */
+  background: radial-gradient(circle closest-side, transparent 0 38.6%,
+    hsl(275 85% 68% / .5) 40%, hsl(228 95% 66% / .58) 47%, hsl(188 92% 56% / .58) 54%, hsl(130 75% 55% / .52) 61%,
+    hsl(58 95% 58% / .58) 68%, hsl(28 96% 60% / .52) 76%, hsl(345 88% 64% / .52) 84%, hsl(290 78% 66% / .44) 91%, transparent 95.6%);
+  -webkit-mask-image: conic-gradient(from 0deg, transparent 0 14deg, rgb(0 0 0 / .55) 26deg, #000 36deg 44deg, rgb(0 0 0 / .55) 54deg, transparent 68deg 194deg, rgb(0 0 0 / .45) 206deg, #000 216deg 224deg, rgb(0 0 0 / .45) 234deg, transparent 248deg);
+  mask-image: conic-gradient(from 0deg, transparent 0 14deg, rgb(0 0 0 / .55) 26deg, #000 36deg 44deg, rgb(0 0 0 / .55) 54deg, transparent 68deg 194deg, rgb(0 0 0 / .45) 206deg, #000 216deg 224deg, rgb(0 0 0 / .45) 234deg, transparent 248deg);
+}
+.cd-sheen2 {  /* a soft white highlight + faint all-round iridescence */
+  background:
+    conic-gradient(from 290deg, transparent 0deg, rgb(255 255 255 / .3) 22deg, rgb(255 255 255 / .06) 40deg, transparent 56deg, transparent 180deg, rgb(255 255 255 / .2) 200deg, transparent 232deg),
+    conic-gradient(from 90deg, hsl(0 90% 65% / .07), hsl(60 90% 60% / .07), hsl(120 90% 55% / .07), hsl(180 90% 55% / .07), hsl(240 90% 65% / .07), hsl(300 90% 65% / .07), hsl(360 90% 65% / .07));
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 38.6%, #000 39.4% 95%, transparent 96.4%);
+  mask-image: radial-gradient(circle closest-side, transparent 0 38.6%, #000 39.4% 95%, transparent 96.4%);
+}
+.cd-art {   /* the cover, faintly reflected in the mirror — it stays with the light */
+  background: center / cover no-repeat; opacity: .14; filter: blur(2.4cqmin) saturate(1.4);
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 39%, #000 46% 86%, transparent 95%);
+  mask-image: radial-gradient(circle closest-side, transparent 0 39%, #000 46% 86%, transparent 95%);
+}
+.view-cd.noart .cd-art { display: none; }
+.cd-back .cd-hub {   /* clear hub (seen through: the dark player), stacking ring, mirror band */
+  background:
+    radial-gradient(circle closest-side, transparent 0 13%, rgb(255 255 255 / .1) 13.3%, transparent 14% 19.6%, rgb(255 255 255 / .08) 20% 20.4%, transparent 20.8% 26.4%, rgb(255 255 255 / .16) 26.9%, transparent 27.6%),
+    conic-gradient(from 300deg, transparent 0deg, rgb(255 255 255 / .1) 30deg, transparent 70deg, transparent 180deg, rgb(255 255 255 / .06) 210deg, transparent 250deg),
+    radial-gradient(circle closest-side, #050506 0 12.5%, var(--clr2) 12.8%, var(--clr) 14.5% 26%, var(--clr2) 27.2%, var(--stack) 28%, color-mix(in srgb, var(--stack) 60%, #fff) 28.8%,
+      var(--stack) 29.6%, var(--mir) 30.2%, var(--mir2) 34%, var(--mir) 37.8%, color-mix(in srgb, var(--mir) 70%, #000) 38.4%, transparent 38.7%);
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 0 38.6%, transparent 38.8%);
+  mask-image: radial-gradient(circle closest-side, #000 0 38.6%, transparent 38.8%);
+}
+.cd-matrix { font: 600 2.5px var(--mono, monospace); letter-spacing: .45px; fill: rgb(30 34 42 / .55); }
+.cd-laser { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; will-change: transform; }
+.cd-laser i {
+  position: absolute; left: -1cqmin; top: -1cqmin; width: 2cqmin; height: 2cqmin; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 16%, #ff5a46 34%, rgb(255 40 30 / .35) 56%, transparent 72%);
+  box-shadow: 0 0 2.6cqmin .5cqmin rgb(255 50 40 / .45);
+  opacity: .3; transition: opacity .6s;
+}
+.view-cd.reading .cd-laser i { opacity: 1; }
+.cd-burn { display: none; }
+
+/* Silver: a pressed CD */
+.cb-silver .cd-art { opacity: .1; }
+/* Gold CD-R: gold dye; the burned part (from the hub out to the laser) is darker and grows with the song */
+.cb-gold { --d1: #e2cc78; --d2: #d9c068; --d3: #e6d27e; --d4: #cfb45c; --mir: #ede2b8; --mir2: #faf3d8; --stack: #9a8a58; --clr2: #2a2618; }
+.cb-gold .cd-burn {
+  display: block;
+  background: radial-gradient(circle closest-side, rgb(120 96 40 / .3) 0 94%, rgb(96 74 30 / .42) 97.4%, rgb(255 244 200 / .6) 98.6%, rgb(255 244 200 / 0) 100%);
+}
+.cb-gold .cd-sheen { opacity: .55; }
+.cb-gold .cd-sheen2 { opacity: .8; }
+.cb-gold .cd-art { opacity: .08; }
+.cb-gold .cd-matrix { fill: rgb(70 54 20 / .6); }
+/* Black: a black game disc — near-black with a deep violet / blue sheen */
+.cb-black { --d1: #121219; --d2: #0e0e15; --d3: #12121b; --d4: #0b0b11; --mir: #2a2834; --mir2: #3a3846; --clr: #141319; --clr2: #2c2a36; --stack: #4a4756; }
+.cb-black .cd-data { box-shadow: inset 0 0 0 .3cqmin rgb(120 110 170 / .25); }
+.cb-black .cd-sheen {
+  background: radial-gradient(circle closest-side, transparent 0 38.6%,
+    hsl(262 80% 52% / .5) 42%, hsl(236 85% 56% / .55) 52%, hsl(210 90% 52% / .45) 62%, hsl(280 75% 50% / .45) 74%, hsl(250 80% 56% / .5) 86%, hsl(300 70% 46% / .35) 93%, transparent 95.6%);
+}
+.cb-black .cd-sheen2 {
+  background:
+    conic-gradient(from 290deg, transparent 0deg, rgb(170 150 255 / .2) 22deg, rgb(120 110 255 / .05) 40deg, transparent 56deg, transparent 180deg, rgb(150 140 255 / .14) 200deg, transparent 232deg),
+    radial-gradient(circle at 34% 30%, rgb(90 70 200 / .16), transparent 55%);
+}
+.cb-black .cd-scratch { opacity: .3; }
+.cb-black .cd-art { opacity: .2; }
+.cb-black .cd-matrix { fill: rgb(190 185 230 / .38); }
+
+/* ---------------------------------------------------------------- CD · top (label side) */
+.cd-top .cd-hub {   /* clear centre and the unprinted silver ring around it (static: it looks the same at any angle) */
+  inset: 35.6%;
+  background:
+    conic-gradient(from 300deg, transparent 0deg, rgb(255 255 255 / .12) 30deg, transparent 70deg, transparent 180deg, rgb(255 255 255 / .07) 210deg, transparent 250deg),
+    radial-gradient(circle closest-side, #050506 0 44.6%, #26282d 45.6%, #121317 48% 64%, rgb(255 255 255 / .14) 65%, #141519 66.5% 72%, #3d4047 74%,
+      #e7e9ed 76%, #c3c7ce 84%, #eef0f3 92%, #9ca1a9 97.5%, rgb(60 62 66 / .8) 99%, transparent 100%);
+}
+.ct-face {
+  background: radial-gradient(circle closest-side, transparent 0 28%, #c9cdd3 28.6%, #dfe2e6 50%, #c8ccd2 80%, #e2e5e9 97%, #9a9fa7 98.8%, rgb(40 42 48 / .7) 100%);
+}
+.ct-art { background: center / cover no-repeat; }
+.view-cd.noart .ct-art { background-image: radial-gradient(circle, color-mix(in srgb, var(--accent) 70%, #000), color-mix(in srgb, var(--accent) 30%, #000)) !important; }
+.ct-sticker { display: none; }
+.ct-gloss { -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 28.4%, #000 29%); mask-image: radial-gradient(circle closest-side, transparent 0 28.4%, #000 29%); }
+
+/* Full print: the cover printed over the whole face, glossy */
+.ct-print .ct-art {
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 28.3%, #000 28.6% 98.4%, transparent 98.7%);
+  mask-image: radial-gradient(circle closest-side, transparent 0 28.3%, #000 28.6% 98.4%, transparent 98.7%);
+}
+.ct-print .ct-gloss {
+  background:
+    linear-gradient(128deg, transparent 20%, rgb(255 255 255 / .2) 36%, rgb(255 255 255 / .06) 45%, transparent 54%, transparent 68%, rgb(255 255 255 / .08) 78%, transparent 86%),
+    radial-gradient(circle closest-side, transparent 0 88%, rgb(0 0 0 / .22) 98%, transparent 100%);
+}
+.ct-band { fill: none; stroke: rgb(8 8 10 / .62); stroke-width: 6.2; }
+.ct-ring-text { font-weight: 700; font-size: 3.4px; letter-spacing: .85px; fill: #fff; }
+
+/* CD-R marker: a white printable disc, written on by hand, with a little art sticker */
+.ct-marker .ct-face {
+  background:
+    radial-gradient(circle closest-side, transparent 0 28%, #d9dadc 28.4%, #eeeeeb 29.6%, #f7f7f4 40% 88%, #efefeb 96.8%, #c6cad0 97.4%, #f0f1f4 98.4%, #8e939b 99.5%, rgb(40 42 48 / .7) 100%);
+}
+.ct-marker .ct-art { display: none; }
+.ct-marker .ct-sticker {
+  display: block; position: absolute; left: 71.5%; top: 41%; width: 18%; height: 18%; padding: 1cqmin 1cqmin 2.6cqmin;
+  background: #fffdf8; border-radius: .6cqmin; transform: rotate(8deg);
+  box-shadow: 0 .3cqmin .8cqmin rgb(0 0 0 / .28);
+}
+.ct-marker .ct-sticker i { display: block; width: 100%; height: 100%; border-radius: .3cqmin; background: var(--accent) center / cover no-repeat; }
+.ct-marker .ct-gloss { background: linear-gradient(128deg, transparent 26%, rgb(255 255 255 / .35) 40%, transparent 54%); opacity: .5; }
+.ct-hand { font-family: 'Permanent Marker', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; fill: #172054; }
+.ct-hand-title { font-size: 14px; }
+.ct-hand-artist { font-size: 10.5px; }
+.ct-hand-album { font-size: 6.5px; fill: #2c3566; }
+.ct-hand-time { font-size: 9px; fill: #b3263a; }
+.ct-swoosh { fill: none; stroke: #b3263a; stroke-width: 1.5; stroke-linecap: round; }
+
+/* Ring: a silver disc with the cover as a printed band and the title on an arc */
+.ct-ring .ct-art {
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 53%, #000 53.3% 80.7%, transparent 81%);
+  mask-image: radial-gradient(circle closest-side, transparent 0 53%, #000 53.3% 80.7%, transparent 81%);
+}
+.ct-ring .ct-gloss {   /* brushed-silver spokes on the bare metal, not on the printed band */
+  background: conic-gradient(from 20deg, rgb(255 255 255 / .42), rgb(0 0 0 / .14) 45deg, rgb(255 255 255 / .34) 90deg, rgb(0 0 0 / .18) 135deg,
+    rgb(255 255 255 / .42) 180deg, rgb(0 0 0 / .14) 225deg, rgb(255 255 255 / .34) 270deg, rgb(0 0 0 / .18) 315deg, rgb(255 255 255 / .42));
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 28.4%, #000 29% 52.6%, transparent 53% 81.2%, #000 81.6% 98.6%, transparent 99.4%);
+  mask-image: radial-gradient(circle closest-side, transparent 0 28.4%, #000 29% 52.6%, transparent 53% 81.2%, #000 81.6% 98.6%, transparent 99.4%);
+}
+.ct-line { fill: none; stroke: #1d1f24; stroke-width: .7; }
+.ct-ring-title { font-family: var(--display); font-weight: 700; font-size: 6.4px; letter-spacing: .3px; fill: #17191e; }
+.ct-ring-artist { font-weight: 700; font-size: 3.5px; letter-spacing: 1.3px; fill: #2b2e35; }
+
+/* light-coloured discs: keep the controls readable in every theme (some themes make them see-through) */
+#app .player[data-view="vinyl"]:has(.view-cd.bright) :is(.ibtn:not(.ctl):not(.vbtn), .ibtn.ctl:not(.play), .device-pill) { background-color: rgb(0 0 0 / .5); }
+#app .player[data-view="vinyl"]:has(.view-cd.bright) .device-pill { color: rgb(255 255 255 / .85); }
+#app .player[data-view="vinyl"]:has(.view-cd.bright) .view-switch { background: rgb(0 0 0 / .6); }
+
+/* the YouTube picture (YouTube Music) in these players */
+#app[data-ytpos="vinyl"][data-deck="tape"] #yt-host { --w: 17%; top: 50%; }
+#app[data-ytpos="vinyl"][data-deck^="cd"] #yt-host { --w: 24%; top: 50%; }
+#app.lite .cd-art { display: none; }

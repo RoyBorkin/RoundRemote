@@ -11,6 +11,8 @@ import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { directTvs, directId, saveDirectTv, forgetDirectTv, pingDirect, directKey, haTvZones, TV_APP_PORT, TV_APP_APK } from '../core/tvapp.js';
 import { go } from '../core/router.js';
+import { haConsoles } from '../providers/playstation.js';
+import { normHost } from '../providers/streamer.js';
 
 const err = (e) => e?.userMessage || e?.message || String(e);
 const btn = (label, onClick, cls = '') => h(`button.pill${cls ? '.' + cls : ''}`, { type: 'button', onclick: onClick }, label);
@@ -59,6 +61,9 @@ export function ConnectScreen({ id }) {
     if (['androidtv', 'appletv'].includes(adapterOf(svc)) && svc.id !== 'cast') return renderTvPairing();
     if (kind === 'hass') return renderHass();
     if (id === 'googlehome') return renderGoogleHome();
+    if (id === 'playstation') return renderPlayStation();
+    if (id === 'steam') return renderSteam();
+    if (id === 'streamer') return renderStreamer();
     if (kind === 'bridge') return renderBridge();
     if (kind === 'youtube') return renderYouTube();
     if (id === 'spotify') return renderSpotify();
@@ -469,6 +474,150 @@ export function ConnectScreen({ id }) {
         h('div.note.dim', 'Or copy a credentials.json made with google-oauthlib-tool into the bridge folder as googlehome.json. Your speakers and displays work without signing in (Speakers tab).'),
         h('div.actions', btn('Open anyway', () => openService(id))),
       );
+    }
+  }
+
+  // ---------- PlayStation: NPSSO token → PSN sign-in kept on the bridge ----------
+  async function renderPlayStation() {
+    body.append(status);
+    setStatus('Looking for the bridge…');
+    const info = await bridgeInfo();
+    if (!info) { clear(body); body.append(...header()); return renderBridge(); }
+    let st = null;
+    try { st = await p.status(); } catch (e) { setStatus(e.status === 404 ? 'This bridge has no PlayStation support yet — update the bridge (bridge/adapters/psn.js) and restart it.' : err(e), 'warn'); return; }
+    if (st.signedIn) {
+      p.markLinked(st.onlineId);
+      setStatus(`Signed in to PlayStation Network${st.onlineId ? ` as ${st.onlineId}` : ''}`, 'ok');
+      body.append(h('div.actions', btn('Open', () => openService(id), 'primary'),
+        btn('Sign out', async () => { await p.signOut(); toast('Signed out of PlayStation'); render(); })));
+    } else {
+      setStatus('Sign in once with an NPSSO token — it takes a minute.', 'warn');
+      let npsso = '';
+      const f = field({ label: 'NPSSO token', value: '', secret: true, placeholder: '64 letters and digits', onChange: (v) => { npsso = v; } });
+      body.append(
+        h('div.note', '1. In a browser on your phone or computer, sign in at playstation.com with your PSN account.'),
+        h('code.uri', 'https://www.playstation.com'),
+        h('div.note', '2. In the same browser open this page:'),
+        h('code.uri', 'https://ca.account.sony.com/api/v1/ssocookie'),
+        h('div.note', '3. It shows {"npsso":"…"}. Copy the 64-character value (pasting the whole line works too) and paste it here.'),
+        f,
+        h('div.actions', btn('Sign in', async () => {
+          npsso = (f.querySelector('input').value || npsso).trim();
+          if (!npsso) { setStatus('Paste the NPSSO token first', 'error'); return; }
+          setStatus('Signing in…');
+          try { const r = await p.api('signin', { method: 'POST', json: { npsso }, timeout: 30000 }); p.markLinked(r.onlineId); done(); }
+          catch (e) { setStatus(e?.body?.error || err(e), 'error'); }
+        }, 'primary')),
+        h('div.note.dim', 'The bridge swaps the token for the PlayStation App’s own sign-in, keeps it in bridge/psn.json and renews it by itself (for about two months). Treat the token like a password. If it stops working, sign in at playstation.com again and paste a fresh one.'),
+      );
+    }
+    // console power: Home Assistant, or playactor on the bridge
+    const power = h('div.stack');
+    body.append(h('div.section', 'Wake & rest mode (optional)'), power);
+    const ha = provider('homeassistant');
+    let haLine = 'Home Assistant isn’t set up.';
+    if (ha?.isAuthed() && !ha.setupHint()) {
+      await Promise.race([ha.connect().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
+      const ents = haConsoles(ha);
+      haLine = ents.length ? `Home Assistant ✓ — ${ents[0].attributes?.friendly_name || ents[0].entity_id}` : 'Home Assistant has no PlayStation power switch yet.';
+      ha.release();
+    }
+    power.append(
+      h('div.note', 'The power button appears on the PlayStation screen when one of these is set up:'),
+      h('div.note', `• Home Assistant with the ps5-mqtt add-on (or PlayStation2MQTT, or the PlayStation 4 integration). ${haLine}`),
+      h('div.note', `• playactor on the bridge computer${st.playactor ? ' ✓ found' : ' — not found'}. Install it with Node.js, then pair once (Remote Play must be on: PS5 Settings → System → Remote Play). It shows a link to sign in and asks for the code from the PS5:`),
+      h('code.uri', 'npm i -g playactor\nplayactor login --ps5'),
+      h('div.note.dim', 'For a fixed console, add "psn": { "playactor": { "ip": "192.168.1.60" } } to bridge/config.json. Restart the bridge after installing playactor.'),
+    );
+  }
+
+  // ---------- Steam: Web API key + your profile, kept on the bridge ----------
+  async function renderSteam() {
+    body.append(status);
+    setStatus('Looking for the bridge…');
+    const info = await bridgeInfo();
+    if (!info) { clear(body); body.append(...header()); return renderBridge(); }
+    let st = null;
+    try { st = await p.status(); } catch (e) { setStatus(e.status === 404 ? 'This bridge has no Steam support yet — update the bridge (bridge/adapters/steam.js) and restart it.' : err(e), 'warn'); return; }
+    const form = (editing) => {
+      let key = '', user = '';
+      const k = field({ label: 'Steam Web API key', value: '', secret: true, placeholder: st.hasKey ? '(saved — paste a new one to replace it)' : '32 letters and digits', onChange: (v) => { key = v; } });
+      const u = field({ label: 'Your Steam profile', value: st.steamId || '', placeholder: 'SteamID64, profile link or custom URL name', onChange: (v) => { user = v; } });
+      body.append(
+        h('div.note', '1. Get a free Web API key at the address below (sign in with Steam; any domain name works, e.g. localhost).'),
+        h('code.uri', 'https://steamcommunity.com/dev/apikey'), k,
+        h('div.note', '2. Your profile: the link of your Steam profile (steamcommunity.com/id/… or /profiles/7656…), its custom URL name, or your SteamID64.'), u,
+        h('div.note', '3. In Steam: Profile → Edit Profile → Privacy Settings → set My profile and Game details (and Friends list) to Public, or games, achievements and friends stay hidden.'),
+        h('div.actions', btn(editing ? 'Save' : 'Connect', async () => {
+          key = (k.querySelector('input').value || key).trim(); user = (u.querySelector('input').value || user).trim();
+          setStatus('Checking with Steam…');
+          try {
+            const r = await p.api('setup', { method: 'POST', json: { apiKey: key, user }, timeout: 30000 });
+            p.markLinked(r.name);
+            if (!r.public) toast('Your Steam profile is private — set Game details to Public', { kind: 'error', ms: 4500 });
+            done();
+          } catch (e) { setStatus(e?.body?.error || err(e), 'error'); }
+        }, 'primary'), editing ? btn('Cancel', render) : null),
+        h('div.note.dim', 'The key stays on the bridge (bridge/steam.json). Start game and Big Picture open Steam on the computer that runs the bridge.'),
+      );
+    };
+    if (st.signedIn) {
+      p.markLinked(st.name);
+      setStatus(`Connected to Steam as ${st.name || st.steamId}`, 'ok');
+      body.append(h('div.actions', btn('Open', () => openService(id), 'primary'),
+        btn('Change', () => { clear(body); body.append(...header(), status); form(true); }),
+        btn('Forget', async () => { await p.signOut(); toast('Steam key removed from the bridge'); render(); })));
+      if (!st.control) body.append(h('div.note.dim', 'Starting games is turned off in the bridge config (steam.control).'));
+    } else {
+      setStatus('Connect your Steam account — about a minute.', 'warn');
+      form(false);
+    }
+  }
+
+  // ---------- Music streamer (StreamUnlimited StreamSDK, e.g. Fosi S3): its address + a test ----------
+  function renderStreamer() {
+    const saved = store.auth(id) || {};
+    let addr = saved.host || '';
+    const f = field({ label: 'Streamer address', value: addr, placeholder: '192.168.50.156', onChange: (v) => { addr = v; } });
+    const card = h('div.st-found');
+    const acts = h('div.actions');
+    const showCard = (r) => {
+      clear(card);
+      card.append(h('div.st-found-ic', { html: '<svg class="ic" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' }),
+        h('div.st-found-text', h('b', r.name || 'Streamer'), h('span', [r.product, r.version && `firmware ${r.version}`].filter(Boolean).join(' · ')),
+          h('span.dim', `${r.host}${r.via ? ` · ${r.via === 'direct' ? 'direct' : 'through the bridge'}` : ''}`)));
+    };
+    const drawActs = (ok) => {
+      clear(acts);
+      acts.append(btn('Test connection', test, ok ? '' : 'primary'));
+      if (ok) acts.append(btn('Open', () => openService(id), 'primary'));
+      if (saved.host || ok) acts.append(btn('Forget', async () => { await p.signOut(); toast('Streamer address removed'); render(); }));
+    };
+    async function test() {
+      addr = (f.querySelector('input').value || addr).trim();
+      const host = normHost(addr);
+      if (!host) { setStatus('Enter the streamer’s address, e.g. 192.168.50.156', 'error'); return; }
+      setStatus(`Connecting to ${host}…`); clear(card);
+      try {
+        const r = await p.test(host);
+        p.saveHost(host, r);
+        setStatus(`Connected to ${r.name || 'the streamer'}`, 'ok');
+        showCard(r); drawActs(true);
+      } catch (e) {
+        setStatus(err(e), 'error');
+        if (e.kind === 'bridge') card.append(h('div.note', 'Start the bridge on your computer or Pi (Windows: start-bridge.bat · Mac/Linux: ./start-bridge.sh), then test again.'));
+      }
+    }
+    body.append(
+      h('div.note', 'The streamer’s IP address — the one its web page opens at (http://192.168.x.x/webclient). Your router’s list of devices shows it too.'),
+      f, status, card, acts,
+      h('div.note.dim', 'Works with streamers built on StreamUnlimited’s StreamSDK (Fosi S3 and others with the same web page). The app reaches it through the bridge; when the app itself is opened over http on your network and the streamer allows it, it talks to the streamer directly.'),
+    );
+    drawActs(false);
+    if (saved.host) {
+      setStatus(`Saved: ${saved.name || saved.host}`, 'ok');
+      showCard({ ...saved, via: '' });
+      drawActs(true);
     }
   }
 

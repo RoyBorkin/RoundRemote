@@ -1,9 +1,13 @@
 // View 2: the whole round screen becomes a record. Spin it with a finger to scrub
 // backward/forward (with fling inertia); the tone arm tracks song progress.
+// Settings → Music → Vinyl · Tape · CD ("Player", store key vinylDeck) can swap the record for a
+// cassette or a CD (js/views/decks.js); createVinylView hosts whichever is chosen and swaps it live.
 import { h } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, angleDelta, distFromCenter, clamp, throttle } from '../core/util.js';
 import { VINYL_DESIGNS, ARM_DESIGNS, DEFAULT_VINYL_COLOR, vinylDesign, vinylColor, armDesign, luminance, armMarkup, swirlTexture } from './vinyl-styles.js';
+import { deckId } from './deck-styles.js';
+import { createTapeView, createCdView } from './decks.js';
 
 // One setting drives both the spin and the scratch: the record turns once per
 // `vinylSecondsPerTurn` seconds of music (1.8 s = a real 33⅓ rpm record), so dragging it
@@ -18,7 +22,39 @@ function armDegForRadius(r) {
 }
 const ARM_OUTER = armDegForRadius(43.5), ARM_REST = ARM_OUTER - 8;
 
-export function createVinylView({ player, onPreview }) {
+/** The Vinyl view: the record, a cassette or a CD (store key vinylDeck), swapped live when the choice changes. */
+export function createVinylView(opts) {
+  const host = h('div.view.view-deck');
+  const app = document.getElementById('app');
+  let cur = null, deck = null, lastState = null;
+  function build(force = false) {
+    const d = deckId(store.get('vinylDeck'));
+    if (d === deck && !force) return;
+    cur?.destroy(); cur?.el.remove();
+    deck = d;
+    cur = d === 'tape' ? createTapeView(opts)
+      : d === 'cdback' ? createCdView({ ...opts, side: 'back' })
+      : d === 'cdtop' ? createCdView({ ...opts, side: 'top' })
+      : createRecordView(opts);
+    host.dataset.deck = d;
+    if (app) app.dataset.deck = d;   // css: where the YouTube player sits in this view
+    host.appendChild(cur.el);
+    if (lastState) cur.update(lastState);
+  }
+  build();
+  const offDeck = store.on('change:vinylDeck', () => build());
+  const onAny = (k) => { if (k === '*') build(); };
+  store.on('change', onAny);
+  return {
+    el: host,
+    isInteractive: true,
+    update(s) { lastState = s; cur.update(s); },
+    tick(pos, s) { cur.tick(pos, s); },
+    destroy() { offDeck(); store.off('change', onAny); cur?.destroy(); if (app) delete app.dataset.deck; },
+  };
+}
+
+function createRecordView({ player, onPreview }) {
   const label = h('div.vinyl-label');
   const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   labelText.setAttribute('viewBox', '0 0 100 100');

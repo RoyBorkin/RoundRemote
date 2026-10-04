@@ -20,6 +20,10 @@ export const DEFAULTS = Object.freeze({
   vinylDesign: 'classic',      // record look: classic | clear | flat (js/views/vinyl-styles.js)
   vinylColor: '#111111',       // record colour (#111111 = the classic black record)
   armDesign: 'classic',        // tone arm: classic | s-arm | minimal
+  vinylDeck: 'vinyl',          // the Vinyl view plays on: vinyl | tape (cassette) | cdback (CD, data side) | cdtop (CD, label side)
+  tapeStyle: 'classic',        // cassette: classic | clear | metal (js/views/deck-styles.js)
+  cdBackStyle: 'silver',       // CD data side: silver | gold | black
+  cdTopStyle: 'print',         // CD label side: print | marker | ring
   infoFullArt: 'clear',        // Classic view when controls hide: clear | milky (artwork) | card-black | card-blur (song info)
   uiSize: 'L',                 // control size: XS | S | M | L | XL
   autoHideChrome: true,
@@ -101,6 +105,7 @@ export const DEFAULTS = Object.freeze({
   rhythmOffsetMs: 0,           // audio + tap latency in ms (Settings → Rhythm → calibrate); subtracted from the song time
   rhythmSource: 'auto',        // how songs are learned: auto | file | mic | bridge | tempo
   rhythmSel: {},               // chosen version per song key
+  hitsterLang: 'auto',         // Hitster's language: auto (= the keyboard language) | en | he
   dimAfterMin: 10,             // 0 = never
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)

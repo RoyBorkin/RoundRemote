@@ -5,13 +5,16 @@
 //   {
 //     howTo: 'One or two lines on how to play',
 //     modes: [{ id, name, scoring?, unit?, format?,     // optional; each mode has its own top 5
-//               options?: [{ id, name, choices: [{ id, name }], default? }] }],  // sub-choices of a mode
+//               options?: [{ id, name, choices: [{ id, name, key? }], default? }] }],  // sub-choices of a mode
 //                                                     // (e.g. difficulty) — every combination has its own top 5
+//                                                     // (choice.key: its part of the score key; '' = none)
 //     scoring: 'high' | 'low',                           // bigger or smaller is better (default 'high')
 //     unit: 'pts',                                       // shown after the score (optional)
 //     format: (score) => string,                         // optional score formatting
 //     hud: true,                                         // show the score at the top while playing
 //     create(g, { mode, opts }) { …; return { destroy() {} } } // start a new round (opts = chosen options)
+//     lang: () => 'he',                                  // optional: the shell's own texts in that language (and right to
+//                                                        // left); howTo / modes / unit may be getters — read on every render
 //   }
 // The `g` object a game gets:
 //   g.canvas g.ctx           canvas + 2D context (already scaled — work in CSS pixels)
@@ -39,22 +42,40 @@ import { loadGame, iconSvg, gameById } from './index.js';
 import { topScores, addScore, updateEntry, PLACES } from './scores.js';
 import { THEME, makeDraw, sfx, vibrate, TAU } from './kit.js';
 
-const fmtDate = (t) => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
+const fmtDate = (t, locale = []) => new Date(t).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+
+// The shell's texts in other languages. A game whose def.lang() returns one of these (Hitster in Hebrew) gets its
+// start / pause / game-over cards in that language and right to left; every other game is unchanged (English).
+const SHELL_TEXT = {
+  he: {
+    Play: 'שחקו', 'Top 5': 'שיאים', Rhythm: 'חזרה', Games: 'חזרה', Back: 'חזרה', Paused: 'הפסקה', Resume: 'המשך', Restart: 'מההתחלה', Quit: 'יציאה',
+    'Sound on': 'צלילים פועלים', 'Sound off': 'צלילים כבויים', 'You win!': 'ניצחון!', 'Game over': 'המשחק נגמר', 'New best!': 'שיא חדש!',
+    'Add your name': 'הוסיפו שם', 'Play again': 'עוד משחק', Menu: 'תפריט', 'No best score yet': 'עוד אין שיא',
+    'No scores yet — be the first!': 'עוד אין תוצאות — היו הראשונים!', 'Your name for the top 5': 'השם שלכם לטבלת השיאים', Name: 'שם', Save: 'שמירה',
+    'Mystery song': 'שיר מסתורי', 'No peeking!': 'בלי להציץ!', 'Nothing playing': 'שום דבר לא מתנגן', 'Loading…': 'טוען…',
+    best: (s) => `שיא  ${s}`, score: (s) => `ניקוד  ${s}`, rank: (n) => `מקום ${n} בטבלה`, top5: (name) => `${name} · שיאים`,
+  },
+};
+const SHELL_EN = { best: (s) => `Best  ${s}`, score: (s) => `Score  ${s}`, rank: (n) => `#${n} on the chart`, top5: (name) => `${name} · Top 5` };
+const RTL_LANGS = new Set(['he']);
 
 /** The top-5 chart: one bar per place, longest = best. */
-export function scoreChart(list, { color, format, unit = '', scoring = 'high', highlight = null } = {}) {
+// retext: show each score formatted now (score + unit) rather than the text saved with it — for a game whose
+// unit changes with its language
+export function scoreChart(list, { color, format, unit = '', scoring = 'high', highlight = null, empty = 'No scores yet — be the first!', locale = [], retext = false } = {}) {
   const box = h('div.g-chart', { '--gc': color });
-  if (!list.length) { box.append(h('div.g-chart-empty', 'No scores yet — be the first!')); return box; }
+  if (!list.length) { box.append(h('div.g-chart-empty', empty)); return box; }
   const best = list[0].score;
   for (let i = 0; i < PLACES; i++) {
     const e = list[i];
     if (!e) { box.append(h('div.g-row.g-blank', h('span.g-rank', String(i + 1)), h('span.g-bar-wrap'), h('span.g-val', '—'))); continue; }
+    const text = retext ? '' : e.text;
     const frac = scoring === 'low' ? (e.score > 0 ? best / e.score : 1) : (best > 0 ? e.score / best : 1);
     box.append(h(`div.g-row${e === highlight || (highlight && e.at === highlight.at && e.score === highlight.score) ? '.me' : ''}`,
       h('span.g-rank', String(i + 1)),
       h('span.g-bar-wrap', h('span.g-bar', { style: { width: `${Math.max(6, Math.round(frac * 100))}%` } }),
-        h('span.g-meta', [e.name, e.label, fmtDate(e.at)].filter(Boolean).join(' · '))),
-      h('span.g-val', `${e.text || format(e.score)}${unit && !e.text ? ` ${unit}` : ''}`)));
+        h('span.g-meta', [e.name, e.label, fmtDate(e.at, locale)].filter(Boolean).join(' · '))),
+      h('span.g-val', `${text || format(e.score)}${unit && !text ? ` ${unit}` : ''}`)));
   }
   return box;
 }
@@ -80,11 +101,17 @@ export function GameScreen({ id }) {
   // a game can add parts to the key (keyExtra(), e.g. the song a rhythm game was played with) and name them (keyLabel())
   const extraKey = () => { try { return (def?.keyExtra?.() || []).filter((x) => x != null && x !== ''); } catch { return []; } };
   const keyLabel = () => { try { return def?.keyLabel?.() || ''; } catch { return ''; } };
-  const scoreKey = () => [mode || 'default', ...optDefs().map(optVal), ...extraKey()].join(':');
+  // a choice may name its own key part (choice.key; '' = left out — so a game can add an option without moving its old top 5)
+  const keyPart = (o) => { const c = o.choices.find((x) => x.id === optVal(o)); return c && c.key != null ? c.key : optVal(o); };
+  const scoreKey = () => [mode || 'default', ...optDefs().map(keyPart).filter((x) => x !== ''), ...extraKey()].join(':');
   const keyName = () => [modeDef()?.name, ...optDefs().map((o) => o.choices.find((c) => c.id === optVal(o))?.name), keyLabel()].filter(Boolean).join(' · ');
   // where quit / back go: the Games ring, or the game's own home (rhythm games → the Rhythm screen)
   const homeRoute = meta.home || 'games';
-  const homeName = homeRoute === 'rhythm' ? 'Rhythm' : 'Games';
+  // the game's language (def.lang(), optional): the chrome's texts come from SHELL_TEXT and the overlay reads right to left
+  const lang = () => { try { return def?.lang?.() || ''; } catch { return ''; } };
+  const T = (k, ...a) => { const v = SHELL_TEXT[lang()]?.[k] ?? SHELL_EN[k] ?? k; return typeof v === 'function' ? v(...a) : v; };
+  const setDir = (node) => { const l = lang(); if (RTL_LANGS.has(l)) { node.dir = 'rtl'; node.lang = l; } else { node.removeAttribute('dir'); node.removeAttribute('lang'); } };
+  const homeName = () => T(homeRoute === 'rhythm' ? 'Rhythm' : 'Games');
   const scoring = () => modeDef()?.scoring || def?.scoring || 'high';
   const unit = () => modeDef()?.unit ?? def?.unit ?? '';
   const format = (s) => (modeDef()?.format || def?.format || ((n) => Math.round(n).toLocaleString()))(s);
@@ -101,6 +128,7 @@ export function GameScreen({ id }) {
     /** Move the pause button (x, y from −1…1 across the round screen; default 0, −0.876 = top centre). */
     pauseAt(x = 0, y = -0.876) { btnPause.style.left = `${50 + x * 50}%`; btnPause.style.top = `${50 + y * 50}%`; },
     toast(text, ms = 1200) {
+      setDir(toastEl);
       toastEl.textContent = text; toastEl.classList.remove('on'); void toastEl.offsetWidth; toastEl.classList.add('on');
       clearTimeout(g._toastT); g._toastT = setTimeout(() => toastEl.classList.remove('on'), ms);
     },
@@ -245,7 +273,7 @@ export function GameScreen({ id }) {
     if (rank && !info.name && !store.get('gamePlayer')) setTimeout(() => { if (state === 'over') askName({ info, rank, entry }); }, 650);
   }
   async function askName(data) {
-    const v = await editText({ title: 'Your name for the top 5', value: data.entry?.name || store.get('gamePlayer') || '', placeholder: 'Name' });
+    const v = await editText({ title: T('Your name for the top 5'), value: data.entry?.name || store.get('gamePlayer') || '', placeholder: T('Name'), okLabel: T('Save') });
     if (v === null) return;
     const name = v.trim().slice(0, 16);
     if (name) store.set('gamePlayer', name);
@@ -256,7 +284,7 @@ export function GameScreen({ id }) {
   // ---------- overlays ----------
   const pill = (label, onclick, cls = '') => h(`button.g-btn${cls ? '.' + cls : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); sfx('click'); onclick(); } }, label);
   let offMedia = null;
-  function hideOv() { ov.classList.remove('on'); el.classList.remove('ov-on'); offMedia?.(); offMedia = null; }
+  function hideOv() { ov.classList.remove('on'); el.classList.remove('ov-on'); offMedia?.(); offMedia = null; ovKind = null; }
   /** Pause card: the music / movie that's playing, with previous · play/pause · next and volume. */
   function mediaBox() {
     if (!player.provider) return null;
@@ -269,13 +297,13 @@ export function GameScreen({ id }) {
     const box = h('div.g-np', h('div.g-np-head', art, h('div.g-np-text', title, artist)), h('div.g-np-ctl', bPrev, bPlay, bNext, h('span.g-np-gap'), bDown, vol, bUp));
     const paint = () => {
       const s = player.state, c = player.caps;
-      // a game can keep the song a secret (Hit Timeline): its instance returns true from hideTrack()
+      // a game can keep the song a secret (Hitster): its instance returns true from hideTrack()
       const secret = !!inst?.hideTrack?.();
-      const t = secret ? (s.track ? { title: 'Mystery song', artist: 'No peeking!' } : null) : s.track;
+      const t = secret ? (s.track ? { title: T('Mystery song'), artist: T('No peeking!') } : null) : s.track;
       box.hidden = !t && !s.device;
       art.style.backgroundImage = t?.art ? `url("${t.art}")` : '';
       art.classList.toggle('none', !t?.art);
-      title.textContent = t ? (t.media?.show || t.title || '') : (s.device?.name || 'Nothing playing');
+      title.textContent = t ? (t.media?.show || t.title || '') : (s.device?.name || T('Nothing playing'));
       artist.textContent = t ? (t.media ? [t.media.season != null ? `S${t.media.season} E${t.media.episode}` : '', t.media.title !== t.title ? t.media.title : ''].filter(Boolean).join(' · ') || t.artist || '' : t.artist || '') : (s.message || '');
       bPlay.innerHTML = icon(s.isPlaying ? 'pause' : 'play');
       bPrev.disabled = !c.prev; bNext.disabled = !c.next;
@@ -286,16 +314,18 @@ export function GameScreen({ id }) {
     offMedia?.(); offMedia = player.on('state', paint);
     return box;
   }
-  let shownAt = 0;
+  let shownAt = 0, ovKind = null, ovData = null, ovLang = '';
   function showOv(kind, data = {}) {
     shownAt = performance.now();
     offMedia?.(); offMedia = null;
     clear(ov);
+    ovKind = kind; ovData = data; ovLang = lang();
+    setDir(ov);
     el.classList.add('ov-on');
     const card = h(`div.g-card.${kind}`);
     const put = (...items) => card.append(...items.filter(Boolean));
     const list = () => topScores(id, scoreKey());
-    const chart = (highlight = null) => scoreChart(list(), { color: meta.color, format, unit: unit(), scoring: scoring(), highlight });
+    const chart = (highlight = null) => scoreChart(list(), { color: meta.color, format, unit: unit(), scoring: scoring(), highlight, empty: T('No scores yet — be the first!'), locale: lang() || [], retext: !!def.lang });
     const modeChips = () => {
       const rows = [];
       if (def.modes?.length > 1) rows.push(h('div.g-modes', def.modes.map((m) => h(`button.g-chip${m.id === mode ? '.on' : ''}`, {
@@ -308,7 +338,8 @@ export function GameScreen({ id }) {
       }
       return rows.length ? h('div.g-choices', rows) : null;
     };
-    const best = () => { const b = list()[0]; return b ? `Best  ${b.text || format(b.score)}` : 'No best score yet'; };
+    const scoreText = (e) => (def.lang ? `${format(e.score)}${unit() ? ` ${unit()}` : ''}` : e.text || format(e.score));
+    const best = () => { const b = list()[0]; return b ? T('best', scoreText(b)) : T('No best score yet'); };
     if (kind === 'menu') {
       put(
         h('div.g-badge', { html: iconSvg(meta.icon) }),
@@ -317,32 +348,32 @@ export function GameScreen({ id }) {
         h('div.g-how', def.howTo || meta.blurb || ''),
         modeChips(),
         h('div.g-best', best()),
-        h('div.g-actions', pill('Play', startRound, 'primary')),
-        h('div.g-actions.small', pill('Top 5', () => showOv('scores', { back: 'menu' })), pill(homeName, () => go(homeRoute))),
+        h('div.g-actions', pill(T('Play'), startRound, 'primary')),
+        h('div.g-actions.small', pill(T('Top 5'), () => showOv('scores', { back: 'menu' })), pill(homeName(), () => go(homeRoute))),
       );
     } else if (kind === 'scores') {
-      put(h('div.g-title.sm', `${meta.name} · Top 5`), keyLabel() ? h('div.g-keyname', keyLabel()) : null, modeChips(), chart(), h('div.g-actions', pill('Back', () => showOv(data.back || 'menu'), 'primary')));
+      put(h('div.g-title.sm', T('top5', meta.name)), keyLabel() ? h('div.g-keyname', keyLabel()) : null, modeChips(), chart(), h('div.g-actions', pill(T('Back'), () => showOv(data.back || 'menu'), 'primary')));
     } else if (kind === 'pause') {
-      const snd = () => (store.get('gameSound') === false ? 'Sound off' : 'Sound on');
+      const snd = () => T(store.get('gameSound') === false ? 'Sound off' : 'Sound on');
       const sndBtn = pill(snd(), () => { store.set('gameSound', store.get('gameSound') === false); sndBtn.textContent = snd(); });
-      put(h('div.g-title', 'Paused'), h('div.g-best', `Score  ${scoreEl.textContent || '0'}`),
-        h('div.g-actions', pill('Resume', resume, 'primary')),
-        h('div.g-actions.small', pill('Restart', startRound), pill('Quit', () => showOv('menu')), sndBtn),
+      put(h('div.g-title', T('Paused')), h('div.g-best', T('score', scoreEl.textContent || '0')),
+        h('div.g-actions', pill(T('Resume'), resume, 'primary')),
+        h('div.g-actions.small', pill(T('Restart'), startRound), pill(T('Quit'), () => showOv('menu')), sndBtn),
         mediaBox());
     } else if (kind === 'over') {
       const { info, rank } = data;
       const hasScore = info.score != null;
       put(
-        h('div.g-title.sm', info.title || (info.win ? 'You win!' : 'Game over')),
+        h('div.g-title.sm', info.title || T(info.win ? 'You win!' : 'Game over')),
         hasScore ? h('div.g-big', `${format(info.score)}${unit() ? ` ${unit()}` : ''}`) : null,
-        rank ? h(`div.g-rankpill${rank === 1 ? '.gold' : ''}`, rank === 1 ? 'New best!' : `#${rank} on the chart`) : null,
+        rank ? h(`div.g-rankpill${rank === 1 ? '.gold' : ''}`, rank === 1 ? T('New best!') : T('rank', rank)) : null,
         rank ? h('button.g-name', { type: 'button', onclick: (e) => { e.stopPropagation(); askName(data); } },
-          h('span', { html: icon('edit') }), data.entry?.name ? `${data.entry.name}` : 'Add your name') : null,
+          h('span', { html: icon('edit') }), data.entry?.name ? `${data.entry.name}` : T('Add your name')) : null,
         info.note ? h('div.g-how', info.note) : null,
         keyName() ? h('div.g-keyname', keyName()) : null,
         chart(data.entry),
-        h('div.g-actions', pill('Play again', startRound, 'primary')),
-        h('div.g-actions.small', pill('Menu', () => showOv('menu')), pill(homeName, () => go(homeRoute))),
+        h('div.g-actions', pill(T('Play again'), startRound, 'primary')),
+        h('div.g-actions.small', pill(T('Menu'), () => showOv('menu')), pill(homeName(), () => go(homeRoute))),
       );
     }
     ov.append(card);
@@ -365,8 +396,10 @@ export function GameScreen({ id }) {
     state = 'menu';
     resize();
     showOv('menu');
-  }).catch((err) => { console.error(err); clear(ov); ov.append(h('div.g-card', h('div.g-title.sm', 'This game didn’t load'), h('div.g-how', String(err.message || err)), h('div.g-actions', pill(homeName, () => go(homeRoute), 'primary')))); });
+  }).catch((err) => { console.error(err); clear(ov); ov.append(h('div.g-card', h('div.g-title.sm', 'This game didn’t load'), h('div.g-how', String(err.message || err)), h('div.g-actions', pill(homeName(), () => go(homeRoute), 'primary')))); });
   raf = requestAnimationFrame(frame);
+  // a language change while a card is showing (e.g. the keyboard's language, which a game may follow) re-renders it
+  const offLang = store.on('change', () => { if (def?.lang && ovKind && ov.classList.contains('on') && lang() !== ovLang) showOv(ovKind, ovData); });
 
   return {
     el,
@@ -376,7 +409,7 @@ export function GameScreen({ id }) {
       window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp);
       document.removeEventListener('visibilitychange', onVis);
       try { inst?.destroy?.(); } catch {}
-      offMedia?.();
+      offMedia?.(); offLang();
       for (const d of downs.values()) clearTimeout(d.ht);
       clearTimeout(g._toastT);
     },

@@ -1,0 +1,15 @@
+/* ==========================================================================
+   Apps: the Apps ring reuses the Games ring styles (games/games.css). This file styles the shared app screen;
+   each app may add its own apps/<id>.css (declared with `css` in the app's default export).
+   ========================================================================== */
+.app-screen { position: absolute; inset: 0; --ac: #60a5fa; overflow: hidden; container-type: size;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--ac) 14%, transparent), transparent 62%); }
+.app-body { position: absolute; inset: 0; }
+.app-back { position: absolute; left: 50%; top: 6.2%; transform: translate(-50%, -50%); width: 9cqmin; height: 9cqmin; font-size: 4.4cqmin; z-index: 30; }
+.app-title { position: absolute; left: 50%; top: 12.6%; transform: translateX(-50%); z-index: 29; pointer-events: none; white-space: nowrap;
+  font-size: 2cqmin; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); }
+.app-title[hidden] { display: none; }
+.app-error { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 70%; text-align: center; }
+.app-error-t { font-family: var(--display); font-size: 4.6cqmin; font-weight: 700; }
+.app-error-m { margin-top: 1.6cqmin; font-size: 2.4cqmin; color: var(--muted); }
+.apps-hub .ap-home { left: 50%; top: 80%; }

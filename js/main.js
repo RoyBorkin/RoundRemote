@@ -1,5 +1,6 @@
 // Round Remote — boot, routing, OAuth redirects, keyboard shortcuts, idle dimming.
 import { store } from './core/store.js';
+import { initTheme } from './core/theme.js';
 import { player } from './core/player.js';
 import { initRouter, register, go, currentScreen } from './core/router.js';
 import { openService } from './core/nav.js';
@@ -18,6 +19,7 @@ import { GameScreen } from '../games/shell.js';
 import { openVolume, openLibrary, openSearch } from './screens/panels.js';
 
 const app = document.getElementById('app');
+initTheme(app);
 initRouter(app);
 setOverlayRoot(app);
 

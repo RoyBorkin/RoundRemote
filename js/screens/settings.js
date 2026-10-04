@@ -18,6 +18,7 @@ import { SUB_LANGS, preferredSubLangs } from '../core/languages.js';
 import { buildProfile, applyProfile, isProfile, downloadProfile, pickProfileFile, listBridgeProfiles, loadBridgeProfile, saveBridgeProfile, deleteBridgeProfile } from '../core/profiles.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
+import { THEMES, MODES, SWATCHES, themeConfig, setThemeConfig, resetThemeConfig, themeById } from '../core/theme.js';
 
 export const VERSION = '2.0.0';
 
@@ -30,6 +31,9 @@ export function SettingsScreen() {
   const section = (t) => h('div.section', t);
 
   list.append(
+    section('Theme'),
+    ...themeSection(),
+
     section('Display'),
     toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
     toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
@@ -37,7 +41,6 @@ export function SettingsScreen() {
     opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
     toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
     devicePillToggle(),
-    toggle('Colours from artwork', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
     toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
@@ -207,4 +210,52 @@ function profilesSection() {
     h('div.opt-label.prof-head', 'On the bridge'),
     onBridge,
   ];
+}
+
+// ---------------------------------------------------------------- Theme: pick a theme, its mode and colours
+// (separate items rather than one box, so the settings list can curve and fade each of them)
+function themeSection() {
+  let nodes = [];
+  const render = () => {
+    const out = [];
+    const box = { append: (...items) => out.push(...items.filter(Boolean)) };
+    const id = store.get('theme') || 'classic';
+    const t = themeById(id);
+    const cfg = themeConfig(id);
+    const set = (patch) => { setThemeConfig(id, patch); render(); };
+    // the six themes, each shown as a little round preview in its own colours
+    const cards = h('div.th-cards', THEMES.map((x) => {
+      const c = themeConfig(x.id);
+      return h(`button.th-card${x.id === id ? '.on' : ''}`, {
+        type: 'button', 'aria-label': x.name, dataset: { theme: x.id },
+        onclick: (e) => { e.stopPropagation(); store.set('theme', x.id); render(); },
+      }, h('span.th-prev', { dataset: { theme: x.id, mode: c.mode }, '--p1': c.c1, '--p2': c.c2 }, h('i'), h('b')), h('span.th-name', x.name));
+    }));
+    const swatches = (cur, onPick) => {
+      const row = h('div.th-swatches');
+      for (const col of SWATCHES) row.append(h(`button.th-sw${col.toLowerCase() === String(cur).toLowerCase() ? '.on' : ''}`, { type: 'button', 'aria-label': col, '--sw': col, onclick: (e) => { e.stopPropagation(); onPick(col); } }));
+      // any colour: the browser's colour picker
+      const pick = h('input.th-pick', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#888888', 'aria-label': 'Pick any colour' });
+      pick.addEventListener('change', () => onPick(pick.value));
+      const custom = !SWATCHES.some((c) => c.toLowerCase() === String(cur).toLowerCase());
+      row.append(h(`label.th-sw.th-any${custom ? '.on' : ''}`, { '--sw': cur, title: 'Any colour' }, pick, h('span', '+')));
+      return row;
+    };
+    const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
+    box.append(
+      cards,
+      h('div.opt-hint', t.blurb),
+      opt('Mode', chips(MODES, cfg.mode, (v) => set({ mode: v }))),
+      opt('Main colour', swatches(cfg.c1, (v) => set({ c1: v }))),
+      opt('Secondary colour', swatches(cfg.c2, (v) => set({ c2: v }))),
+      toggle('Colours follow the music (service & artwork)', () => themeConfig(id).follow, (v) => set({ follow: v })),
+      toggle('Colours from artwork (when following the music)', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
+      h('div.center', h('button.pill.small', { type: 'button', onclick: (e) => { e.stopPropagation(); resetThemeConfig(id); render(); toast(`${t.name} reset`); } }, `Reset ${t.name}`)),
+    );
+    const first = nodes[0];
+    if (first?.parentNode) { for (const n of out) first.parentNode.insertBefore(n, first); nodes.forEach((n) => n.remove()); }
+    nodes = out;
+    return out;
+  };
+  return render();
 }

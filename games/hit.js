@@ -3,7 +3,7 @@
 // Let a ring close without tapping and you lose a life (three in all). Good hits build a combo and a
 // multiplier; it all speeds up as you go, and later several circles are up at once — the number says
 // which comes first.
-import { TAU, clamp, lerp, rand, dist, ease } from './kit.js';
+import { TAU, clamp, lerp, rand, dist, ease, THEME } from './kit.js';
 
 const PERFECT = 0.06, GOOD = 0.13, OK = 0.22, EARLY = 0.45;  // timing windows (s)
 const PTS = { Perfect: 300, Good: 100, OK: 50, Early: 20 };
@@ -63,8 +63,8 @@ export default {
       const X = g.cx + t.x * g.R, Y = g.cy + t.y * g.R;
       const big = word === 'Perfect';
       g.draw.burst(X, Y, t.col, big ? 22 : 14, g.R * (big ? 0.6 : 0.42), g.R * 0.013);
-      if (big) g.draw.burst(X, Y, '#fff', 8, g.R * 0.35, g.R * 0.008);
-      g.draw.float(word, X, Y - t.r * g.R * 1.25, big ? '#fff' : word === 'Good' ? t.col : 'rgba(255,255,255,.7)', g.R * (big ? 0.085 : 0.068));
+      if (big) g.draw.burst(X, Y, THEME.fg, 8, g.R * 0.35, g.R * 0.008);
+      g.draw.float(word, X, Y - t.r * g.R * 1.25, big ? THEME.fg : word === 'Good' ? t.col : THEME.ink(0.7), g.R * (big ? 0.085 : 0.068));
       g.draw.float(`+${pts.toLocaleString()}`, X, Y + t.r * g.R * 1.45, g.draw.alpha(t.col, 0.95), g.R * 0.045);
       fx.push({ x: t.x, y: t.y, r: t.r, col: t.col, t: 0 });
       pulse = Math.min(1, pulse + (big ? 0.7 : 0.4));
@@ -114,6 +114,19 @@ export default {
     g.on('down', (p) => tapAt(p.dx / g.R, p.dy / g.R));
     g.on('key', (e) => { if (e.key === ' ' || e.key === 'Enter') tapAt(0, 0, true); });
 
+    // the red vignette when a life is lost: one cached gradient (faded with globalAlpha), solid in flat themes
+    let vig = null, vigKey = '';
+    function vignette() {
+      const { cx, cy, R } = g;
+      const key = `${R}|${cx}|${cy}|${THEME.flat}`;
+      if (key !== vigKey) {
+        vigKey = key;
+        if (THEME.flat) vig = 'rgba(255,90,106,.14)';
+        else { vig = g.ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R); vig.addColorStop(0, 'rgba(255,90,106,0)'); vig.addColorStop(1, 'rgba(255,90,106,.28)'); }
+      }
+      return vig;
+    }
+
     // ---------------------------------------------------------------- frame
     g.loop((dt) => {
       const { ctx, cx, cy, R } = g;
@@ -127,12 +140,10 @@ export default {
       // ---- draw ----
       g.draw.bg({ glow: 0.13 + pulse * 0.12 });
       if (hurt > 0) {
-        const gr = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R);
-        gr.addColorStop(0, 'rgba(255,90,106,0)'); gr.addColorStop(1, `rgba(255,90,106,${0.28 * hurt})`);
-        ctx.fillStyle = gr; ctx.fillRect(0, 0, g.S, g.S);
+        ctx.globalAlpha = hurt; ctx.fillStyle = vignette(); ctx.fillRect(0, 0, g.S, g.S); ctx.globalAlpha = 1;
       }
       // a soft ring that breathes with the hits
-      g.draw.circle(cx, cy, R * (0.8 + pulse * 0.015), null, { stroke: `rgba(255,255,255,${0.05 + pulse * 0.08})`, lw: R * 0.004 });
+      g.draw.circle(cx, cy, R * (0.8 + pulse * 0.015), null, { stroke: THEME.ink((THEME.light ? 0.08 : 0.05) + pulse * 0.08), lw: R * 0.004 });
 
       // follow lines between consecutive live circles show the order
       const live = targets.filter((t) => t.state === 'live').sort((a, b) => a.at - b.at);
@@ -142,7 +153,7 @@ export default {
         const a = live[i - 1], b = live[i], d = dist(a.x, a.y, b.x, b.y);
         if (d < a.r + b.r + 0.02) continue;
         const ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
-        ctx.strokeStyle = `rgba(255,255,255,${0.16 * clamp((now - b.born) * 4, 0, 1)})`;
+        ctx.strokeStyle = THEME.ink((THEME.light ? 0.22 : 0.16) * clamp((now - b.born) * 4, 0, 1));
         ctx.beginPath(); ctx.moveTo(cx + (a.x + ux * a.r * 1.15) * R, cy + (a.y + uy * a.r * 1.15) * R);
         ctx.lineTo(cx + (b.x - ux * b.r * 1.15) * R, cy + (b.y - uy * b.r * 1.15) * R); ctx.stroke();
       }
@@ -161,8 +172,8 @@ export default {
       // combo counter at the bottom
       if (combo >= 2) {
         const s = 1 + comboPop * 0.25;
-        g.draw.text(String(combo), cx, cy + R * 0.745, R * 0.08 * s, { color: '#fff', glow: 12 + comboPop * 10 });
-        g.draw.text(`COMBO${mult() > 1 ? `  ×${mult()}` : ''}`, cx, cy + R * 0.825, R * 0.032, { color: g.draw.alpha(g.color, 0.9), weight: 800, font: g.theme.font });
+        g.draw.text(String(combo), cx, cy + R * 0.745, R * 0.08 * s, { color: THEME.fg, glow: 12 + comboPop * 10 });
+        g.draw.text(`COMBO${mult() > 1 ? `  ×${mult()}` : ''}`, cx, cy + R * 0.825, R * 0.032, { color: g.draw.alpha(g.color, 0.9), weight: 800, font: THEME.font });
       }
     });
 
@@ -178,7 +189,7 @@ export default {
       ctx.save();
       ctx.globalAlpha = clamp(age * 5, 0, 1) * (late ? 1 - (now - t.at) / OK : 1);
       ctx.beginPath(); ctx.arc(X, Y, ar, 0, TAU);
-      ctx.strokeStyle = sweet ? '#fff' : t.col; ctx.lineWidth = R * (0.008 + p * 0.008);
+      ctx.strokeStyle = sweet ? THEME.fg : t.col; ctx.lineWidth = R * (0.008 + p * 0.008);
       ctx.stroke();
       ctx.restore();
       // the circle itself
@@ -201,7 +212,7 @@ export default {
         const r = t.r * R * (1 + ease.out(k) * 0.35);
         ctx.globalAlpha = (1 - k) * 0.8;
         ctx.beginPath(); ctx.arc(X, Y, r, 0, TAU); ctx.fillStyle = g.draw.alpha(t.col, 0.35); ctx.fill();
-        ctx.lineWidth = R * 0.01; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.lineWidth = R * 0.01; ctx.strokeStyle = THEME.fg; ctx.stroke();
       } else {
         const r = t.r * R * (1 - k * 0.3);
         ctx.globalAlpha = 1 - k;

@@ -2,7 +2,7 @@
 // axes); tap to drop it. Whatever hangs over the slab below is sliced off and tumbles away, so the
 // tower gets narrower. Land it (almost) exactly for a "Perfect": nothing is cut, and from five
 // perfects in a row the slab even grows back a little. Miss the tower completely and it's over.
-import { clamp, lerp, rand } from './kit.js';
+import { clamp, lerp, rand, THEME } from './kit.js';
 
 const C30 = Math.cos(Math.PI / 6), S30 = 0.5;
 const H = 0.16;        // slab thickness (world units — the base slab is 1 × 1)
@@ -70,7 +70,7 @@ export default {
         g.sfx('perfect', { pitch: 1 + Math.min(10, streak - 1) * 0.06 });
         g.vibrate(15);
         const [px, py] = proj(s.x, yb + H, s.z);
-        g.draw.float(streak > 1 ? `Perfect ×${streak}` : 'Perfect', px, py - g.R * 0.16, '#fff', g.R * 0.075);
+        g.draw.float(streak > 1 ? `Perfect ×${streak}` : 'Perfect', px, py - g.R * 0.16, THEME.fg, g.R * 0.075);
         if (s.grow) g.draw.burst(px, py, rgb(s.col), 16, g.R * 0.45, g.R * 0.01);
       } else {
         const over = Math.abs(delta), keep = cur[size] - over;
@@ -127,7 +127,7 @@ export default {
       const { ctx } = g;
       const x0 = s.x - s.w / 2, x1 = s.x + s.w / 2, z0 = s.z - s.d / 2, z1 = s.z + s.d / 2;
       ctx.save();
-      if (glow) { ctx.shadowColor = rgb(s.col, 1, 0.55); ctx.shadowBlur = glow; }
+      if (glow && THEME.glow) { ctx.shadowColor = rgb(s.col, 1, 0.55); ctx.shadowBlur = glow; }
       ctx.globalAlpha = alpha;
       // right (+x)
       ctx.beginPath(); mv(x1, y0, z0); ln(x1, y1, z0); ln(x1, y1, z1); ln(x1, y0, z1); ctx.closePath();
@@ -175,19 +175,20 @@ export default {
       const x0 = r.x - r.w / 2 - e, x1 = r.x + r.w / 2 + e, z0 = r.z - r.d / 2 - e, z1 = r.z + r.d / 2 + e;
       ctx.save();
       ctx.beginPath(); mv(x0, r.y, z0); ln(x1, r.y, z0); ln(x1, r.y, z1); ln(x0, r.y, z1); ctx.closePath();
-      ctx.strokeStyle = `rgba(255,255,255,${0.85 * a})`; ctx.lineWidth = g.R * 0.009 * (0.5 + a * 0.5); ctx.lineJoin = 'round';
-      ctx.shadowColor = '#fff'; ctx.shadowBlur = 10 * a; ctx.stroke();
+      ctx.strokeStyle = THEME.ink(0.85 * a); ctx.lineWidth = g.R * 0.009 * (0.5 + a * 0.5); ctx.lineJoin = 'round';
+      if (THEME.glow) { ctx.shadowColor = THEME.fg; ctx.shadowBlur = 10 * a; }
+      ctx.stroke();
       ctx.restore();
     }
     const ease = (t) => 1 - (1 - clamp(t, 0, 1)) ** 3;
 
-    /** The base: a tall pedestal under slab 0 that fades into the dark. */
+    /** The base: a tall pedestal under slab 0 that fades into the background (solid in flat themes). */
     function pedestal() {
       const { ctx, R } = g;
       const b = slabs[0], x0 = -0.5, x1 = 0.5, z0 = -0.5, z1 = 0.5, y1 = 0, y0 = -14;
       const yTop = PY(0, 0, 0), fadeTo = yTop + R * 0.9 * (cam.s / 0.4);
       ctx.save();
-      const grad = (k) => { const gr = ctx.createLinearGradient(0, yTop, 0, fadeTo); gr.addColorStop(0, rgb(b.col, k)); gr.addColorStop(0.12, rgb(b.col, k * 0.55)); gr.addColorStop(1, rgb(b.col, k * 0.12, 0)); return gr; };
+      const grad = (k) => { if (THEME.flat) return rgb(b.col, k); const gr = ctx.createLinearGradient(0, yTop, 0, fadeTo); gr.addColorStop(0, rgb(b.col, k)); gr.addColorStop(0.12, rgb(b.col, k * 0.55)); gr.addColorStop(1, rgb(b.col, k * 0.12, 0)); return gr; };
       ctx.beginPath(); mv(x1, y0, z0); ln(x1, y1, z0); ln(x1, y1, z1); ln(x1, y0, z1); ctx.closePath(); ctx.fillStyle = grad(LIGHT_RIGHT); ctx.fill();
       ctx.beginPath(); mv(x0, y0, z1); ln(x1, y0, z1); ln(x1, y1, z1); ln(x0, y1, z1); ctx.closePath(); ctx.fillStyle = grad(LIGHT_LEFT); ctx.fill();
       ctx.beginPath(); mv(x0, y1, z0); ln(x1, y1, z0); ln(x1, y1, z1); ln(x0, y1, z1); ctx.closePath(); ctx.fillStyle = rgb(b.col, 1); ctx.fill();

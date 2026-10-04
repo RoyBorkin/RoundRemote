@@ -513,10 +513,10 @@ export default {
       g.draw.bg({ color: glowCol, glow: 0.12 + bump * 0.06 + (power && fx.reverse > 0 ? 0.05 * Math.sin(t * 10) : 0) });
       // the score, big and faint in the middle
       const sc = 1 + bump * 0.12;
-      g.draw.text(String(mode === '2p' ? total : score), cx, cy, R * 0.36 * sc, { color: 'rgba(255,255,255,.09)' });
+      g.draw.text(String(mode === '2p' ? total : score), cx, cy, R * 0.36 * sc, { color: THEME.ink(0.09) });
       if (mode === 'two' && hits < TWO_AT) g.draw.text(`2nd ball at ${TWO_AT}`, cx, cy + R * 0.25, R * 0.05, { color: THEME.dim, weight: 600, font: THEME.font });
-      if (mode === '2p') g.draw.text('hits', cx, cy + R * 0.2, R * 0.045, { color: 'rgba(255,255,255,.16)', weight: 600, font: THEME.font });
-      if (solo) drawGuide(ctx, cx, cy, R, 0, TAU, 'rgba(255,255,255,.1)');
+      if (mode === '2p') g.draw.text('hits', cx, cy + R * 0.2, R * 0.045, { color: THEME.ink(0.16), weight: 600, font: THEME.font });
+      if (solo) drawGuide(ctx, cx, cy, R, 0, TAU, THEME.ink(0.1));
       else drawSectors(ctx, cx, cy, R, t);
       // rim ripples
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -541,7 +541,7 @@ export default {
       }
       // balls: flat fading trail, then the ball
       for (const b of balls) {
-        const bc = b.col === '#ffffff' ? BALL_COL : b.col;
+        const bc = b.col === '#ffffff' ? (THEME.light ? THEME.fg : BALL_COL) : b.col;   // the white ball turns dark on a light screen
         const tc = b.col !== '#ffffff' ? b.col : b.last >= 0 ? players[b.last].col : g.color;
         if (b.serve > 0) {      // waiting in the middle, pulsing
           const k = 0.5 + 0.5 * Math.sin(t * 8);
@@ -576,10 +576,15 @@ export default {
       g.draw.floaters(dt);
       if (phase === 'miss' || phase === 'over' || (phase === 'end' && !won && mode !== '2p')) {   // red vignette as it slips out
         const k = phase === 'over' ? 1 : 1 - missT / 0.85;
-        const vg = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R);
         const rgb = won || mode === '2p' ? '61,220,132' : '255,90,106';
-        vg.addColorStop(0, `rgba(${rgb},0)`); vg.addColorStop(1, `rgba(${rgb},${0.22 * clamp(k, 0, 1)})`);
-        ctx.fillStyle = vg; ctx.fillRect(0, 0, g.S, g.S);
+        if (THEME.flat) {     // flat themes: a solid tinted band at the rim instead of a gradient
+          ctx.beginPath(); ctx.arc(cx, cy, R * 0.94, 0, TAU);
+          ctx.strokeStyle = `rgba(${rgb},${0.15 * clamp(k, 0, 1)})`; ctx.lineWidth = R * 0.12; ctx.stroke();
+        } else {
+          const vg = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R);
+          vg.addColorStop(0, `rgba(${rgb},0)`); vg.addColorStop(1, `rgba(${rgb},${0.22 * clamp(k, 0, 1)})`);
+          ctx.fillStyle = vg; ctx.fillRect(0, 0, g.S, g.S);
+        }
       }
     });
 
@@ -599,11 +604,11 @@ export default {
         if (!pl.out) { drawGuide(ctx, cx, cy, R, a0 + 0.04, a1 - 0.04, g.draw.alpha(pl.col, 0.16)); continue; }
         // knocked out: the sector grows into a solid wall from its middle
         const e = ease.out(pl.outT), s = HALF * e;
-        g.draw.arc(cx, cy, PR * R, pl.c - s, pl.c + s, mix('#1c1e26', pl.col, 0.28), TH * R * 1.15, { cap: 'butt' });
+        g.draw.arc(cx, cy, PR * R, pl.c - s, pl.c + s, mix(THEME.light ? THEME.surface : '#1c1e26', pl.col, 0.28), TH * R * 1.15, { cap: 'butt' });
         g.draw.arc(cx, cy, (PR - TH * 0.575) * R, pl.c - s, pl.c + s, g.draw.alpha(pl.col, 0.55), R * 0.005, { cap: 'butt' });
       }
       // divider ticks on the boundaries
-      ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = R * 0.008;
+      ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = THEME.ink(0.3); ctx.lineWidth = R * 0.008;
       for (const pl of players) {
         const a = pl.c - HALF, s = Math.sin(a), c = -Math.cos(a);
         ctx.beginPath(); ctx.moveTo(cx + s * R * 0.83, cy + c * R * 0.83); ctx.lineTo(cx + s * R * 0.935, cy + c * R * 0.935); ctx.stroke();
@@ -618,7 +623,7 @@ export default {
           const a = pl.c + (j - (LIVES - 1) / 2) * gap;
           const x = cx + Math.sin(a) * rr, y = cy - Math.cos(a) * rr;
           if (j < pl.lives) g.draw.ball(x, y, dot, pl.col);
-          else g.draw.circle(x, y, dot * 0.8, null, { stroke: 'rgba(255,255,255,.22)', lw: Math.max(1, R * 0.004) });
+          else g.draw.circle(x, y, dot * 0.8, null, { stroke: THEME.ink(0.22), lw: Math.max(1, R * 0.004) });
         }
         // the name, facing its player, for the first seconds (always in 2 players)
         const na = mode === '2p' ? 0.55 : clamp(1 - (g.time - 3) / 0.6, 0, 1) * 0.8;
@@ -652,7 +657,7 @@ export default {
         const x = cx + (j - (n - 1) / 2) * sp, P = POWERS[k];
         const left = k === 'shield' ? 1 : fx[k] / P.dur;
         const blink = k !== 'shield' && fx[k] < 1.5 && Math.sin(t * 20) < 0 ? 0.35 : 1;
-        g.draw.arc(x, y, R * 0.052, 0, TAU, 'rgba(255,255,255,.1)', R * 0.008);
+        g.draw.arc(x, y, R * 0.052, 0, TAU, THEME.ink(0.1), R * 0.008);
         g.draw.arc(x, y, R * 0.052, 0, TAU * left, P.col, R * 0.008);
         drawPowerIcon(g, k, x, y, R * 0.036, blink);
       });

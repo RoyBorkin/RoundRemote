@@ -18,7 +18,8 @@ const NSEG = [8, 12, 16, 20, 24, 28];                // cells per band (keeps th
 const MAX_BLOCK_R = BAND0 + 5 * BAND_STEP + BAND_W;  // ≈ 0.53 — clear of the score at the top
 const PAL = ['#c084fc', '#ff8ad8', '#ffc857', '#3ddc84', '#2ee6d6', '#4d9bff', '#b57bff', '#f0abfc'];
 const METAL = '#79808f', METAL_HI = '#b4bac6', BOOM = THEME.danger;
-const BALL = '#f4efff', FIRE = '#ff9f43';
+const BALL_DARK = '#f4efff', FIRE = '#ff9f43';
+const ballCol = () => (THEME.light ? THEME.fg : BALL_DARK);   // the near-white ball turns ink-dark on light themes
 
 // power-ups: colour, name, duration (s) and how often they drop (weight)
 const PU = {
@@ -251,8 +252,8 @@ export default {
     function comboBonus(ang) {
       const n = chain, pts = Math.round(5 * n * (n - 1) * mult());
       g.add(pts);
-      if (ang == null) g.draw.float(`Combo ×${n}  +${pts}`, g.cx, g.cy - g.R * 0.08, '#fff', g.R * 0.065);
-      else label(`Combo ×${n}  +${pts}`, ang, 0.7, '#fff', g.R * (n >= 8 ? 0.075 : 0.06));
+      if (ang == null) g.draw.float(`Combo ×${n}  +${pts}`, g.cx, g.cy - g.R * 0.08, THEME.fg, g.R * 0.065);
+      else label(`Combo ×${n}  +${pts}`, ang, 0.7, THEME.fg, g.R * (n >= 8 ? 0.075 : 0.06));
       if (n >= 6) g.sfx('perfect'); else g.sfx('score');
     }
     const mult = () => 1 + 0.5 * loop;
@@ -376,7 +377,7 @@ export default {
           }
         }
       }
-      label(p.name, paddle.a, 0.74, p.bad ? THEME.danger : '#fff', g.R * 0.055);
+      label(p.name, paddle.a, 0.74, p.bad ? THEME.danger : THEME.fg, g.R * 0.055);
       g.add(Math.round(25 * mult()));
       if (p.bad) { g.sfx('drop'); g.vibrate(25); } else g.sfx(type === 'life' ? 'perfect' : 'coin');
     }
@@ -416,9 +417,9 @@ export default {
       chain = 0;
       const bonus = Math.round((200 + 50 * levelNo()) * mult());
       g.add(bonus);
-      g.draw.float(`Clear!  +${bonus}`, g.cx, g.cy + g.R * 0.1, '#fff', g.R * 0.075);
+      g.draw.float(`Clear!  +${bonus}`, g.cx, g.cy + g.R * 0.1, THEME.fg, g.R * 0.075);
       g.sfx('win');
-      for (const b of balls) g.draw.burst(g.cx + b.x * g.R, g.cy + b.y * g.R, BALL, 10, g.R * 0.4, g.R * 0.008);
+      for (const b of balls) g.draw.burst(g.cx + b.x * g.R, g.cy + b.y * g.R, ballCol(), 10, g.R * 0.4, g.R * 0.008);
       balls.length = 0; caps.length = 0; beams.length = 0; pending.length = 0;
     }
     function nextLevel() {
@@ -651,14 +652,14 @@ export default {
       ctx.save();
       ctx.setLineDash([R * 0.01, R * 0.025]); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(cx, cy, PR * R, 0, TAU);
-      ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = R * 0.006; ctx.stroke();
+      ctx.strokeStyle = THEME.ink(0.08); ctx.lineWidth = R * 0.006; ctx.stroke();
       ctx.restore();
       // shield ring
       if (shield || shieldFx > 0) {
         const a = shield ? 0.55 + 0.15 * Math.sin(t * 4) : shieldFx * 0.8;
         ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, SHIELD_R * R * (shield ? 1 : 1 + (1 - shieldFx) * 0.04), 0, TAU);
         ctx.strokeStyle = g.draw.alpha(THEME.ok, a); ctx.lineWidth = R * 0.01 * (shield ? 1 : 1 + shieldFx);
-        ctx.shadowColor = THEME.ok; ctx.shadowBlur = R * 0.03; ctx.stroke(); ctx.restore();
+        if (THEME.glow) { ctx.shadowColor = THEME.ok; ctx.shadowBlur = R * 0.03; } ctx.stroke(); ctx.restore();
       }
       drawBlocks(t);
       // explosion shock rings
@@ -676,7 +677,7 @@ export default {
       }
       // laser beams
       if (beams.length) {
-        ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = '#ff8a98'; ctx.lineWidth = R * 0.011; ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = R * 0.03;
+        ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = '#ff8a98'; ctx.lineWidth = R * 0.011; if (THEME.glow) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = R * 0.03; }
         ctx.beginPath();
         for (const bm of beams) { const [x0, y0] = px(bm.a, bm.r), [x1, y1] = px(bm.a, bm.r + 0.09); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
         ctx.stroke(); ctx.restore();
@@ -694,10 +695,10 @@ export default {
           }
           ctx.globalAlpha = 1;
         }
-        g.draw.ball(cx + b.x * R, cy + b.y * R, BR * R * (1 + b.hitT * 0.3), fire ? FIRE : BALL);
+        g.draw.ball(cx + b.x * R, cy + b.y * R, BR * R * (1 + b.hitT * 0.3), fire ? FIRE : ballCol());
         if (b.serve) {
           const k = 0.5 + 0.5 * Math.sin(t * 7);
-          g.draw.circle(cx + b.x * R, cy + b.y * R, BR * R * (1.7 + k * 0.5), null, { stroke: g.draw.alpha(BALL, 0.25 + 0.3 * k), lw: R * 0.005 });
+          g.draw.circle(cx + b.x * R, cy + b.y * R, BR * R * (1.7 + k * 0.5), null, { stroke: g.draw.alpha(ballCol(), 0.25 + 0.3 * k), lw: R * 0.005 });
         }
       }
       // rim ripples
@@ -727,20 +728,24 @@ export default {
         ctx.globalAlpha = blink;
         capsule(k, x, y, r);
         ctx.globalAlpha = 1;
-        g.draw.circle(x, y, r * 1.45, null, { stroke: 'rgba(255,255,255,.1)', lw: R * 0.006 });
+        g.draw.circle(x, y, r * 1.45, null, { stroke: THEME.ink(0.1), lw: R * 0.006 });
         ctx.beginPath(); ctx.arc(x, y, r * 1.45, -Q, -Q + TAU * (eff[k] / p.time));
         ctx.strokeStyle = p.col; ctx.lineWidth = R * 0.006; ctx.lineCap = 'round'; ctx.stroke();
       }
       // serve hint
       if (phase === 'play' && balls.some((b) => b.serve)) {
         const k = 0.55 + 0.25 * Math.sin(t * 3);
-        g.draw.text(touching ? 'RELEASE TO LAUNCH' : 'TAP TO LAUNCH', cx, cy + R * 0.69, R * 0.042, { color: `rgba(255,255,255,${k})`, weight: 600, font: THEME.font });
+        g.draw.text(touching ? 'RELEASE TO LAUNCH' : 'TAP TO LAUNCH', cx, cy + R * 0.69, R * 0.042, { color: THEME.ink(k), weight: 600, font: THEME.font });
       }
       if (phase === 'lost' || phase === 'over') {   // red vignette as the last ball slips out
         const k = phase === 'lost' ? phaseT : 1;
-        const vg = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R);
-        vg.addColorStop(0, 'rgba(255,90,106,0)'); vg.addColorStop(1, `rgba(255,90,106,${0.24 * k})`);
-        ctx.fillStyle = vg; ctx.fillRect(0, 0, g.S, g.S);
+        if (THEME.flat) {         // flat themes: a solid red band at the rim instead of a gradient
+          ctx.beginPath(); ctx.arc(cx, cy, R * 0.9, 0, TAU); ctx.strokeStyle = `rgba(255,90,106,${0.16 * k})`; ctx.lineWidth = R * 0.2; ctx.stroke();
+        } else {
+          const vg = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R);
+          vg.addColorStop(0, 'rgba(255,90,106,0)'); vg.addColorStop(1, `rgba(255,90,106,${0.24 * k})`);
+          ctx.fillStyle = vg; ctx.fillRect(0, 0, g.S, g.S);
+        }
       }
     });
 

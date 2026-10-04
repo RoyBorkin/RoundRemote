@@ -1,7 +1,7 @@
 // Grow — hold anywhere and a bubble grows under your finger. Let go to keep it: the bigger, the more
 // points. If it touches the edge (or one of the drifting spikes) it pops and you lose a life.
 // Each round adds a spike. Three lives.
-import { TAU, rand, dist, clamp } from './kit.js';
+import { TAU, rand, dist, clamp, THEME } from './kit.js';
 
 export default {
   howTo: 'Hold to grow the bubble, let go to bank it. Bigger = more points — but touch the edge or a spike and it pops.',
@@ -42,7 +42,7 @@ export default {
       else if (ratio > 0.82) { pts = Math.round(pts * 1.5); word = 'Great!'; g.sfx('score'); }
       else g.sfx('place');
       g.add(pts);
-      g.draw.float(`+${pts}`, g.cx + bubble.x, g.cy + bubble.y - bubble.r * 0.2, '#fff', g.R * 0.09);
+      g.draw.float(`+${pts}`, g.cx + bubble.x, g.cy + bubble.y - bubble.r * 0.2, THEME.fg, g.R * 0.09);
       if (word) g.toast(word, 900);
       phase = 'banked'; wait = 1.1; round++;
     }
@@ -81,7 +81,7 @@ export default {
       ctx.save();
       ctx.setLineDash([g.R * 0.02, g.R * 0.025]); ctx.lineDashOffset = -t * 20;
       ctx.beginPath(); ctx.arc(cx, cy, arenaR(), 0, TAU);
-      ctx.strokeStyle = close > 0.75 ? `rgba(255,90,106,${0.4 + 0.6 * (close - 0.75) / 0.25})` : 'rgba(255,255,255,.22)';
+      ctx.strokeStyle = close > 0.75 ? `rgba(255,90,106,${0.4 + 0.6 * (close - 0.75) / 0.25})` : THEME.ink(0.22);
       ctx.lineWidth = g.R * (close > 0.75 ? 0.011 : 0.008); ctx.stroke();
       ctx.restore();
       // spikes
@@ -89,7 +89,7 @@ export default {
         ctx.save(); ctx.translate(cx + s.x, cy + s.y); ctx.rotate(s.rot);
         ctx.beginPath();
         for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU, r = i % 2 ? s.size * 0.5 : s.size; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-        ctx.closePath(); ctx.fillStyle = '#ff5a6a'; ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 10; ctx.fill();
+        ctx.closePath(); ctx.fillStyle = '#ff5a6a'; if (THEME.glow) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 10; } ctx.fill();
         ctx.restore();
       }
       // the bubble
@@ -105,7 +105,7 @@ export default {
         if (phase === 'growing') g.draw.text(`${Math.round((bubble.r / arenaR()) ** 2 * 100)}%`, x, y, clamp(r * 0.5, g.R * 0.04, g.R * 0.14), { color: '#fff' });
       }
       // a soft hint where to hold
-      if (phase === 'ready') g.draw.circle(cx, cy, g.R * (0.05 + 0.01 * Math.sin(pulse * 4)), null, { stroke: 'rgba(255,255,255,.35)', lw: 2 });
+      if (phase === 'ready') g.draw.circle(cx, cy, g.R * (0.05 + 0.01 * Math.sin(pulse * 4)), null, { stroke: THEME.ink(0.35), lw: 2 });
       g.draw.particles(dt);
       g.draw.floaters(dt);
     });

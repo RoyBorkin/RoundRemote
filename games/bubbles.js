@@ -2,7 +2,7 @@
 // slowly turns. Your shooter rides the rim: touch / drag to aim (it always fires at the centre), let go
 // to shoot. Three or more of a colour pop; anything no longer hanging on the core flies away for a bonus.
 // Shots that pop nothing count down to a new ring of bubbles; let the cluster cross the red ring and it's over.
-import { TAU, clamp, rand, ease, polar } from './kit.js';
+import { TAU, clamp, rand, ease, polar, THEME } from './kit.js';
 
 const B = 0.048;                 // bubble radius, × R
 const DANGER = 0.78;             // the red ring, × R
@@ -142,7 +142,7 @@ export default {
         const pts = grp.length * 10 + loose.length * 25 * (loose.length >= 6 ? 2 : 1);
         g.add(pts);
         const [fx, fy] = toWorld(b.x, b.y);
-        g.draw.float(`+${pts}`, g.cx + fx * g.R, g.cy + fy * g.R - g.R * 0.05, '#fff', g.R * (pts >= 100 ? 0.085 : 0.065));
+        g.draw.float(`+${pts}`, g.cx + fx * g.R, g.cy + fy * g.R - g.R * 0.05, THEME.fg, g.R * (pts >= 100 ? 0.085 : 0.065));
         if (loose.length) { g.sfx('coin'); if (loose.length >= 6) g.toast(loose.length >= 12 ? 'Avalanche!' : 'Nice drop!', 900); }
         g.vibrate(grp.length + loose.length > 6 ? 25 : 10);
         if (cur && !present().includes(cur)) cur = randCol();
@@ -179,7 +179,7 @@ export default {
       g.add(bonus); g.sfx('perfect'); g.vibrate(40);
       g.draw.float(`+${bonus}`, g.cx, g.cy - g.R * 0.14, g.color, g.R * 0.1);
       g.toast(`Level ${level + 1}`, 1200);
-      g.draw.burst(g.cx, g.cy, '#fff', 40, g.R * 0.9, g.R * 0.012);
+      g.draw.burst(g.cx, g.cy, THEME.fg, 40, g.R * 0.9, g.R * 0.012);
       phase = 'clear'; wait = 1.4;
     }
 
@@ -344,8 +344,9 @@ export default {
       if (shot) {
         const [x, y] = polar(cx, cy, shot.a, shot.d * R);
         const [tx, ty] = polar(cx, cy, shot.a, (shot.d + B * 2.4) * R);
-        const tr = ctx.createLinearGradient(tx, ty, x, y);
-        tr.addColorStop(0, g.draw.alpha(shot.col, 0)); tr.addColorStop(1, g.draw.alpha(shot.col, 0.5));
+        let tr;
+        if (THEME.flat) tr = g.draw.alpha(shot.col, 0.28);
+        else { tr = ctx.createLinearGradient(tx, ty, x, y); tr.addColorStop(0, g.draw.alpha(shot.col, 0)); tr.addColorStop(1, g.draw.alpha(shot.col, 0.5)); }
         ctx.strokeStyle = tr; ctx.lineWidth = B * R * 1.2; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
         bubble(x, y, shot.col);
@@ -355,7 +356,7 @@ export default {
       if (phase !== 'over' || gameOverFade < 1) {
         const [gx, gy] = gunXY();
         g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim - 0.13, aim + 0.13, g.draw.alpha(g.color, 0.9), R * 0.012);
-        g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim + 0.19, aim + 0.32, 'rgba(255,255,255,.18)', R * 0.008);
+        g.draw.arc(cx, cy, GUN * R + B * R * 1.45, aim + 0.19, aim + 0.32, THEME.ink(0.18), R * 0.008);
         const ks = clamp((now - swapT) / 0.2, 0, 1), kf = clamp((now - fireT) / 0.18, 0, 1);
         if (cur) bubble(gx, gy, cur, ease.back(Math.min(ks, kf)) * 1.0);
         if (next) {

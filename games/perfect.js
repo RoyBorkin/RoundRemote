@@ -4,7 +4,9 @@
 import { TAU, clamp, lerp, ease, angDiff, THEME } from './kit.js';
 import { bestScore } from './scores.js';
 
-const HEAT = Array.from({ length: 12 }, (_, i) => `hsl(${Math.round(140 - (140 * i) / 11)}, 92%, ${58 + (i > 6 ? 4 : 0)}%)`);
+const HEAT_DARK = Array.from({ length: 12 }, (_, i) => `hsl(${Math.round(140 - (140 * i) / 11)}, 92%, ${58 + (i > 6 ? 4 : 0)}%)`);
+// on a light background the same scale a little deeper, so the yellows still read
+const HEAT_LIGHT = Array.from({ length: 12 }, (_, i) => `hsl(${Math.round(140 - (140 * i) / 11)}, 85%, ${40 + (i > 6 ? 6 : 0)}%)`);
 const HEAT_FULL = 0.09;                 // relative deviation that is fully red
 
 /** Points spaced evenly along a polyline. */
@@ -154,6 +156,7 @@ export default {
         for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]);
         ctx.strokeStyle = g.color; ctx.stroke();
       } else {
+        const HEAT = THEME.light ? HEAT_LIGHT : HEAT_DARK;
         for (let b = 0; b < HEAT.length; b++) {
           ctx.beginPath(); let open = false;
           for (let i = 1; i < n; i++) {
@@ -168,7 +171,7 @@ export default {
     }
     function bigText(main, sub, k, y = g.cy, size = 0.2) {
       const s = ease.back(clamp(k, 0, 1));
-      g.draw.text(main, g.cx, y, g.R * size * (0.6 + 0.4 * s), { glow: 18, color: '#fff', alpha: clamp(k * 2, 0, 1) });
+      g.draw.text(main, g.cx, y, g.R * size * (0.6 + 0.4 * s), { glow: 18, color: THEME.fg, alpha: clamp(k * 2, 0, 1) });
       if (sub) g.draw.text(sub, g.cx, y + g.R * (size * 0.6 + 0.065), g.R * 0.075, { color: THEME.muted, weight: 600, alpha: clamp(k * 2 - 0.4, 0, 1) });
     }
 
@@ -182,11 +185,11 @@ export default {
       if (hintA > 0) {
         ctx.save(); ctx.globalAlpha = hintA;
         ctx.setLineDash([R * 0.012, R * 0.035]); ctx.lineDashOffset = -t * R * 0.03;
-        ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, TAU); ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = R * 0.006; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, TAU); ctx.strokeStyle = THEME.line; ctx.lineWidth = R * 0.006; ctx.stroke();
         ctx.restore();
         g.draw.circle(cx, cy, R * (0.012 + 0.003 * Math.sin(pulse * 3)), g.draw.alpha(g.color, 0.8 * hintA));
         if (phase !== 'drawing') {
-          g.draw.text('Draw a circle', cx, cy - R * 0.11, R * 0.07, { color: '#fff', alpha: 0.85 * hintA });
+          g.draw.text('Draw a circle', cx, cy - R * 0.11, R * 0.07, { color: THEME.fg, alpha: 0.85 * hintA });
           g.draw.text('in one go', cx, cy + R * 0.11, R * 0.045, { color: THEME.muted, weight: 500, alpha: hintA });
         }
         if (best && phase !== 'drawing') g.draw.text(`Best ${best.score.toFixed(1)}%`, cx, cy - R * 0.68, R * 0.05, { color: THEME.muted, weight: 600, alpha: hintA });
@@ -214,9 +217,9 @@ export default {
         }
         strokeHeat();
         const l = pts[pts.length - 1];
-        g.draw.circle(l[0], l[1], R * 0.018, '#fff', { stroke: g.color, lw: R * 0.006 });
+        g.draw.circle(l[0], l[1], R * 0.018, THEME.fg, { stroke: g.color, lw: R * 0.006 });
         if (live) {
-          g.draw.text(`${live.pct.toFixed(1)}%`, cx, cy, R * 0.13, { color: '#fff', alpha: 0.9, glow: 12 });
+          g.draw.text(`${live.pct.toFixed(1)}%`, cx, cy, R * 0.13, { color: THEME.fg, alpha: 0.9, glow: 12 });
         }
       } else if (phase === 'fail') {
         strokeHeat(Math.max(0, 1 - phaseT / 0.9));
@@ -230,14 +233,14 @@ export default {
         const a0 = Math.atan2(pts[0][1] - c.y, pts[0][0] - c.x);
         ctx.save();
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, a0, a0 + a.dir * TAU * k, a.dir < 0);
-        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = R * 0.008; ctx.stroke();
+        ctx.strokeStyle = THEME.ink(0.85); ctx.lineWidth = R * 0.008; ctx.stroke();
         ctx.restore();
-        g.draw.circle(c.x, c.y, R * 0.012, '#fff');
+        g.draw.circle(c.x, c.y, R * 0.012, THEME.fg);
         // the score counts up
         const shown = a.pct * ease.out(clamp((phaseT - 0.2) / 0.9, 0, 1));
         const word = wordFor(a.pct);
         bigText(`${shown.toFixed(1)}%`, phaseT > 1.0 ? word : '', clamp(phaseT / 0.35, 0, 1), cy - R * 0.04);
-        if (phaseT > 1.1 && (!best || a.pct > best.score)) g.draw.text(best ? 'New best!' : 'First circle!', cx, cy + R * 0.3, R * 0.055, { color: g.color, glow: 10, alpha: clamp((phaseT - 1.1) * 3, 0, 1) });
+        if (phaseT > 1.1 && (!best || a.pct > best.score)) g.draw.text(best ? 'New best!' : 'First circle!', cx, cy + R * 0.3, R * 0.055, { color: THEME.light ? g.draw.shade(g.color, -0.35) : g.color, glow: 10, alpha: clamp((phaseT - 1.1) * 3, 0, 1) });
         if (phaseT > 1.0 && phaseT - dt <= 1.0 && a.pct >= 90) g.draw.burst(cx, cy - R * 0.04, g.color, 24, R * 0.6);
       }
       g.draw.particles(dt);

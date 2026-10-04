@@ -2,7 +2,7 @@
 // Tap / space to jump (hold for a bit more height), swipe down / ArrowDown to duck (and to drop fast in
 // the air). Cacti come in ones, twos and threes; gliders fly at three heights — the middle ones must be
 // ducked. The run speeds up; the score is the distance. Day turns to night now and then.
-import { TAU, clamp, rand, lerp, ease } from './kit.js';
+import { TAU, clamp, rand, lerp, ease, THEME } from './kit.js';
 import { topScores } from './scores.js';
 
 const GY = 0.35;            // ground, × R below the centre
@@ -10,7 +10,17 @@ const DX = -0.55;           // the dino's x, × R from the centre
 const U = 0.0085;           // one dino drawing unit, × R
 const GRAV = 5.2, V0 = 1.62, HOLD = 0.6, HOLD_T = 0.22;
 const SPEED0 = 1.25, SPEED_MAX = 2.75, ACCEL = 0.011;
-const CACTUS = '#b9f3d6', BIRD = '#cdd5ff', DINO = '#f1f5f9', PLATE = '#9ee8ff';
+// Colours: the original glowing night look in the dark modes; darker ink on a pale desert day in Light mode.
+const DARK = {
+  light: false, cactus: '#b9f3d6', bird: '#cdd5ff', dino: '#f1f5f9', plate: '#9ee8ff',
+  eye: '#050506', eyeHi: '#fff', mouth: 'rgba(5,5,6,.75)', spine: 'rgba(5,5,6,.35)',
+  earth: '226,232,240', cloudA: 0.055, nightTint: [[80, 96, 255, 0.16], [60, 70, 200, 0.05], [0, 0, 0, 0]],
+};
+const LIGHT = {
+  light: true, cactus: '#2f8a5f', bird: '#4b56a6', dino: '#2b3240', plate: '#2a9fc9',
+  eye: '#ffffff', eyeHi: '#2b3240', mouth: 'rgba(255,255,255,.8)', spine: 'rgba(255,255,255,.35)',
+  earth: '205,160,98', cloudA: 0.75, nightTint: [[40, 52, 130, 0.34], [40, 52, 130, 0.22], [40, 52, 130, 0.14]],
+};
 
 // hit boxes in dino units [x0, y0, x1, y1] (y up is negative), a little smaller than the art
 const BOX_STAND = [[-6, -13, 3.5, 0], [2.5, -21.5, 10.5, -15.5]];
@@ -34,7 +44,7 @@ export default {
     const stars = Array.from({ length: 34 }, (_, i) => ({ x: hash(i + 1) * 2 - 1, y: -0.9 + hash(i + 50) * 1.0, s: 0.4 + hash(i + 90) * 1.1, tw: hash(i + 7) * TAU }));
     const clouds = Array.from({ length: 4 }, (_, i) => ({ x: -0.8 + i * 0.6 + rand(-0.1, 0.1), y: rand(-0.55, -0.12), s: rand(0.8, 1.25) }));
     const sprites = {};
-    let spriteFor = '';
+    let spriteFor = '', C = DARK;
 
     // ---------- helpers ----------
     const onGround = () => dino.y <= 0 && dino.vy <= 0;
@@ -84,7 +94,7 @@ export default {
     function die() {
       phase = 'dead'; deadT = now;
       g.sfx('hit'); g.vibrate(70);
-      g.draw.burst(g.cx + DX * g.R, g.cy + (GY - dino.y - 0.1) * g.R, '#fff', 22, g.R * 0.5, g.R * 0.01);
+      g.draw.burst(g.cx + DX * g.R, g.cy + (GY - dino.y - 0.1) * g.R, C.light ? C.dino : '#fff', 22, g.R * 0.5, g.R * 0.01);
       g.over(Math.floor(score), { note: Math.floor(score) > best && best > 0 ? 'A new record run!' : `Top speed ${(speed / SPEED0).toFixed(1)}×`, delay: 1200 });
     }
 
@@ -116,9 +126,26 @@ export default {
       else if (k === 'ArrowDown' || k === 's') keyDuck = false;
     });
 
-    // ---------- sprites (pre-rendered once per size) ----------
+    // ---------- sprites and gradients (pre-rendered once per size and theme) ----------
+    const themeKey = () => `${g.R}|${g.cx}|${g.cy}|${g.dpr}|${THEME.id}|${THEME.mode}`;
     function makeSprites() {
-      const R = g.R, dpr = g.dpr;
+      const R = g.R, dpr = g.dpr, { ctx, cx, cy } = g;
+      C = THEME.light ? LIGHT : DARK;
+      sprites.halo = THEME.glow && !THEME.light;     // the soft white glow behind the dino and the obstacles
+      // ground wash (faded with globalAlpha) and the night tint (faded with globalAlpha = nightK)
+      const gy = cy + GY * R;
+      if (THEME.flat) {
+        sprites.earth = `rgba(${C.earth},1)`;
+        const [r, gg, b, a] = C.nightTint[1];
+        sprites.night = `rgba(${r},${gg},${b},${C.light ? a : a * 1.6})`;
+      } else {
+        const e = ctx.createLinearGradient(0, gy, 0, gy + R * 0.6);
+        e.addColorStop(0, `rgba(${C.earth},1)`); e.addColorStop(1, `rgba(${C.earth},0)`);
+        sprites.earth = e;
+        const n = ctx.createRadialGradient(cx, cy - R * 0.35, 0, cx, cy, R * 1.05);
+        C.nightTint.forEach(([r, gg, b, a], i) => n.addColorStop([0, 0.7, 1][i], `rgba(${r},${gg},${b},${a})`));
+        sprites.night = n;
+      }
       const mk = (w, h, fn) => { const c = document.createElement('canvas'); c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr); const x = c.getContext('2d'); x.scale(dpr, dpr); fn(x, w, h); return c; };
       sprites.glow = mk(64, 64, (x) => { const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(0.5, 'rgba(255,255,255,.1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); });
       const cw = R * 0.3, ch = R * 0.11;
@@ -141,7 +168,7 @@ export default {
         if (phase) { x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(c + phase * mr, c - mr * 0.1, mr * 1.02, 0, TAU); x.fill(); }
       });
       sprites.moons = [-0.62, -0.9, 0, 0.9, 0.62].map((p) => sprites.moon(p));
-      spriteFor = `${R}|${dpr}`;
+      spriteFor = themeKey();
     }
 
     // ---------- drawing the dino (our own design: a round-headed little runner with back plates) ----------
@@ -149,8 +176,9 @@ export default {
       const { ctx } = g;
       const u = U * g.R;
       ctx.save(); ctx.translate(x, y); ctx.scale(u, u);
+      const DINO = C.dino, PLATE = C.plate;
       // glow
-      ctx.drawImage(sprites.glow, -20, pose === 'duck' ? -18 : -28, 40, pose === 'duck' ? 26 : 34);
+      if (sprites.halo) ctx.drawImage(sprites.glow, -20, pose === 'duck' ? -18 : -28, 40, pose === 'duck' ? 26 : 34);
       ctx.fillStyle = DINO; ctx.strokeStyle = DINO; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       const dead = pose === 'dead';
       if (pose === 'duck') {
@@ -168,7 +196,7 @@ export default {
         legs(-3.6, 1.6, -2.5, 2.5, t, 1.6);
         // eye
         eye(13.2, -7.6 + bob, false);
-        ctx.fillStyle = 'rgba(5,5,6,.75)'; ctx.fillRect(13.6, -5.2 + bob, 2.4, 0.5);
+        ctx.fillStyle = C.mouth; ctx.fillRect(13.6, -5.2 + bob, 2.4, 0.5);
       } else {
         const air = pose === 'jump';
         const bob = pose === 'run' ? Math.abs(Math.sin(t * 2)) * -0.6 : 0;
@@ -192,7 +220,7 @@ export default {
         else legs(-3.6, 0.6, 0, 2.6, 0, 0);
         // face
         eye(8.2, -20, dead);
-        ctx.strokeStyle = 'rgba(5,5,6,.75)'; ctx.lineWidth = 0.55;
+        ctx.strokeStyle = C.mouth; ctx.lineWidth = 0.55;
         if (dead) { ctx.beginPath(); ctx.arc(10, -17.4, 0.9, 0, TAU); ctx.stroke(); }
         else { ctx.beginPath(); ctx.moveTo(8.6, -17.5); ctx.quadraticCurveTo(10.2, -16.9, 11.4, -17.6); ctx.stroke(); }
         ctx.fillStyle = 'rgba(255,138,216,.45)'; ctx.beginPath(); ctx.arc(6.4, -17.6, 0.9, 0, TAU); ctx.fill();
@@ -201,17 +229,17 @@ export default {
 
       function eye(ex, ey, x) {
         if (x) {
-          ctx.strokeStyle = '#050506'; ctx.lineWidth = 0.75;
+          ctx.strokeStyle = C.eye; ctx.lineWidth = 0.75;
           ctx.beginPath(); ctx.moveTo(ex - 1.3, ey - 1.3); ctx.lineTo(ex + 1.3, ey + 1.3); ctx.moveTo(ex + 1.3, ey - 1.3); ctx.lineTo(ex - 1.3, ey + 1.3); ctx.stroke();
           return;
         }
-        if (dino.blink < 0.13) { ctx.fillStyle = '#050506'; ctx.fillRect(ex - 1.1, ey - 0.15, 2.2, 0.45); return; }
-        ctx.fillStyle = '#050506'; ctx.beginPath(); ctx.arc(ex, ey, 1.15, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + 0.35, ey - 0.4, 0.38, 0, TAU); ctx.fill();
+        if (dino.blink < 0.13) { ctx.fillStyle = C.eye; ctx.fillRect(ex - 1.1, ey - 0.15, 2.2, 0.45); return; }
+        ctx.fillStyle = C.eye; ctx.beginPath(); ctx.arc(ex, ey, 1.15, 0, TAU); ctx.fill();
+        ctx.fillStyle = C.eyeHi; ctx.beginPath(); ctx.arc(ex + 0.35, ey - 0.4, 0.38, 0, TAU); ctx.fill();
       }
       // two legs from the hips (hx0, hx1), foot level fy; swing animates a run cycle
       function legs(hx0, hx1, fy, len, tt, swing, tucked = false) {
-        ctx.strokeStyle = DINO; ctx.lineWidth = 2.3;
+        ctx.strokeStyle = C.dino; ctx.lineWidth = 2.3;
         [hx0, hx1].forEach((hx, i) => {
           const ph = tt * 2 + i * Math.PI;
           const lift = swing ? Math.max(0, Math.sin(ph)) * swing : 0;
@@ -227,8 +255,8 @@ export default {
       const { ctx, cx, cy, R } = g;
       for (const p of o.parts) {
         const x = cx + (o.x + p.dx) * R, w = p.w * R, h = p.h * R, base = cy + GY * R;
-        ctx.drawImage(sprites.glow, x - w * 0.6, base - h * 1.15, w * 2.2, h * 1.35);
-        ctx.fillStyle = CACTUS; ctx.strokeStyle = CACTUS; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        if (sprites.halo) ctx.drawImage(sprites.glow, x - w * 0.6, base - h * 1.15, w * 2.2, h * 1.35);
+        ctx.fillStyle = C.cactus; ctx.strokeStyle = C.cactus; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         const tw = w * 0.48, tx = x + (w - tw) / 2;
         ctx.beginPath(); ctx.roundRect(tx, base - h, tw, h + 1, [tw / 2, tw / 2, 2, 2]); ctx.fill();
         ctx.lineWidth = tw * 0.58;
@@ -236,7 +264,7 @@ export default {
         if (l) { const ay = base - h * l; ctx.beginPath(); ctx.moveTo(tx + tw * 0.3, ay); ctx.lineTo(x + w * 0.12, ay); ctx.lineTo(x + w * 0.12, ay - h * 0.2); ctx.stroke(); }
         if (r) { const ay = base - h * r; ctx.beginPath(); ctx.moveTo(tx + tw * 0.7, ay); ctx.lineTo(x + w * 0.88, ay); ctx.lineTo(x + w * 0.88, ay - h * 0.24); ctx.stroke(); }
         // a few spines
-        ctx.strokeStyle = 'rgba(5,5,6,.35)'; ctx.lineWidth = 1;
+        ctx.strokeStyle = C.spine; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(tx + tw / 2, base - h * 0.85); ctx.lineTo(tx + tw / 2, base - h * 0.15); ctx.stroke();
       }
     }
@@ -244,9 +272,9 @@ export default {
       const { ctx, cx, cy, R } = g;
       const x = cx + o.x * R, y = cy + (GY - o.bottom - o.h * 0.5) * R, s = o.w * R / 22;
       ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-      ctx.drawImage(sprites.glow, -16, -12, 32, 24);
+      if (sprites.halo) ctx.drawImage(sprites.glow, -16, -12, 32, 24);
       const tip = -3 - 10 * Math.sin(o.flap);
-      ctx.fillStyle = BIRD; ctx.strokeStyle = BIRD; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.fillStyle = C.bird; ctx.strokeStyle = C.bird; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       // far wing
       ctx.globalAlpha = 0.5;
       ctx.beginPath(); ctx.moveTo(-1, -0.5); ctx.quadraticCurveTo(-2.5, tip * 0.8, 1.5, tip * 0.85); ctx.quadraticCurveTo(3, tip * 0.3, 5, 0); ctx.fill();
@@ -259,7 +287,7 @@ export default {
       ctx.beginPath(); ctx.moveTo(7.5, 0); ctx.lineTo(12, -2.2); ctx.lineTo(11, 2); ctx.fill();                 // tail
       // near wing
       ctx.beginPath(); ctx.moveTo(-1.5, 0); ctx.quadraticCurveTo(-1, tip, 3.5, tip * 1.05); ctx.quadraticCurveTo(4.5, tip * 0.35, 6.5, 0.6); ctx.fill();
-      ctx.fillStyle = '#050506'; ctx.beginPath(); ctx.arc(-5.4, -1.2, 0.8, 0, TAU); ctx.fill();
+      ctx.fillStyle = C.eye; ctx.beginPath(); ctx.arc(-5.4, -1.2, 0.8, 0, TAU); ctx.fill();
       ctx.restore();
     }
 
@@ -267,7 +295,7 @@ export default {
     g.loop((dt, t) => {
       now += dt;
       const { ctx, cx, cy, R } = g;
-      if (spriteFor !== `${R}|${g.dpr}`) makeSprites();
+      if (spriteFor !== themeKey()) makeSprites();
       dino.blink -= dt; if (dino.blink < 0) dino.blink = rand(2, 4.5);
 
       // ---- update ----
@@ -289,7 +317,7 @@ export default {
           dino.vy -= gr * dt; dino.y += dino.vy * dt;
           if (dino.y <= 0) {
             dino.y = 0; dino.vy = 0; dino.land = now;
-            g.draw.burst(cx + (DX - 0.01) * R, cy + GY * R, 'rgba(255,255,255,.6)', 6, R * 0.18, R * 0.006);
+            g.draw.burst(cx + (DX - 0.01) * R, cy + GY * R, THEME.ink(0.6), 6, R * 0.18, R * 0.006);
             if (now - jumpBuf < 0.12) { jumpBuf = -9; jump(dino.bufHeld); }
           }
         }
@@ -321,9 +349,7 @@ export default {
       ctx.save();
       if (shake) ctx.translate(rand(-1, 1) * shake * R * 0.018, rand(-1, 1) * shake * R * 0.018);
       if (nightK > 0.01) {
-        const gr = ctx.createRadialGradient(cx, cy - R * 0.35, 0, cx, cy, R * 1.05);
-        gr.addColorStop(0, `rgba(80,96,255,${0.16 * nightK})`); gr.addColorStop(0.7, `rgba(60,70,200,${0.05 * nightK})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = gr; ctx.fillRect(0, 0, g.S, g.S);
+        ctx.globalAlpha = nightK; ctx.fillStyle = sprites.night; ctx.fillRect(0, 0, g.S, g.S); ctx.globalAlpha = 1;
         // stars
         ctx.fillStyle = '#fff';
         for (const s of stars) {
@@ -346,7 +372,7 @@ export default {
       for (const c of clouds) {
         if (phase === 'run') c.x -= speed * dt * 0.16;
         if (c.x < -1.3) { c.x = 1.2 + rand(0.3); c.y = rand(-0.55, -0.12); c.s = rand(0.8, 1.25); }
-        ctx.globalAlpha = 0.055 - 0.025 * nightK;
+        ctx.globalAlpha = C.cloudA * (1 - 0.45 * nightK);
         const w = R * 0.22 * c.s, h = R * 0.08 * c.s;
         ctx.drawImage(sprites.cloud, cx + c.x * R, cy + c.y * R, w, h);
       }
@@ -354,9 +380,10 @@ export default {
 
       // ground line with bumps, and pebbles underneath
       const gy = cy + GY * R, stepX = 0.02;
-      const earth = ctx.createLinearGradient(0, gy, 0, gy + R * 0.6);
-      earth.addColorStop(0, `rgba(226,232,240,${0.05 + 0.02 * nightK})`); earth.addColorStop(1, 'rgba(226,232,240,0)');
-      ctx.fillStyle = earth; ctx.fillRect(0, gy, g.S, R * 0.6);
+      ctx.globalAlpha = C.light ? 0.3 : 0.05 + 0.02 * nightK;
+      if (THEME.flat) ctx.globalAlpha *= 0.6;
+      ctx.fillStyle = sprites.earth; ctx.fillRect(0, gy, g.S, THEME.flat ? g.S : R * 0.6);
+      ctx.globalAlpha = 1;
       ctx.save();
       ctx.beginPath();
       for (let x = -1; x <= 1.0001; x += stepX) {
@@ -366,10 +393,11 @@ export default {
         const px = cx + x * R, py = gy - bump;
         if (x === -1) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = 'rgba(241,245,249,.7)'; ctx.lineWidth = Math.max(1.5, R * 0.005); ctx.lineJoin = 'round';
-      ctx.shadowColor = 'rgba(226,232,240,.6)'; ctx.shadowBlur = R * 0.02; ctx.stroke();
+      ctx.strokeStyle = THEME.ink(0.7); ctx.lineWidth = Math.max(1.5, R * 0.005); ctx.lineJoin = 'round';
+      if (THEME.glow && !THEME.light) { ctx.shadowColor = THEME.ink(0.6); ctx.shadowBlur = R * 0.02; }
+      ctx.stroke();
       ctx.restore();
-      ctx.fillStyle = 'rgba(241,245,249,.35)';
+      ctx.fillStyle = THEME.ink(0.35);
       const pe = 0.045, first = Math.floor((world - 1) / pe);
       for (let i = first; i < first + 2 / pe + 2; i++) {
         if (hash(i * 3.1) < 0.45) continue;
@@ -397,16 +425,16 @@ export default {
       if (phase === 'wait') {
         const a = 0.55 + 0.45 * Math.sin(now * 3.5);
         g.draw.text('Tap to run', cx, cy + R * 0.56, R * 0.07, { alpha: a, glow: 10 });
-        g.draw.text('tap / space = jump  ·  swipe down = duck', cx, cy + R * 0.67, R * 0.036, { color: g.theme.muted, weight: 600, font: g.theme.font });
+        g.draw.text('tap / space = jump  ·  swipe down = duck', cx, cy + R * 0.67, R * 0.036, { color: THEME.muted, weight: 600, font: THEME.font });
       }
 
       // score: best + current, blinking on every 100
       const blinking = now - flashT < 0.9;
       const shown = blinking ? milestone * 100 : Math.floor(score);
       const ty = cy - R * 0.66;
-      if (best > 0) g.draw.text(`HI ${String(Math.floor(best)).padStart(5, '0')}`, cx - R * 0.17, ty, R * 0.05, { color: g.theme.dim, weight: 600 });
+      if (best > 0) g.draw.text(`HI ${String(Math.floor(best)).padStart(5, '0')}`, cx - R * 0.17, ty, R * 0.05, { color: THEME.dim, weight: 600 });
       if (!blinking || Math.floor((now - flashT) / 0.15) % 2 === 0) {
-        g.draw.text(String(shown).padStart(5, '0'), best > 0 ? cx + R * 0.17 : cx, ty, R * 0.075, { color: '#fff', glow: blinking ? 18 : 8 });
+        g.draw.text(String(shown).padStart(5, '0'), best > 0 ? cx + R * 0.17 : cx, ty, R * 0.075, { color: THEME.fg, glow: blinking ? 18 : 8 });
       }
 
       g.draw.particles(dt);

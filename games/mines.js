@@ -2,7 +2,7 @@
 // (inner rings have fewer, so every cell stays about the same size). A cell's neighbours are the cells
 // left and right of it on its ring plus every cell of the rings inside / outside whose span overlaps or
 // touches its own. Tap to dig, hold (or flag mode in the centre) to flag, tap a satisfied number to chord.
-import { TAU, clamp, rand, ease } from './kit.js';
+import { TAU, clamp, rand, ease, THEME } from './kit.js';
 
 const LEVELS = {
   easy:   { rings: 4, w: 1.12, mines: 10, name: 'Easy' },
@@ -11,7 +11,9 @@ const LEVELS = {
 };
 const IN = 0.215, OUT = 0.9;          // the field, × R (the disc inside IN is the status button)
 const NOTCH = 0.8;                    // rings reaching past this (× R) leave a gap for the pause button
-const NUM = ['', '#4d9bff', '#3ddc84', '#ff5a6a', '#b57bff', '#ff9f43', '#2ee6d6', '#ff8ad8', '#ffc857', '#f5f5f7', '#f5f5f7', '#f5f5f7', '#f5f5f7'];
+const NUM_DARK = ['', '#4d9bff', '#3ddc84', '#ff5a6a', '#b57bff', '#ff9f43', '#2ee6d6', '#ff8ad8', '#ffc857'];
+const NUM_LIGHT = ['', '#2f74e0', '#159a52', '#e0364a', '#8a4fe0', '#d9701a', '#0b9b8f', '#d2449e', '#b8860b'];   // deeper, for light screens
+const num = (n) => (n > 8 ? THEME.fg : (THEME.light ? NUM_LIGHT : NUM_DARK)[n]);
 const FLAG = '#ff5a6a';
 const HALF_PI = Math.PI / 2;
 
@@ -248,7 +250,7 @@ export default {
       const { ctx } = g;
       ctx.save(); ctx.translate(x, y); ctx.globalAlpha = a;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1.5, s * 0.13);
+      ctx.strokeStyle = THEME.ink(0.9); ctx.lineWidth = Math.max(1.5, s * 0.13);
       ctx.beginPath(); ctx.moveTo(-s * 0.28, s * 0.62); ctx.lineTo(-s * 0.28, -s * 0.66); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-s * 0.52, s * 0.64); ctx.lineTo(-s * 0.02, s * 0.64); ctx.stroke();
       ctx.fillStyle = FLAG;
@@ -257,7 +259,7 @@ export default {
       ctx.quadraticCurveTo(s * 0.2, -s * 0.2, -s * 0.24, -s * 0.06);
       ctx.closePath(); ctx.fill();
       if (wrong) {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, s * 0.16);
+        ctx.strokeStyle = THEME.fg; ctx.lineWidth = Math.max(2, s * 0.16);
         ctx.beginPath(); ctx.moveTo(-s * 0.6, -s * 0.6); ctx.lineTo(s * 0.6, s * 0.6); ctx.moveTo(s * 0.6, -s * 0.6); ctx.lineTo(-s * 0.6, s * 0.6); ctx.stroke();
       }
       ctx.restore();
@@ -266,13 +268,32 @@ export default {
       const { ctx } = g;
       ctx.save(); ctx.translate(x, y);
       // flat: one solid colour for the spikes and the round body
-      const col = hot ? '#ffb347' : '#cdd3e0';
+      const col = hot ? '#ffb347' : THEME.light ? '#4a5466' : '#cdd3e0';
       ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, s * 0.14); ctx.lineCap = 'round';
       ctx.beginPath();
       for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.2; ctx.moveTo(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.3); ctx.lineTo(Math.cos(a) * s * 0.92, Math.sin(a) * s * 0.92); }
       ctx.stroke();
       ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, TAU); ctx.fill();
       ctx.restore();
+    }
+
+    // the cell fills (closed / pressed), rebuilt only when the size or the theme changes
+    let paint = null, paintKey = '';
+    function paints() {
+      const { cx, cy, R } = g, A = g.draw.alpha;
+      const key = `${R}|${cx}|${cy}|${THEME.id}|${THEME.mode}`;
+      if (key === paintKey) return paint;
+      paintKey = key;
+      const lt = THEME.light;
+      if (THEME.flat) paint = { closed: A(g.color, lt ? 0.3 : 0.22), lit: lt ? A(g.color, 0.55) : 'rgba(255,255,255,.3)' };
+      else {
+        const rad = (a, b) => { const gr = g.ctx.createRadialGradient(cx, cy, IN * R, cx, cy, OUT * R); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
+        paint = {
+          closed: rad(A(g.color, lt ? 0.36 : 0.3), A(g.color, lt ? 0.2 : 0.14)),
+          lit: lt ? rad(A(g.color, 0.62), A(g.color, 0.5)) : rad('rgba(255,255,255,.34)', A(g.color, 0.42)),
+        };
+      }
+      return paint;
     }
 
     g.loop((dt) => {
@@ -304,12 +325,10 @@ export default {
 
       // the field behind the cells
       ctx.beginPath(); ctx.arc(cx, cy, OUT * R + R * 0.012, 0, TAU); ctx.arc(cx, cy, IN * R - R * 0.006, 0, TAU, true);
-      ctx.fillStyle = 'rgba(255,255,255,.018)'; ctx.fill();
+      ctx.fillStyle = THEME.ink(THEME.light ? 0.03 : 0.018); ctx.fill();
 
-      const closed = ctx.createRadialGradient(cx, cy, IN * R, cx, cy, OUT * R);
-      closed.addColorStop(0, A(g.color, 0.3)); closed.addColorStop(1, A(g.color, 0.14));
-      const lit = ctx.createRadialGradient(cx, cy, IN * R, cx, cy, OUT * R);
-      lit.addColorStop(0, 'rgba(255,255,255,.34)'); lit.addColorStop(1, A(g.color, 0.42));
+      const { closed, lit } = paints();
+      const lt = THEME.light;
       const pressed = press && press.c && !press.c.open ? press.c : null;
 
       // pass 1: cell bodies
@@ -318,12 +337,12 @@ export default {
         const showOpen = c.open && now >= c.t && !(c.mine && !c.boomed);
         if (!showOpen) {
           ctx.fillStyle = c === pressed ? lit : closed; ctx.fill(c.path);
-          ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.stroke(c.path);
+          ctx.strokeStyle = lt ? THEME.ink(0.1) : THEME.line; ctx.stroke(c.path);
         } else {
           const k = clamp((now - c.t) / 0.28, 0, 1);
-          ctx.fillStyle = c.mine ? (c.hit ? 'rgba(255,90,106,.42)' : 'rgba(255,122,69,.13)') : c.n ? A(NUM[c.n], 0.055) : 'rgba(255,255,255,.028)';
+          ctx.fillStyle = c.mine ? (c.hit ? 'rgba(255,90,106,.42)' : 'rgba(255,122,69,.13)') : c.n ? A(num(c.n), lt ? 0.08 : 0.055) : THEME.ink(lt ? 0.04 : 0.028);
           ctx.fill(c.path);
-          if (k < 1) { ctx.fillStyle = `rgba(255,255,255,${0.42 * (1 - k)})`; ctx.fill(c.path); }
+          if (k < 1) { ctx.fillStyle = lt ? A(g.color, 0.35 * (1 - k)) : `rgba(255,255,255,${0.42 * (1 - k)})`; ctx.fill(c.path); }
         }
       }
       // win: a wave of light rolling outwards
@@ -338,12 +357,12 @@ export default {
       // pass 2: contents
       const cs = Math.min(thick * R, (TAU * (IN + thick / 2) * R) / rings[0].n);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `700 ${Math.round(thick * R * 0.46)}px ${g.theme.display}`;
+      ctx.font = `700 ${Math.round(thick * R * 0.46)}px ${THEME.display}`;
       for (const c of cells) {
         if (c.open && now >= c.t && !c.mine && c.n) {
           const k = ease.back(clamp((now - c.t) / 0.3, 0, 1));
-          if (k < 1) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(k, k); ctx.fillStyle = NUM[c.n]; ctx.fillText(String(c.n), 0, 1); ctx.restore(); }
-          else { ctx.fillStyle = NUM[c.n]; ctx.fillText(String(c.n), c.x, c.y + 1); }
+          if (k < 1) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(k, k); ctx.fillStyle = num(c.n); ctx.fillText(String(c.n), 0, 1); ctx.restore(); }
+          else { ctx.fillStyle = num(c.n); ctx.fillText(String(c.n), c.x, c.y + 1); }
         }
       }
       for (const c of cells) {
@@ -356,14 +375,15 @@ export default {
 
       // keyboard cursor
       if (kbOn && cursor && phase !== 'won' && phase !== 'lost') {
-        ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, R * 0.009); ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04;
+        ctx.save(); ctx.strokeStyle = THEME.fg; ctx.lineWidth = Math.max(2, R * 0.009);
+        if (THEME.glow) { ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04; }
         ctx.stroke(cursor.path); ctx.restore();
       }
       // holding on a cell: a ring fills up until the flag drops in
       if (press && press.c && !press.c.open && !flagMode && phase !== 'won' && phase !== 'lost') {
         const k = clamp((now - press.t0 - 0.12) / 0.33, 0, 1);
         if (k > 0) {
-          g.draw.arc(press.x, press.y, R * 0.085, 0, TAU, 'rgba(255,255,255,.12)', R * 0.012);
+          g.draw.arc(press.x, press.y, R * 0.085, 0, TAU, THEME.ink(0.12), R * 0.012);
           g.draw.arc(press.x, press.y, R * 0.085, 0, TAU * k, FLAG, R * 0.012);
         }
       }
@@ -395,19 +415,19 @@ export default {
       ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU);
       ctx.fillStyle = g.draw.alpha(tint, flagMode || lost || won ? 0.2 : 0.12); ctx.fill();
       ctx.lineWidth = Math.max(1.5, R * 0.007);
-      ctx.strokeStyle = flagMode || lost || won ? g.draw.alpha(tint, 0.85) : 'rgba(255,255,255,.18)'; ctx.stroke();
+      ctx.strokeStyle = flagMode || lost || won ? g.draw.alpha(tint, 0.85) : THEME.ink(0.18); ctx.stroke();
       ctx.restore();
       // timer
-      g.draw.text(clock(elapsed), cx, cy - rr * 0.5, rr * 0.25, { color: won ? '#3ddc84' : g.theme.muted, weight: 600 });
+      g.draw.text(clock(elapsed), cx, cy - rr * 0.5, rr * 0.25, { color: won ? '#3ddc84' : THEME.muted, weight: 600 });
       // mines left
       const left = lv.mines - flags;
       drawMine(cx - rr * 0.36, cy + rr * 0.01, rr * 0.2, lost ? 1 : 0);
-      g.draw.text(String(left), cx + rr * 0.14, cy + rr * 0.03, rr * 0.46, { color: left < 0 ? '#ff5a6a' : '#fff' });
+      g.draw.text(String(left), cx + rr * 0.14, cy + rr * 0.03, rr * 0.46, { color: left < 0 ? '#ff5a6a' : THEME.fg });
       // flag-mode switch
       const fy = cy + rr * 0.58;
       if (flagMode) g.draw.roundRect(cx - rr * 0.36, fy - rr * 0.2, rr * 0.72, rr * 0.4, rr * 0.2, g.draw.alpha(FLAG, 0.22), { stroke: g.draw.alpha(FLAG, 0.7), lw: 1.5 });
       drawFlag(cx - rr * 0.12, fy + rr * 0.02, rr * 0.2, flagMode ? 1 : 0.45);
-      g.draw.text(flagMode ? 'ON' : 'OFF', cx + rr * 0.16, fy + rr * 0.01, rr * 0.15, { color: flagMode ? '#fff' : g.theme.dim, weight: 800 });
+      g.draw.text(flagMode ? 'ON' : 'OFF', cx + rr * 0.16, fy + rr * 0.01, rr * 0.15, { color: flagMode ? THEME.fg : THEME.dim, weight: 800 });
     }
 
     return {};

@@ -3,14 +3,27 @@
 // fast from a jump). Trains stand or come at you — switch lanes, or run up a ramp onto the roofs.
 // Coins add up, power-ups give a coin magnet or a 2× multiplier. One crash ends the run; bumping into the
 // side of a train only knocks you back — twice in a short while and you're down.
-import { TAU, rand, clamp, lerp, pick } from './kit.js';
+import { TAU, rand, clamp, lerp, pick, THEME } from './kit.js';
 
 const LW = 1.3;                         // lane spacing
 const CB = 5, CH = 3.0, NEAR = 0.3;     // camera behind / height / near plane
 const VIEW = 70, SPAWN = 95;            // draw distance, how far ahead rows are generated
 const ROOF = 1.75, TW = 0.575, RL = 3.6;  // train roof height, half width, ramp length
 const GRAV = 26, JUMP_V = 8.8;
-const FOG = [18, 16, 34];
+// scenery per theme mode: the neon night city (Dark — the original look), a pitch-black night (OLED), a bright day (Light)
+const SCENE = {
+  dark: { fog: [18, 16, 34], sky: ['#05050c', '#0e0c22'], ground: ['#0d0c16', '#050508'], skyline: '#0c0b19', skyWin: 'rgba(255,214,140,.45)',
+    moon: 'rgba(230,235,255,.85)', halo: 'rgba(200,210,255,.06)', vig: 'rgba(0,0,0,.75)', win: '#ffd88a', winA: 0.7,
+    rail: '#9aa3b8', bed: '#16141d', wall: '#221e33', wallTop: '#3a3354', bld: '#151324', bldF: '#1c1930', sleeper: ['#3a3442', '#2c2735'] },
+  oled: { fog: [9, 8, 18], sky: ['#000000', '#08071a'], ground: ['#05050a', '#000000'], skyline: '#04040a', skyWin: 'rgba(255,214,140,.4)',
+    moon: 'rgba(230,235,255,.85)', halo: 'rgba(200,210,255,.05)', vig: 'rgba(0,0,0,.8)', win: '#ffd88a', winA: 0.7,
+    rail: '#9aa3b8', bed: '#0c0b11', wall: '#18152a', wallTop: '#2e2944', bld: '#0b0a15', bldF: '#110f20', sleeper: ['#302b38', '#24202c'] },
+  light: { fog: [212, 220, 234], sky: ['#6fa6dc', '#bcd3ec'], ground: ['#9a9cab', '#6c6f80'], skyline: '#a4b0c6', skyWin: null,
+    moon: 'rgba(255,251,228,.95)', halo: 'rgba(255,244,190,.28)', vig: 'rgba(50,62,90,.28)', win: '#eaf3ff', winA: 0.8,
+    rail: '#565d72', bed: '#7f7c89', wall: '#a19eb2', wallTop: '#c4c1d2', bld: '#8790a6', bldF: '#a2aabd', sleeper: ['#6e6259', '#5d524a'] },
+};
+const scene = () => (THEME.light ? SCENE.light : THEME.mode === 'oled' ? SCENE.oled : SCENE.dark);
+let FOG = SCENE.dark.fog;
 const TRAIN_COLS = ['#34d399', '#ff4fa3', '#4d9bff', '#ffb020', '#b57bff'];
 
 export default {
@@ -25,7 +38,7 @@ export default {
     let camX = 0, camY = CH, camZ = -CB, groundS = 0, F = 1, HY = 0, CXs = 0;
     let magnetT = 0, multT = 0, nextPower = 18, nextRowZ = 34;
     const objs = [], coinList = [];
-    let backdrop = null, glowSpr = null, vignette = null;
+    let backdrop = null, glowSpr = null, vignette = null, artKey = '', SC = SCENE.dark;
     const diff = () => clamp(dist / 3000, 0, 1);
     const laneX = (l) => l * LW;
 
@@ -273,11 +286,33 @@ export default {
     const fogI = (z) => clamp(Math.round((z - 14) / (VIEW - 14) * 16), 0, 16);
     const shade = (hex, a) => { const n = parseInt(hex.slice(1), 16); const f = (v) => clamp(Math.round(a >= 0 ? v + (255 - v) * a : v * (1 + a)), 0, 255); return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, '0')).join('')}`; };
     const TRAIN_PAL = {};
-    for (const c of TRAIN_COLS) TRAIN_PAL[c] = { body: pal(shade(c, -0.62)), side: pal(shade(c, -0.72)), roof: pal(shade(c, -0.45)), stripe: pal(c), light: pal(shade(c, 0.5)) };
-    const SLEEPER = [pal('#3a3442'), pal('#2c2735')], RAIL = pal('#9aa3b8'), BED = pal('#16141d');
-    const WALL = pal('#221e33'), WALLTOP = pal('#3a3354'), BLD = pal('#151324'), BLDF = pal('#1c1930');
-    const LOWB = pal('#f2f2f5'), RED = pal('#ff4d5e'), YEL = pal('#ffc83d'), DARK = pal('#1a1a22'), POST = pal('#8a8fa0');
-    const GOLD = pal('#ffc94a'), GOLDD = pal('#c8901a'), RAMP = pal('#4a4f62'), RAMPS = pal('#2e3140');
+    let SLEEPER, RAIL, BED, WALL, WALLTOP, BLD, BLDF, LOWB, RED, YEL, DARK, POST, GOLD, GOLDD, RAMP, RAMPS;
+    function buildPalettes() {   // the fog colour follows the theme mode, so these are rebuilt with the art
+      for (const c of TRAIN_COLS) TRAIN_PAL[c] = { body: pal(shade(c, -0.62)), side: pal(shade(c, -0.72)), roof: pal(shade(c, -0.45)), stripe: pal(c), light: pal(shade(c, 0.5)) };
+      SLEEPER = [pal(SC.sleeper[0]), pal(SC.sleeper[1])]; RAIL = pal(SC.rail); BED = pal(SC.bed);
+      WALL = pal(SC.wall); WALLTOP = pal(SC.wallTop); BLD = pal(SC.bld); BLDF = pal(SC.bldF);
+      LOWB = pal('#f2f2f5'); RED = pal('#ff4d5e'); YEL = pal('#ffc83d'); DARK = pal('#1a1a22'); POST = pal('#8a8fa0');
+      GOLD = pal('#ffc94a'); GOLDD = pal('#c8901a'); RAMP = pal('#4a4f62'); RAMPS = pal('#2e3140');
+    }
+    // vertical fill: a gradient, or (flat themes) a few solid steps through the same colours
+    const toRgb = (c) => (Array.isArray(c) ? c : [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)));
+    function vfill(k, x, y0, w, y1, stops) {
+      if (!THEME.flat) {
+        const gr = k.createLinearGradient(0, y0, 0, y1);
+        for (const [at, c] of stops) gr.addColorStop(at, `rgb(${toRgb(c).join(',')})`);
+        k.fillStyle = gr; k.fillRect(x, y0, w, y1 - y0);
+        return;
+      }
+      const n = 6;
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n;
+        let j = 0; while (j < stops.length - 2 && u > stops[j + 1][0]) j++;
+        const [a0, c0] = stops[j], [a1, c1] = stops[j + 1], t = clamp((u - a0) / (a1 - a0 || 1), 0, 1);
+        const A = toRgb(c0), B = toRgb(c1);
+        k.fillStyle = `rgb(${A.map((v, q) => Math.round(lerp(v, B[q], t))).join(',')})`;
+        k.fillRect(x, y0 + (y1 - y0) * i / n, w, (y1 - y0) / n + 1);
+      }
+    }
 
     // ---------------------------------------------------------------- city
     const blds = [];  // buildings along both sides
@@ -299,34 +334,38 @@ export default {
 
     function buildArt() {
       const R = g.R, S = g.S, dpr = g.dpr || 1;
+      SC = scene(); FOG = SC.fog; buildPalettes();
+      artKey = `${THEME.id}|${THEME.mode}`;
       backdrop = document.createElement('canvas');
       backdrop.width = backdrop.height = Math.max(1, Math.round(S * dpr));
       const b = backdrop.getContext('2d'); b.scale(dpr, dpr);
       const hy = g.cy - R * 0.28;
-      const sky = b.createLinearGradient(0, g.cy - R, 0, hy);
-      sky.addColorStop(0, '#05050c'); sky.addColorStop(0.6, '#0e0c22'); sky.addColorStop(1, `rgb(${FOG.join(',')})`);
-      b.fillStyle = sky; b.fillRect(0, 0, S, hy + 1);
-      // moon
-      b.fillStyle = 'rgba(230,235,255,.85)'; b.beginPath(); b.arc(g.cx + R * 0.42, g.cy - R * 0.55, R * 0.045, 0, TAU); b.fill();
-      b.fillStyle = 'rgba(200,210,255,.06)'; b.beginPath(); b.arc(g.cx + R * 0.42, g.cy - R * 0.55, R * 0.12, 0, TAU); b.fill();
+      b.fillStyle = SC.sky[0]; b.fillRect(0, 0, S, g.cy - R);
+      vfill(b, 0, g.cy - R, S, hy + 1, [[0, SC.sky[0]], [0.6, SC.sky[1]], [1, FOG]]);
+      // moon (the sun by day)
+      b.fillStyle = SC.moon; b.beginPath(); b.arc(g.cx + R * 0.42, g.cy - R * 0.55, R * 0.045, 0, TAU); b.fill();
+      b.fillStyle = SC.halo; b.beginPath(); b.arc(g.cx + R * 0.42, g.cy - R * 0.55, R * 0.12, 0, TAU); b.fill();
       // far skyline with lit windows
       let x = g.cx - R;
       while (x < g.cx + R) {
         const w = R * rand(0.06, 0.15), hh = R * rand(0.06, 0.3) * (1 - Math.abs(x - g.cx) / R * 0.4);
-        b.fillStyle = '#0c0b19'; b.fillRect(x, hy - hh, w, hh + 1);
-        b.fillStyle = 'rgba(255,214,140,.45)';
-        for (let wy = hy - hh + R * 0.015; wy < hy - R * 0.01; wy += R * 0.022) for (let wx = x + R * 0.01; wx < x + w - R * 0.01; wx += R * 0.02) if (Math.random() < 0.22) b.fillRect(wx, wy, R * 0.007, R * 0.009);
+        b.fillStyle = SC.skyline; b.fillRect(x, hy - hh, w, hh + 1);
+        b.fillStyle = SC.skyWin || 'rgba(0,0,0,0)';
+        if (SC.skyWin) for (let wy = hy - hh + R * 0.015; wy < hy - R * 0.01; wy += R * 0.022) for (let wx = x + R * 0.01; wx < x + w - R * 0.01; wx += R * 0.02) if (Math.random() < 0.22) b.fillRect(wx, wy, R * 0.007, R * 0.009);
         x += w + R * rand(0, 0.02);
       }
-      const hg = b.createRadialGradient(g.cx, hy, 0, g.cx, hy, R * 0.9);
-      hg.addColorStop(0, g.draw.alpha(g.color, 0.22)); hg.addColorStop(0.45, 'rgba(181,123,255,.07)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
-      b.fillStyle = hg; b.fillRect(0, 0, S, S);
+      if (!THEME.flat) {
+        const hg = b.createRadialGradient(g.cx, hy, 0, g.cx, hy, R * 0.9);
+        hg.addColorStop(0, g.draw.alpha(g.color, 0.22)); hg.addColorStop(0.45, 'rgba(181,123,255,.07)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+        b.fillStyle = hg; b.fillRect(0, 0, S, S);
+      }
       // ground below the horizon
-      const gr = b.createLinearGradient(0, hy, 0, g.cy + R);
-      gr.addColorStop(0, `rgb(${FOG.join(',')})`); gr.addColorStop(0.15, '#0d0c16'); gr.addColorStop(1, '#050508');
-      b.fillStyle = gr; b.fillRect(0, hy, S, S - hy);
-      vignette = ctx.createRadialGradient(g.cx, g.cy, R * 0.62, g.cx, g.cy, R);
-      vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.75)');
+      vfill(b, 0, hy, S, g.cy + R, [[0, FOG], [0.15, SC.ground[0]], [1, SC.ground[1]]]);
+      b.fillStyle = SC.ground[1]; b.fillRect(0, g.cy + R, S, S);
+      if (!THEME.flat) {
+        vignette = ctx.createRadialGradient(g.cx, g.cy, R * 0.62, g.cx, g.cy, R);
+        vignette.addColorStop(0, g.draw.alpha(SC.vig, 0)); vignette.addColorStop(1, SC.vig);
+      } else vignette = null;
       glowSpr = document.createElement('canvas'); glowSpr.width = glowSpr.height = 64;
       const gg = glowSpr.getContext('2d'), rg = gg.createRadialGradient(32, 32, 0, 32, 32, 32);
       rg.addColorStop(0, 'rgba(255,255,255,.9)'); rg.addColorStop(0.3, 'rgba(255,255,255,.3)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
@@ -359,7 +398,7 @@ export default {
             pt(xi, wy, wz); pt(xi, wy + 0.7, wz); pt(xi, wy + 0.7, wz + cw * 0.5); pt(xi, wy, wz + cw * 0.5);
             poly(null, false);
           }
-          ctx.globalAlpha = 0.7 * (1 - fi / 18); ctx.fillStyle = '#ffd88a'; ctx.fill(); ctx.globalAlpha = 1;
+          ctx.globalAlpha = SC.winA * (1 - fi / 18); ctx.fillStyle = SC.win; ctx.fill(); ctx.globalAlpha = 1;
         }
         // a neon strip
         if (bd.neon) {
@@ -485,7 +524,7 @@ export default {
           const lx = ax + w * sd, ly = ay + h * 0.76, r = k * 0.09;
           ctx.fillStyle = lit ? '#fffbe6' : '#6b6f80';
           ctx.beginPath(); ctx.arc(lx, ly, r, 0, TAU); ctx.fill();
-          if (lit) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.9 - fi / 20; ctx.drawImage(glowSpr, lx - r * 6, ly - r * 6, r * 12, r * 12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+          if (lit && THEME.glow) { if (THEME.light) ctx.globalAlpha = 0.5 - fi / 40; else { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.9 - fi / 20; } ctx.drawImage(glowSpr, lx - r * 6, ly - r * 6, r * 12, r * 12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
         }
         ctx.fillStyle = '#07070b'; ctx.fillRect(ax + w * 0.05, by - h * 0.05, w * 0.9, h * 0.05 + k * 0.12);
       }
@@ -534,13 +573,13 @@ export default {
       g.draw.circle(SX, SY, r, col, { stroke: '#fff', lw: Math.max(1.5, r * 0.12) });   // flat orb: solid fill, white rim
       drawPowerIcon(o.kind, SX, SY, r * 0.62);
     }
-    function drawPowerIcon(kind, cx, cy, s) {
+    function drawPowerIcon(kind, cx, cy, s, ink = '#fff', tips = '#1a1a22') {
       if (kind === 'magnet') {
         ctx.lineCap = 'butt';
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = s * 0.42;
+        ctx.strokeStyle = ink; ctx.lineWidth = s * 0.42;
         ctx.beginPath(); ctx.arc(cx, cy - s * 0.05, s * 0.55, Math.PI, 0, true); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(cx - s * 0.55, cy - s * 0.05); ctx.lineTo(cx - s * 0.55, cy - s * 0.65); ctx.moveTo(cx + s * 0.55, cy - s * 0.05); ctx.lineTo(cx + s * 0.55, cy - s * 0.65); ctx.stroke();
-        ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = s * 0.44;
+        ctx.strokeStyle = tips; ctx.lineWidth = s * 0.44;
         ctx.beginPath(); ctx.moveTo(cx - s * 0.55, cy - s * 0.5); ctx.lineTo(cx - s * 0.55, cy - s * 0.68); ctx.moveTo(cx + s * 0.55, cy - s * 0.5); ctx.lineTo(cx + s * 0.55, cy - s * 0.68); ctx.stroke();
       } else {
         g.draw.text('2×', cx, cy + s * 0.05, s * 1.25, { color: '#1a1a22', weight: 800 });
@@ -610,11 +649,11 @@ export default {
       if (multT > 0) list.push(['x2', multT / 10, '#ffc83d']);
       list.forEach(([kind, frac, col], i) => {
         const cx = g.cx + (i - (list.length - 1) / 2) * R * 0.15, cy = g.cy - R * 0.44, r = R * 0.05;
-        g.draw.circle(cx, cy, r, 'rgba(10,10,20,.6)', { stroke: 'rgba(255,255,255,.14)', lw: R * 0.006 });
+        g.draw.circle(cx, cy, r, THEME.paper(0.6), { stroke: THEME.ink(0.14), lw: R * 0.006 });
         g.draw.arc(cx, cy, r, 0, TAU * frac, frac < 0.25 && Math.sin(g.time * 14) > 0 ? g.draw.alpha(col, 0.35) : col, R * 0.012);
         ctx.save(); ctx.globalAlpha = 0.95;
-        if (kind === 'magnet') { ctx.translate(0, r * 0.15); drawPowerIcon(kind, cx, cy, r * 0.62); }
-        else g.draw.text('2×', cx, cy + r * 0.05, r * 0.8, { color: '#fff', weight: 800 });
+        if (kind === 'magnet') { ctx.translate(0, r * 0.15); drawPowerIcon(kind, cx, cy, r * 0.62, THEME.fg, THEME.light ? col : '#1a1a22'); }
+        else g.draw.text('2×', cx, cy + r * 0.05, r * 0.8, { color: THEME.fg, weight: 800 });
         ctx.restore();
       });
     }
@@ -635,6 +674,7 @@ export default {
       const sub = `◎ ${coins}${multT > 0 ? '  ·  2×' : ''}`;
       if (sub !== shownSub) { shownSub = sub; g.sub(sub); }
 
+      if (artKey !== `${THEME.id}|${THEME.mode}`) buildArt();   // the theme changed: repaint the cached scenery once
       ctx.save();
       g.draw.clipCircle(R);
       ctx.drawImage(backdrop, 0, 0, g.S, g.S);
@@ -642,7 +682,7 @@ export default {
       drawTrack();
       drawObjects();
       if (stumbleT > 0 && state === 'run') { ctx.globalAlpha = Math.min(1, stumbleT) * (0.5 + 0.5 * Math.sin(g.time * 10)); ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.93, 0, TAU); ctx.strokeStyle = 'rgba(255,77,94,.55)'; ctx.lineWidth = R * 0.05; ctx.stroke(); ctx.globalAlpha = 1; }
-      ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.81, 0, TAU); ctx.strokeStyle = vignette; ctx.lineWidth = R * 0.38; ctx.stroke();
+      if (vignette) { ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.81, 0, TAU); ctx.strokeStyle = vignette; ctx.lineWidth = R * 0.38; ctx.stroke(); }
       if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.4})`; ctx.fillRect(0, 0, g.S, g.S); }
       ctx.restore();
       ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.948, 0, TAU); ctx.strokeStyle = g.theme.line; ctx.lineWidth = Math.max(1, R * 0.008); ctx.stroke();

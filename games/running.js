@@ -90,7 +90,7 @@ export default {
     function die() {
       phase = 'dead'; deadT = 0;
       const [x, y] = ballXY();
-      g.draw.burst(x, y, '#fff', 26, g.R * 0.7, g.R * 0.012);
+      g.draw.burst(x, y, THEME.fg, 26, g.R * 0.7, g.R * 0.012);
       g.draw.burst(x, y, accent, 20, g.R * 0.5, g.R * 0.01);
       g.sfx('boom'); g.vibrate(60);
       const laps = Math.floor(pos / TAU);
@@ -147,7 +147,7 @@ export default {
 
       // ================= draw =================
       const sp = clamp((omega - W0) / (WMAX - W0), 0, 1);
-      accent = phase === 'dead' ? THEME.danger : hsl(262 + sp * 140, 90, 70);
+      accent = phase === 'dead' ? THEME.danger : hsl(262 + sp * 140, 90, THEME.light ? 60 : 70);   // a deeper tone on light screens
       const bgc = hsl(262 + sp * 140, 80, 55);
       g.draw.bg({ color: bgc, glow: 0.16 + pulse * 0.08 + sp * 0.05 });
       const ringR = TR * R;
@@ -188,8 +188,8 @@ export default {
         return [grow, fade];
       };
       ctx.save();
-      ctx.fillStyle = '#f5f5f7'; ctx.strokeStyle = '#f5f5f7'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.shadowColor = accent; ctx.shadowBlur = R * 0.03;
+      ctx.fillStyle = THEME.fg; ctx.strokeStyle = THEME.fg; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (THEME.glow) { ctx.shadowColor = accent; ctx.shadowBlur = R * 0.03; }
       ctx.beginPath();
       for (const o of obs) { const [gr, fa] = vis(o); if (o.kind === 'spike' && gr >= 1 && fa >= 1) shape(o, 1); }
       ctx.fill();
@@ -240,7 +240,7 @@ export default {
         ctx.globalAlpha = 1;
         const hop = Math.sin(Math.PI * flipT) * 0.28;          // swells a little mid-hop
         g.draw.ball(bx, by, BALL * R * (1 + hop) * 1.22, accent);      // flat: a solid accent rim…
-        g.draw.ball(bx, by, BALL * R * (1 + hop), '#ffffff');           // …around a solid white ball
+        g.draw.ball(bx, by, BALL * R * (1 + hop), THEME.fg);            // …around a solid ball in the text colour (white on dark)
       } else {
         // shockwave where it crashed
         const k = clamp(deadT / 0.6, 0, 1);
@@ -249,9 +249,9 @@ export default {
 
       // score in the middle
       const laps = Math.floor(pos / TAU), ta = phase === 'dead' ? clamp(1 - deadT / 0.9, 0, 1) : 1;   // fades before the game-over card
-      g.draw.text(String(score), cx, cy - R * 0.03, R * 0.26, { color: '#fff', glow: R * 0.04 * pulse, alpha: ta });
+      g.draw.text(String(score), cx, cy - R * 0.03, R * 0.26, { color: THEME.fg, glow: R * 0.04 * pulse, alpha: ta });
       g.draw.text(`LAP ${laps + 1}`, cx, cy + R * 0.15, R * 0.045, { color: THEME.muted, weight: 700, font: THEME.font, alpha: ta });
-      if (hint > 0) g.draw.text('Tap to switch sides', cx, cy + R * 0.25, R * 0.05, { color: '#fff', alpha: Math.min(1, hint * 2.5), weight: 600, font: THEME.font });
+      if (hint > 0) g.draw.text('Tap to switch sides', cx, cy + R * 0.25, R * 0.05, { color: THEME.fg, alpha: Math.min(1, hint * 2.5), weight: 600, font: THEME.font });
       g.draw.particles(dt);
       g.draw.floaters(dt);
     });

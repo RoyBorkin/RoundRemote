@@ -5,7 +5,7 @@
 // a brick that reaches the red danger ring ends the game. Catch white rings for more balls, and power-ups.
 //
 // Physics run in units of R (the screen radius) around the centre, so a resize never disturbs a volley.
-import { TAU, rand, clamp, ease } from './kit.js';
+import { TAU, rand, clamp, ease, THEME } from './kit.js';
 
 const NR = 7;                    // rings 0…6; ring 0 is the danger ring (no brick may enter it)
 const NS = 16;                   // sectors per ring
@@ -174,7 +174,7 @@ export default {
         snd('laser', undefined, 0.08); return;
       }
       grid[o.k][o.s] = null; version++;
-      if (o.type === 'ball') { gain++; g.sfx('coin'); draw.float('+1', X(c.mx), Y(c.my), '#fff', g.R * 0.06); return; }
+      if (o.type === 'ball') { gain++; g.sfx('coin'); draw.float('+1', X(c.mx), Y(c.my), THEME.fg, g.R * 0.06); return; }
       if (o.type === 'bomb') {
         const n = Math.max(3, turn) * cur.dmg;
         fx.push({ kind: 'boom', x: c.mx, y: c.my, t: 0 });
@@ -312,7 +312,7 @@ export default {
     }
     function endVolley() {
       phase = 'advance'; advT = 0;
-      if (gain) { balls += gain; draw.float(`+${gain}`, g.cx, g.cy - g.R * 0.14, '#fff', g.R * 0.06); gain = 0; }
+      if (gain) { balls += gain; draw.float(`+${gain}`, g.cx, g.cy - g.R * 0.14, THEME.fg, g.R * 0.06); gain = 0; }
       doomed = []; fading = [];
       // used lasers go, then everything steps one ring in
       for (let k = 1; k < NR; k++) for (let s = 0; s < NS; s++) {
@@ -447,12 +447,12 @@ export default {
       ctx.globalAlpha = alpha;
       if (o.type === 'ball') {        // the classic white ring
         ctx.beginPath(); ctx.arc(x, y, r * 0.78, 0, TAU);
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = g.R * 0.011; ctx.stroke();
-        ctx.beginPath(); ctx.arc(x, y, r * 0.26, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.strokeStyle = THEME.fg; ctx.lineWidth = g.R * 0.011; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, r * 0.26, 0, TAU); ctx.fillStyle = THEME.fg; ctx.fill();
       } else {
         const p = PICKS[o.type];
         ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = p.color; ctx.fill();
-        if (o.used) { ctx.lineWidth = g.R * 0.006; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+        if (o.used) { ctx.lineWidth = g.R * 0.006; ctx.strokeStyle = THEME.fg; ctx.stroke(); }
         glyph(o.type, x, y, r, a);
       }
       ctx.globalAlpha = 1;
@@ -460,7 +460,7 @@ export default {
     function drawGuide(alpha) {
       const { ctx } = g, segs = computeGuide();
       const dot = g.R * 0.0075, gap = 0.032;
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = THEME.fg;
       segs.forEach(([x0, y0, x1, y1, found], i) => {
         const L = Math.hypot(x1 - x0, y1 - y0); if (L < 1e-6) return;
         const ux = (x1 - x0) / L, uy = (y1 - y0) / L;
@@ -471,7 +471,7 @@ export default {
         if (i === 0 && found) {         // ghost ball at the first contact
           ctx.globalAlpha = alpha;
           ctx.beginPath(); ctx.arc(X(x1), Y(y1), BR * g.R, 0, TAU);
-          ctx.lineWidth = g.R * 0.005; ctx.strokeStyle = '#fff'; ctx.stroke();
+          ctx.lineWidth = g.R * 0.005; ctx.strokeStyle = THEME.fg; ctx.stroke();
         }
       });
       ctx.globalAlpha = 1;
@@ -563,7 +563,7 @@ export default {
       ctx.restore();
       // the rim
       ctx.beginPath(); ctx.arc(g.cx, g.cy, WALL * R, 0, TAU);
-      ctx.lineWidth = Math.max(1, R * 0.008); ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.stroke();
+      ctx.lineWidth = Math.max(1, R * 0.008); ctx.strokeStyle = THEME.ink(0.16); ctx.stroke();
 
       // bricks and pickups (clipped to the rim, so a new ring slides in from outside)
       ctx.save();
@@ -580,9 +580,13 @@ export default {
       // a soft dark scrim under the score at the top, so it stays readable over the bricks
       ctx.save();
       ctx.translate(g.cx, g.cy - R * 0.635); ctx.scale(1, 0.5);
-      const scrim = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.34);
-      scrim.addColorStop(0, 'rgba(5,5,6,.8)'); scrim.addColorStop(0.6, 'rgba(5,5,6,.6)'); scrim.addColorStop(1, 'rgba(5,5,6,0)');
-      ctx.fillStyle = scrim; ctx.beginPath(); ctx.arc(0, 0, R * 0.34, 0, TAU); ctx.fill();
+      if (THEME.flat) {               // flat themes: a solid patch of the background colour instead of a soft gradient
+        ctx.fillStyle = THEME.paper(0.82); ctx.beginPath(); ctx.arc(0, 0, R * 0.25, 0, TAU); ctx.fill();
+      } else {
+        const scrim = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.34);
+        scrim.addColorStop(0, THEME.paper(0.8)); scrim.addColorStop(0.6, THEME.paper(0.6)); scrim.addColorStop(1, THEME.paper(0));
+        ctx.fillStyle = scrim; ctx.beginPath(); ctx.arc(0, 0, R * 0.34, 0, TAU); ctx.fill();
+      }
       ctx.restore();
 
       // effects: lasers, bomb waves, broken-brick outlines, the shield wave
@@ -591,13 +595,13 @@ export default {
         if (f.kind === 'ring') {
           ctx.beginPath(); ctx.arc(g.cx, g.cy, (R0 + (f.k + 0.5) * RH) * R, 0, TAU);
           ctx.strokeStyle = draw.alpha(PICKS.ring.color, 0.25 * k); ctx.lineWidth = R * 0.05 * k; ctx.stroke();
-          ctx.strokeStyle = draw.alpha('#ffffff', k); ctx.lineWidth = R * 0.012 * k; ctx.stroke();
+          ctx.strokeStyle = draw.alpha(THEME.light ? PICKS.ring.color : '#ffffff', k); ctx.lineWidth = R * 0.012 * k; ctx.stroke();
         } else if (f.kind === 'ray') {
           const a = f.s * W + W / 2, [x0, y0] = P(a, R0 + RH), [x1, y1] = P(a, WALL);
           ctx.save(); ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(X(x0), Y(y0)); ctx.lineTo(X(x1), Y(y1));
           ctx.strokeStyle = draw.alpha(PICKS.ray.color, 0.3 * k); ctx.lineWidth = R * 0.05 * k; ctx.stroke();
-          ctx.strokeStyle = draw.alpha('#ffffff', k); ctx.lineWidth = R * 0.012 * k; ctx.stroke(); ctx.restore();
+          ctx.strokeStyle = draw.alpha(THEME.light ? PICKS.ray.color : '#ffffff', k); ctx.lineWidth = R * 0.012 * k; ctx.stroke(); ctx.restore();
         } else if (f.kind === 'boom') {
           ctx.beginPath(); ctx.arc(X(f.x), Y(f.y), R * (0.04 + 0.22 * ease.out(f.t / 0.5)), 0, TAU);
           ctx.lineWidth = R * 0.014 * k; ctx.strokeStyle = draw.alpha(PICKS.bomb.color, k); ctx.stroke();
@@ -606,7 +610,7 @@ export default {
           const e = f.t / 0.22, c = cellGeom(f.k, f.s);
           ctx.save(); ctx.globalAlpha = 1 - e;
           ctx.translate(X(c.mx), Y(c.my)); ctx.scale(1 + e * 0.25, 1 + e * 0.25); ctx.translate(-X(c.mx), -Y(c.my));
-          cellPath(c); ctx.lineJoin = 'round'; ctx.lineWidth = 2 * RC * R; ctx.fillStyle = ctx.strokeStyle = '#fff'; ctx.fill(); ctx.stroke();
+          cellPath(c); ctx.lineJoin = 'round'; ctx.lineWidth = 2 * RC * R; ctx.fillStyle = ctx.strokeStyle = THEME.fg; ctx.fill(); ctx.stroke();
           ctx.restore();
         } else if (f.kind === 'shield') {
           ctx.beginPath(); ctx.arc(g.cx, g.cy, (R0 + RH) * R * (1 + 0.6 * ease.out(f.t / 0.5)), 0, TAU);
@@ -620,10 +624,10 @@ export default {
       // the launcher
       const recallable = phase === 'volley' && volT > 2.5 && !recalled;
       ctx.beginPath(); ctx.arc(g.cx, g.cy, CORE * R, 0, TAU);
-      ctx.fillStyle = recallable ? draw.alpha(g.color, 0.14 + 0.1 * pulse) : `rgba(255,255,255,${0.05 + 0.05 * coreHit})`; ctx.fill();
+      ctx.fillStyle = recallable ? draw.alpha(g.color, 0.14 + 0.1 * pulse) : THEME.ink(0.05 + 0.05 * coreHit); ctx.fill();
       ctx.lineWidth = R * 0.007; ctx.strokeStyle = draw.alpha(g.color, 0.55 + 0.3 * coreHit); ctx.stroke();
       if (recallable) {                // inward chevrons: tap to call the balls home
-        ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = R * 0.008; ctx.lineCap = ctx.lineJoin = 'round';
+        ctx.save(); ctx.strokeStyle = THEME.fg; ctx.lineWidth = R * 0.008; ctx.lineCap = ctx.lineJoin = 'round';
         const rr = CORE * R * (0.62 - 0.08 * pulse), w = CORE * R * 0.18;
         for (let i = 0; i < 4; i++) {
           const a = i * Math.PI / 2 + Math.PI / 4, ux = Math.sin(a), uy = -Math.cos(a), tx = -uy, ty = ux;
@@ -634,8 +638,8 @@ export default {
       }
       const waiting = phase === 'volley' ? toLaunch : phase === 'over' ? 0 : balls * cur.mult;
       if ((waiting > 0 || phase !== 'volley') && !recallable) {
-        if (phase !== 'over') draw.ball(g.cx, g.cy, BR * R * 1.15, cur.fire ? PICKS.fire.color : '#fff');
-        draw.text(`×${phase === 'volley' ? toLaunch : balls * cur.mult}`, g.cx, g.cy + CORE * R * 0.55, R * 0.034, { color: 'rgba(255,255,255,.8)' });
+        if (phase !== 'over') draw.ball(g.cx, g.cy, BR * R * 1.15, cur.fire ? PICKS.fire.color : THEME.fg);
+        draw.text(`×${phase === 'volley' ? toLaunch : balls * cur.mult}`, g.cx, g.cy + CORE * R * 0.55, R * 0.034, { color: THEME.ink(0.8) });
       }
       // power-ups ready for this volley (bright) and won for the next one (faint)
       const badges = [];
@@ -651,7 +655,7 @@ export default {
       for (const b of shots) {
         const r = b.ret ? BR * R * clamp(Math.hypot(b.x, b.y) / CORE, 0.4, 1) : BR * R;
         if (b.fire) { draw.ball(X(b.x), Y(b.y), r * 1.15, PICKS.fire.color); draw.ball(X(b.x), Y(b.y), r * 0.55, '#ffd166'); }
-        else draw.ball(X(b.x), Y(b.y), r, '#fff');
+        else draw.ball(X(b.x), Y(b.y), r, THEME.fg);
       }
       ctx.restore();
       draw.particles(dt);

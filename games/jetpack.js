@@ -2,7 +2,30 @@
 // Dodge zappers (some spin), missiles (announced by a blinking warning on the right) and, later,
 // lasers that charge up across the whole corridor. Coins come in lines, waves and little shapes.
 // Score = metres flown + coins. One hit and the pilot tumbles down the corridor.
-import { TAU, rand, clamp, lerp, pick } from './kit.js';
+import { TAU, rand, clamp, lerp, pick, THEME } from './kit.js';
+
+// Lab palettes: the night-shift lab (Dark — the original look), an all-black OLED lab and a bright day lab (Light).
+const PAL_DARK = {
+  wall: ['#141826', '#10131d', '#0b0d14'], band: 'rgba(0,0,0,.22)', trim: 'rgba(251,146,60,.35)', trim2: 'rgba(251,146,60,.55)',
+  ceil: '#090a0f', ceilLip: '#1b1f2b', ceilLine: '#151924', ceilHi: 'rgba(255,255,255,.06)',
+  floor: ['#1c202c', '#0f1118', '#060709'], floorLip: '#262b3a', cone: 'rgba(255,190,120,.13)', cone0: 'rgba(255,190,120,0)',
+  seam: 'rgba(255,255,255,.05)', port: '#07080c', portGlass: 'rgba(77,155,255,.10)', star: 'rgba(255,255,255,.75)', frame: '#2a3042',
+  tank: '#0a0c12', liquid: 'rgba(52,211,153,.16)', fizz: 'rgba(52,211,153,.5)', lamp: '#ffe2bf', floorSeam: 'rgba(255,255,255,.07)',
+  hazard: 'rgba(255,200,87,.16)', mark: 'rgba(255,255,255,.16)', zapHalo: 'rgba(125,211,252,.16)', zapMid: 'rgba(125,211,252,.55)',
+  zapCore: '#f0fbff', zapNode: 'rgba(125,211,252,.22)', flash: '255,255,255',
+};
+const PAL_OLED = { ...PAL_DARK, wall: ['#0a0c13', '#07080e', '#030406'], band: 'rgba(0,0,0,.35)', ceil: '#000000', ceilLip: '#10131c', ceilLine: '#0b0d14',
+  floor: ['#11141c', '#06070a', '#000000'], floorLip: '#191d28', port: '#000000', tank: '#000000' };
+const PAL_LIGHT = {
+  wall: ['#e6ebf2', '#dde3ec', '#d2d9e4'], band: 'rgba(40,52,76,.06)', trim: 'rgba(234,110,30,.45)', trim2: 'rgba(234,110,30,.7)',
+  ceil: '#a9b3c5', ceilLip: '#c2cad7', ceilLine: '#b3bdcd', ceilHi: 'rgba(255,255,255,.55)',
+  floor: ['#c3cbd7', '#b4bdcb', '#9ea8b9'], floorLip: '#a6afc0', cone: 'rgba(255,196,120,.30)', cone0: 'rgba(255,196,120,0)',
+  seam: 'rgba(30,40,62,.08)', port: '#1d2438', portGlass: 'rgba(77,155,255,.22)', star: 'rgba(255,255,255,.8)', frame: '#8792a8',
+  tank: '#c6cedb', liquid: 'rgba(16,185,129,.30)', fizz: 'rgba(5,150,105,.6)', lamp: '#fff8ec', floorSeam: 'rgba(30,40,62,.10)',
+  hazard: 'rgba(214,140,10,.38)', mark: 'rgba(30,40,62,.22)', zapHalo: 'rgba(14,165,233,.20)', zapMid: 'rgba(2,132,199,.75)',
+  zapCore: '#f0fbff', zapNode: 'rgba(14,165,233,.25)', flash: '255,255,255',
+};
+const lab = () => (THEME.light ? PAL_LIGHT : THEME.mode === 'oled' ? PAL_OLED : PAL_DARK);
 
 // The world is measured in units of R (the screen radius); y = 0 is the screen centre.
 const CEIL = -0.5, FLOOR = 0.58;          // the playable band, fully inside the round screen
@@ -331,11 +354,11 @@ export default {
       const nextMark = Math.ceil((dist - 1.2) * M_PER_U / 100) * 100;
       for (let mk = Math.max(100, nextMark); mk <= (dist + 1.2) * M_PER_U; mk += 100) {
         const sx = mk / M_PER_U - dist;
-        g.draw.text(`${mk} m`, cx + sx * R, cy + (FLOOR - 0.1) * R, R * 0.05, { color: 'rgba(255,255,255,.16)', weight: 700 });
+        g.draw.text(`${mk} m`, cx + sx * R, cy + (FLOOR - 0.1) * R, R * 0.05, { color: lab().mark, weight: 700 });
       }
 
       ctx.beginPath(); ctx.arc(cx, cy, R * 0.948, 0, TAU); ctx.strokeStyle = g.theme.line; ctx.lineWidth = Math.max(1, R * 0.008); ctx.stroke();
-      if (hitFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${hitFlash * 0.35})`; ctx.fillRect(0, 0, g.S, g.S); }
+      if (hitFlash > 0) { ctx.fillStyle = `rgba(${lab().flash},${hitFlash * 0.35})`; ctx.fillRect(0, 0, g.S, g.S); }
       g.draw.particles(dt, R * 1.2);
       g.draw.floaters(dt);
     });
@@ -344,7 +367,7 @@ export default {
     // everything that doesn't scroll is painted once into an offscreen layer (cheap on the Pi)
     let stat = null, statKey = '', coneGrad = null;
     function buildStatic() {
-      const key = `${g.S}|${g.dpr}`;
+      const key = `${g.S}|${g.dpr}|${THEME.id}|${THEME.mode}`;
       if (stat && statKey === key) return;
       statKey = key;
       stat ||= document.createElement('canvas');
@@ -355,32 +378,39 @@ export default {
       c.save();
       c.beginPath(); c.arc(g.cx, g.cy, g.R * 0.995, 0, TAU); c.clip();
       c.translate(g.cx, g.cy); c.scale(g.R, g.R);
-      const wall = c.createLinearGradient(0, CEIL, 0, FLOOR);
-      wall.addColorStop(0, '#141826'); wall.addColorStop(0.55, '#10131d'); wall.addColorStop(1, '#0b0d14');
-      c.fillStyle = wall; c.fillRect(-1, CEIL, 2, FLOOR - CEIL);
+      const pal = lab(), flat = THEME.flat;
+      const vgrad = (y0, y1, cols, stops) => {
+        if (flat) return cols[1];   // flat themes: no gradients
+        const gr = c.createLinearGradient(0, y0, 0, y1);
+        cols.forEach((col, i) => gr.addColorStop(stops[i], col));
+        return gr;
+      };
+      c.fillStyle = vgrad(CEIL, FLOOR, pal.wall, [0, 0.55, 1]); c.fillRect(-1, CEIL, 2, FLOOR - CEIL);
       // lower wall band
-      c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(-1, 0.3, 2, FLOOR - 0.3);
-      c.fillStyle = 'rgba(251,146,60,.35)'; c.fillRect(-1, 0.3, 2, 0.004);
+      c.fillStyle = pal.band; c.fillRect(-1, 0.3, 2, FLOOR - 0.3);
+      c.fillStyle = pal.trim; c.fillRect(-1, 0.3, 2, 0.004);
       // ceiling
-      c.fillStyle = '#090a0f'; c.fillRect(-1, -1, 2, 1 + CEIL);
-      c.fillStyle = '#1b1f2b'; c.fillRect(-1, CEIL - 0.035, 2, 0.035);
-      c.strokeStyle = '#151924'; c.lineWidth = 0.022; c.beginPath(); c.moveTo(-1, CEIL - 0.07); c.lineTo(1, CEIL - 0.07); c.stroke();
-      c.strokeStyle = 'rgba(255,255,255,.06)'; c.lineWidth = 0.004; c.beginPath(); c.moveTo(-1, CEIL - 0.077); c.lineTo(1, CEIL - 0.077); c.stroke();
-      c.fillStyle = 'rgba(251,146,60,.55)'; c.fillRect(-1, CEIL - 0.002, 2, 0.004);
+      c.fillStyle = pal.ceil; c.fillRect(-1, -1, 2, 1 + CEIL);
+      c.fillStyle = pal.ceilLip; c.fillRect(-1, CEIL - 0.035, 2, 0.035);
+      c.strokeStyle = pal.ceilLine; c.lineWidth = 0.022; c.beginPath(); c.moveTo(-1, CEIL - 0.07); c.lineTo(1, CEIL - 0.07); c.stroke();
+      c.strokeStyle = pal.ceilHi; c.lineWidth = 0.004; c.beginPath(); c.moveTo(-1, CEIL - 0.077); c.lineTo(1, CEIL - 0.077); c.stroke();
+      c.fillStyle = pal.trim2; c.fillRect(-1, CEIL - 0.002, 2, 0.004);
       // floor
-      const fl = c.createLinearGradient(0, FLOOR, 0, 1);
-      fl.addColorStop(0, '#1c202c'); fl.addColorStop(0.25, '#0f1118'); fl.addColorStop(1, '#060709');
-      c.fillStyle = fl; c.fillRect(-1, FLOOR, 2, 1 - FLOOR);
-      c.fillStyle = '#262b3a'; c.fillRect(-1, FLOOR, 2, 0.022);
-      c.fillStyle = 'rgba(251,146,60,.55)'; c.fillRect(-1, FLOOR - 0.002, 2, 0.004);
+      c.fillStyle = vgrad(FLOOR, 1, pal.floor, [0, 0.25, 1]); c.fillRect(-1, FLOOR, 2, 1 - FLOOR);
+      c.fillStyle = pal.floorLip; c.fillRect(-1, FLOOR, 2, 0.022);
+      c.fillStyle = pal.trim2; c.fillRect(-1, FLOOR - 0.002, 2, 0.004);
       c.restore();
-      coneGrad = ctx.createLinearGradient(0, CEIL, 0, CEIL + 0.55);
-      coneGrad.addColorStop(0, 'rgba(255,190,120,.13)'); coneGrad.addColorStop(1, 'rgba(255,190,120,0)');
+      if (flat) coneGrad = g.draw.alpha(pal.cone, THEME.light ? 0.16 : 0.07);
+      else {
+        coneGrad = ctx.createLinearGradient(0, CEIL, 0, CEIL + 0.55);
+        coneGrad.addColorStop(0, pal.cone); coneGrad.addColorStop(1, pal.cone0);
+      }
     }
     function drawCorridor(t) {
       const o = dist * 0.5;  // the wall scrolls at half speed (parallax)
+      const pal = lab();
       // panel seams
-      ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 0.004;
+      ctx.strokeStyle = pal.seam; ctx.lineWidth = 0.004;
       ctx.beginPath();
       const P = 0.42;
       for (let k = Math.floor((o - 1) / P); k * P - o < 1.05; k++) { const x = k * P - o; ctx.moveTo(x, CEIL); ctx.lineTo(x, FLOOR); }
@@ -389,18 +419,18 @@ export default {
       for (let k = Math.floor((o - 1.2) / (P * 3)); k * P * 3 - o < 1.2; k++) {
         const x = k * P * 3 - o + P * 1.5;
         if (((k % 2) + 2) % 2 === 0) {
-          ctx.fillStyle = '#07080c'; ctx.beginPath(); ctx.arc(x, -0.1, 0.1, 0, TAU); ctx.fill();
-          ctx.fillStyle = 'rgba(77,155,255,.10)'; ctx.beginPath(); ctx.arc(x, -0.1, 0.085, 0, TAU); ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,.75)';
+          ctx.fillStyle = pal.port; ctx.beginPath(); ctx.arc(x, -0.1, 0.1, 0, TAU); ctx.fill();
+          ctx.fillStyle = pal.portGlass; ctx.beginPath(); ctx.arc(x, -0.1, 0.085, 0, TAU); ctx.fill();
+          ctx.fillStyle = pal.star;
           for (let s = 0; s < 3; s++) { const a = k * 1.7 + s * 2.1; ctx.fillRect(x + Math.cos(a) * 0.05, -0.1 + Math.sin(a * 1.3) * 0.05, 0.005, 0.005); }
-          ctx.strokeStyle = '#2a3042'; ctx.lineWidth = 0.016; ctx.beginPath(); ctx.arc(x, -0.1, 0.1, 0, TAU); ctx.stroke();
+          ctx.strokeStyle = pal.frame; ctx.lineWidth = 0.016; ctx.beginPath(); ctx.arc(x, -0.1, 0.1, 0, TAU); ctx.stroke();
         } else {
           // a bubbling tank
-          ctx.fillStyle = '#0a0c12'; ctx.beginPath(); ctx.roundRect(x - 0.055, -0.3, 0.11, 0.5, 0.05); ctx.fill();
-          ctx.fillStyle = 'rgba(52,211,153,.16)'; ctx.beginPath(); ctx.roundRect(x - 0.042, -0.22, 0.084, 0.4, 0.04); ctx.fill();
-          ctx.fillStyle = 'rgba(52,211,153,.5)';
+          ctx.fillStyle = pal.tank; ctx.beginPath(); ctx.roundRect(x - 0.055, -0.3, 0.11, 0.5, 0.05); ctx.fill();
+          ctx.fillStyle = pal.liquid; ctx.beginPath(); ctx.roundRect(x - 0.042, -0.22, 0.084, 0.4, 0.04); ctx.fill();
+          ctx.fillStyle = pal.fizz;
           for (let s = 0; s < 4; s++) { const ph = (t * 0.35 + s * 0.27 + k * 0.13) % 1; ctx.beginPath(); ctx.arc(x + Math.sin(s * 2.3 + k) * 0.022, 0.16 - ph * 0.36, 0.007 + s * 0.002, 0, TAU); ctx.fill(); }
-          ctx.strokeStyle = '#2a3042'; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.roundRect(x - 0.055, -0.3, 0.11, 0.5, 0.05); ctx.stroke();
+          ctx.strokeStyle = pal.frame; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.roundRect(x - 0.055, -0.3, 0.11, 0.5, 0.05); ctx.stroke();
         }
       }
       // ceiling: lamps with soft light cones (they scroll with the floor)
@@ -409,16 +439,16 @@ export default {
       ctx.beginPath();
       for (let k = Math.floor((dist - 1.3) / L); k * L - dist < 1.3; k++) { const x = k * L - dist + 0.3; ctx.moveTo(x - 0.05, CEIL); ctx.lineTo(x + 0.05, CEIL); ctx.lineTo(x + 0.22, CEIL + 0.55); ctx.lineTo(x - 0.22, CEIL + 0.55); ctx.closePath(); }
       ctx.fill();
-      ctx.fillStyle = '#ffe2bf';
+      ctx.fillStyle = pal.lamp;
       for (let k = Math.floor((dist - 1.3) / L); k * L - dist < 1.3; k++) { const x = k * L - dist + 0.3; ctx.fillRect(x - 0.05, CEIL - 0.008, 0.1, 0.012); }
       // floor seams
-      ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 0.004;
+      ctx.strokeStyle = pal.floorSeam; ctx.lineWidth = 0.004;
       ctx.beginPath();
       const T = 0.21;
       for (let k = Math.floor((dist - 1) / T); k * T - dist < 1.05; k++) { const x = k * T - dist; ctx.moveTo(x, FLOOR + 0.022); ctx.lineTo(x - 0.06, 1); }
       ctx.stroke();
       // hazard stripes on the floor lip
-      ctx.fillStyle = 'rgba(255,200,87,.16)';
+      ctx.fillStyle = pal.hazard;
       ctx.beginPath();
       for (let k = Math.floor((dist - 1) / 0.06); k * 0.06 - dist < 1.05; k++) { if (k % 14 > 5) continue; const x = k * 0.06 - dist; ctx.moveTo(x, FLOOR + 0.022); ctx.lineTo(x + 0.025, FLOOR + 0.022); ctx.lineTo(x + 0.045, FLOOR); ctx.lineTo(x + 0.02, FLOOR); ctx.closePath(); }
       ctx.fill();
@@ -433,15 +463,16 @@ export default {
         beamPts[i * 2] = ax + (bx - ax) * k + nx * j; beamPts[i * 2 + 1] = ay + (by - ay) * k + ny * j;
       }
       const path = () => { ctx.beginPath(); ctx.moveTo(beamPts[0], beamPts[1]); for (let i = 1; i <= n; i++) ctx.lineTo(beamPts[i * 2], beamPts[i * 2 + 1]); };
+      const pal = lab();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(125,211,252,.16)'; ctx.lineWidth = 0.05;
+      ctx.strokeStyle = pal.zapHalo; ctx.lineWidth = 0.05;
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-      path(); ctx.strokeStyle = 'rgba(125,211,252,.55)'; ctx.lineWidth = 0.016; ctx.stroke();
-      path(); ctx.strokeStyle = '#f0fbff'; ctx.lineWidth = 0.006; ctx.stroke();
+      path(); ctx.strokeStyle = pal.zapMid; ctx.lineWidth = 0.016; ctx.stroke();
+      path(); ctx.strokeStyle = pal.zapCore; ctx.lineWidth = 0.006; ctx.stroke();
       // nodes
       for (let e = 0; e < 2; e++) {
         const x = e ? bx : ax, y = e ? by : ay;
-        ctx.fillStyle = 'rgba(125,211,252,.22)'; ctx.beginPath(); ctx.arc(x, y, 0.05, 0, TAU); ctx.fill();
+        ctx.fillStyle = pal.zapNode; ctx.beginPath(); ctx.arc(x, y, 0.05, 0, TAU); ctx.fill();
         ctx.fillStyle = '#3a4258'; ctx.beginPath(); ctx.arc(x, y, 0.033, 0, TAU); ctx.fill();
         ctx.fillStyle = '#e8f7ff'; ctx.beginPath(); ctx.arc(x, y, 0.017 + Math.sin(t * 30 + e) * 0.002, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 0.005; ctx.beginPath(); ctx.arc(x, y, 0.033, 0, TAU); ctx.stroke();
@@ -455,7 +486,7 @@ export default {
       if (firing) {
         const w = 1 + Math.sin(t * 60) * 0.12;
         ctx.fillStyle = 'rgba(255,90,106,.22)'; ctx.fillRect(-ex, y - 0.04 * w, ex * 2, 0.08 * w);
-        ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 16;
+        if (THEME.glow) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 16; }
         ctx.fillStyle = 'rgba(255,90,106,.8)'; ctx.fillRect(-ex, y - 0.018 * w, ex * 2, 0.036 * w);
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#fff4f5'; ctx.fillRect(-ex, y - 0.006, ex * 2, 0.012);
@@ -497,7 +528,7 @@ export default {
       const on = Math.floor(ms.t * (locked ? 14 : 6)) % 2 === 0;
       const s = locked ? 1.15 : 1;
       ctx.save(); ctx.translate(ex, y); ctx.scale(s, s);
-      if (on) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 14; }
+      if (on && THEME.glow) { ctx.shadowColor = '#ff5a6a'; ctx.shadowBlur = 14; }
       ctx.fillStyle = on ? '#ff5a6a' : 'rgba(255,90,106,.35)';
       ctx.beginPath(); ctx.moveTo(0, -0.05); ctx.lineTo(0.047, 0.035); ctx.lineTo(-0.047, 0.035); ctx.closePath(); ctx.fill();
       ctx.shadowBlur = 0;
@@ -513,7 +544,7 @@ export default {
       // flame from the jetpack nozzle
       if (th) {
         const fl = 0.07 + Math.sin(flick * 70) * 0.012 + Math.sin(flick * 23) * 0.01;
-        ctx.globalCompositeOperation = 'lighter';
+        if (!THEME.light) ctx.globalCompositeOperation = 'lighter';   // additive fire would wash out on the bright day lab
         ctx.fillStyle = 'rgba(255,120,40,.75)';
         ctx.beginPath(); ctx.moveTo(-0.055, 0.045); ctx.quadraticCurveTo(-0.04, 0.045 + fl * 0.7, -0.04 + Math.sin(flick * 40) * 0.006, 0.045 + fl); ctx.quadraticCurveTo(-0.025, 0.045 + fl * 0.7, -0.025, 0.045); ctx.fill();
         ctx.fillStyle = 'rgba(255,240,180,.9)';
@@ -542,6 +573,7 @@ export default {
       ctx.fillStyle = '#2b3140'; ctx.beginPath(); ctx.roundRect(-0.052, 0.036, 0.024, 0.014, 0.004); ctx.fill();
       // body (a little lab suit)
       ctx.fillStyle = '#e9edf5'; ctx.beginPath(); ctx.roundRect(-0.028, -0.035, 0.054, 0.072, 0.02); ctx.fill();
+      if (THEME.light) { ctx.strokeStyle = '#7d889e'; ctx.lineWidth = 0.005; ctx.stroke(); }   // keep the white suit apart from the bright wall
       ctx.fillStyle = '#cfd5e2'; ctx.fillRect(-0.028, 0.014, 0.054, 0.01);
       ctx.fillStyle = '#fb923c'; ctx.fillRect(0.004, -0.02, 0.012, 0.008);
       leg(sw, false);

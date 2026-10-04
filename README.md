@@ -606,12 +606,36 @@ While you watch, the controls hide by themselves. The title and time left can st
 
 In the picture views, *Recently added* and *Collections* become chips at the top.
 
+### Themes (Settings → Theme)
+
+Six themes change the whole app: Music, Movies & TV, Home, Games and Settings.
+
+| Theme | Look |
+|---|---|
+| **Classic** | The original look: dark glass and a soft neon glow. |
+| **Liquid Glass** | Frosted glass panels with bright edges, floating over soft blobs of your two colours. |
+| **Soft** | Soft UI (neumorphism): moulded, tactile buttons and trays that seem pressed into the surface, like a hardware device. |
+| **Slate** | Calm and minimal: slate tones, thin rings, light type, quiet cards. |
+| **Vivid** | Modern minimal cards with bold gradients from your main colour to your secondary colour. |
+| **Bauhaus** | Swiss style: flat bold colour, big grotesk type, black circles and no effects. |
+
+For each theme you choose:
+- **Mode:** *Dark*, *OLED* (true black, good for OLED screens) or *Light*.
+- **Main colour** and **secondary colour:** pick a swatch, or **+** for any colour.
+
+Each theme remembers its own choices.
+- *Colours follow the music*: when on, the accent changes with the service and the album art (the Classic way). When off, the theme's main colour is used everywhere.
+- *Reset* puts a theme back to its defaults.
+
+The games follow the theme too. In Light mode the immersive player views (Vinyl, Lyrics, Video, Tone Visual, Fun Facts) stay dark so the artwork and lyrics stand out. Themes are saved with the other settings, so a settings profile copies them to another display.
+
 ### Settings
 
 | Setting | What it does |
 |---|---|
 | Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
 | Show the Demo service | Hide the Demo tile from Home |
+| Theme | Classic, Liquid Glass, Soft, Slate, Vivid or Bauhaus, each in Dark, OLED or Light mode with your own main and secondary colours (see *Themes* above) |
 | Control size | XS, S, M, **L** (default), XL |
 | Start in view | Info, Vinyl, Lyrics, Video, Tone Visual or Fun Facts |
 | Show the service & device line | The *Spotify · Living Room* line near the top |
@@ -696,7 +720,7 @@ Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or 
 ## 8. Project layout
 
 ```
-index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle)
+index.html, css/app.css         round UI (everything sized in cqmin → scales to any circle); css/themes.css = the six themes (js/core/theme.js sets their colours)
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
 js/core/                        settings/tokens, player controller, router, colours, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year), mediainfo (movie & show facts), profiles (settings profiles), languages (subtitle languages)
 js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library; streaming.js = Netflix / Disney+ / YouTube; homeassistant.js / googlehome.js are the Home services

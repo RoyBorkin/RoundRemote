@@ -1,7 +1,7 @@
 // Ring Invaders — a round take on the arcade classic. Your ship flies around the rim and fires inward;
 // the invaders pour out of the core in rings that slowly turn and step outward. Shields erode, a
 // mothership sometimes cruises past for big points, and if an invader reaches the rim it's over.
-import { TAU, rand, clamp, lerp, angDiff, ease } from './kit.js';
+import { TAU, rand, clamp, lerp, angDiff, ease, THEME } from './kit.js';
 
 // ---------------------------------------------------------------- sprites (our own designs, 11×8, two frames)
 const SPRITES = [
@@ -89,17 +89,21 @@ export default {
     let fireT = 2, flash = 0, flashCol = UFO, shake = 0, coreKick = 0;
     let touching = false, ptrA = null, keyDir = 0, keyT = 0, keyFire = false;
 
-    // ---------- pre-rendered glowing sprites ----------
-    let sprites = [];
+    // ---------- pre-rendered sprites (neon glow + light core where the theme has glow, flat otherwise) ----------
+    let sprites = [], spriteKey = '';
     function buildSprites() {
+      spriteKey = THEME.id + THEME.mode;
+      const neon = THEME.glow;
       const px = (INV * g.R) / 11, pad = px * 3, dpr = g.dpr || 1;
       sprites = SPRITES.map((s) => s.frames.map((rows) => {
         const w = 11 * px + pad * 2, h = 8 * px + pad * 2;
         const c = document.createElement('canvas');
         c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
         const x = c.getContext('2d'); x.scale(dpr, dpr);
-        x.shadowColor = s.color; x.shadowBlur = px * 2.4; x.fillStyle = s.color;
+        if (neon) { x.shadowColor = s.color; x.shadowBlur = px * 2.4; }
+        x.fillStyle = THEME.light ? g.draw.shade(s.color, -0.22) : s.color;   // a touch deeper on a light screen
         rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '#') x.fillRect(pad + i * px, pad + j * px, px + 0.4, px + 0.4); }));
+        if (!neon) return { c, w, h };
         x.shadowBlur = 0; x.globalAlpha = 0.35; x.fillStyle = '#fff';  // a lighter core so they read as neon
         rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '#') x.fillRect(pad + i * px + px * 0.25, pad + j * px + px * 0.25, px * 0.5, px * 0.5); }));
         return { c, w, h };
@@ -195,7 +199,7 @@ export default {
       ship.alive = false; ship.respawn = 1.7; lives--;
       const [x, y] = pos(ship.a, TRACK * g.R);
       g.draw.burst(x, y, ME, 34, g.R * 0.8, g.R * 0.014);
-      g.draw.burst(x, y, '#fff', 14, g.R * 0.5, g.R * 0.01);
+      g.draw.burst(x, y, THEME.fg, 14, g.R * 0.5, g.R * 0.01);
       flash = 1; flashCol = UFO; shake = 0.45;
       g.sfx('boom'); g.vibrate(60);
       bombs = [];
@@ -334,9 +338,9 @@ export default {
         }
         if (!hit && ufo && Math.abs(s.r - ufo.r * R) < R * 0.04 && Math.abs(angDiff(ufo.a, s.a)) * ufo.r * R < R * 0.065) {
           const [ux, uy] = pos(ufo.a, ufo.r * R);
-          g.add(ufo.pts); g.draw.float(`+${ufo.pts}`, ux, uy, '#fff', R * 0.08); g.toast('Mothership!', 900);
-          g.draw.burst(ux, uy, UFO, 30, R * 0.7, R * 0.013); g.draw.burst(ux, uy, '#fff', 12, R * 0.4, R * 0.01);
-          g.sfx('score'); g.sfx('boom', { volume: 0.5 }); flash = 0.5; flashCol = '#fff'; ufo = null; hit = true;
+          g.add(ufo.pts); g.draw.float(`+${ufo.pts}`, ux, uy, THEME.fg, R * 0.08); g.toast('Mothership!', 900);
+          g.draw.burst(ux, uy, UFO, 30, R * 0.7, R * 0.013); g.draw.burst(ux, uy, THEME.fg, 12, R * 0.4, R * 0.01);
+          g.sfx('score'); g.sfx('boom', { volume: 0.5 }); flash = 0.5; flashCol = THEME.fg; ufo = null; hit = true;
         }
         if (hit) shots.splice(i, 1);
       }
@@ -361,8 +365,9 @@ export default {
       g.draw.bg({ glow: 0.1 + flash * 0.1 });
       ctx.save();
       if (sk) ctx.translate(rand(-sk, sk), rand(-sk, sk));
-      // stars
-      ctx.fillStyle = '#fff';
+      if (spriteKey !== THEME.id + THEME.mode) buildSprites();   // the theme changed
+      // stars (dark specks on a light screen)
+      ctx.fillStyle = THEME.fg;
       for (const s of stars) {
         const a = s.a + t * 0.015;
         ctx.globalAlpha = 0.25 + 0.2 * Math.sin(t * 1.3 + s.tw);
@@ -374,11 +379,11 @@ export default {
       // flat core: two solid tones (an outer disc and a brighter inner one)
       ctx.fillStyle = g.draw.alpha(ME, 0.08 + coreKick * 0.12); ctx.beginPath(); ctx.arc(cx, cy, cr * 1.5, 0, TAU); ctx.fill();
       ctx.fillStyle = g.draw.alpha(ME, 0.16 + coreKick * 0.3); ctx.beginPath(); ctx.arc(cx, cy, cr * 0.85, 0, TAU); ctx.fill();
-      g.draw.circle(cx, cy, R * 0.05, null, { stroke: 'rgba(255,255,255,.12)', lw: 1.5 });
+      g.draw.circle(cx, cy, R * 0.05, null, { stroke: THEME.ink(0.12), lw: 1.5 });
       // ship track + danger line
       ctx.save();
       ctx.setLineDash([R * 0.006, R * 0.03]); ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(cx, cy, TRACK * R, 0, TAU); ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = R * 0.006; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, TRACK * R, 0, TAU); ctx.strokeStyle = THEME.ink(0.14); ctx.lineWidth = R * 0.006; ctx.stroke();
       ctx.restore();
       const close = clamp((outer / R - (DANGER - 0.22)) / 0.22, 0, 1);
       if (close > 0) {
@@ -387,6 +392,7 @@ export default {
       }
       // shields
       const cw = SH_SPAN / SH_COLS, rt = SHIELD_T / SH_ROWS;
+      const shCol = THEME.light ? '#3a9a1c' : ME;   // a deeper green so they read on a light screen
       ctx.lineCap = 'butt';
       for (const s of shields) {
         for (let rr = 0; rr < SH_ROWS; rr++) for (let c = 0; c < SH_COLS; c++) {
@@ -395,7 +401,7 @@ export default {
           const rad = (SHIELD_R - SHIELD_T / 2 + (rr + 0.5) * rt) * R;
           const a0 = s.a0 + c * cw - Math.PI / 2;
           ctx.beginPath(); ctx.arc(cx, cy, rad, a0 + 0.004, a0 + cw - 0.004);
-          ctx.strokeStyle = hp === 2 ? g.draw.alpha(ME, 0.55) : g.draw.alpha(ME, 0.22);
+          ctx.strokeStyle = hp === 2 ? g.draw.alpha(shCol, 0.55) : g.draw.alpha(shCol, 0.22);
           ctx.lineWidth = rt * R - 1; ctx.stroke();
         }
       }
@@ -411,8 +417,8 @@ export default {
       // mothership
       if (ufo) drawUfo(ufo, t);
       // bombs: little zig-zag bolts
-      ctx.lineWidth = R * 0.01; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#ff8c96';
-      ctx.shadowColor = UFO; ctx.shadowBlur = R * 0.025;
+      ctx.lineWidth = R * 0.01; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = THEME.light ? UFO : '#ff8c96';
+      if (THEME.glow) { ctx.shadowColor = UFO; ctx.shadowBlur = R * 0.025; }
       ctx.beginPath();
       for (const b of bombs) {
         const ca = Math.cos(b.a), sa = Math.sin(b.a), L = R * 0.055, W = R * 0.013;
@@ -425,7 +431,7 @@ export default {
       }
       ctx.stroke();
       // shots: bright streaks
-      ctx.strokeStyle = '#eaffdf'; ctx.shadowColor = ME; ctx.lineWidth = R * 0.01;
+      ctx.strokeStyle = THEME.light ? '#3a9a1c' : '#eaffdf'; ctx.shadowColor = ME; ctx.lineWidth = R * 0.01;
       ctx.beginPath();
       for (const s of shots) {
         const [x1, y1] = pos(s.a, s.r), [x2, y2] = pos(s.a, s.r + R * 0.05);
@@ -473,8 +479,9 @@ export default {
       ctx.lineTo(s * 0.3, s * 0.5); ctx.lineTo(0, s * 0.68); ctx.lineTo(-s * 0.3, s * 0.5);
       ctx.lineTo(-s * 0.9, s * 0.72); ctx.lineTo(-s * 0.95, s * 0.45); ctx.lineTo(-s * 0.32, -s * 0.35);
       ctx.closePath();
-      ctx.shadowColor = ME; ctx.shadowBlur = R * 0.04;
+      if (THEME.glow) { ctx.shadowColor = ME; ctx.shadowBlur = R * 0.04; }
       ctx.fillStyle = ME; ctx.fill();
+      if (THEME.light) { ctx.shadowBlur = 0; ctx.strokeStyle = '#2f8a14'; ctx.lineWidth = Math.max(1, s * 0.08); ctx.lineJoin = 'round'; ctx.stroke(); }
       ctx.shadowBlur = 0;
       // cockpit
       ctx.beginPath(); ctx.ellipse(0, -s * 0.12, s * 0.16, s * 0.3, 0, 0, TAU); ctx.fillStyle = '#0c2a10'; ctx.fill();

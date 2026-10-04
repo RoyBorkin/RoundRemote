@@ -3,7 +3,7 @@
 // corners a swipe changes lane. Swipe up to jump (logs, gaps), down to slide (stone arches).
 // Something with glowing eyes follows: stumble once and it closes in — stumble again soon after and it
 // catches you. Score = metres + 10 per coin.
-import { TAU, rand, clamp, lerp } from './kit.js';
+import { TAU, rand, clamp, lerp, THEME } from './kit.js';
 
 // ground plane: x east, y north; heights up. A piece of path runs straight in one of 4 directions.
 const DX = [0, 1, 0, -1], DY = [1, 0, -1, 0];
@@ -12,7 +12,17 @@ const TL = 2.4;                    // stone slab length
 const VIEW = 56;                   // draw distance
 const CB = 6, CH = 4, NEAR = 0.35; // camera: behind, height, near plane
 const GRAV = 22, JUMP_V = 7.6;
-const FOG = [34, 27, 18];
+// scenery per theme mode: the dusk jungle (Dark — the original look), a pitch-black night (OLED) and a hazy day (Light)
+const SCENE = {
+  dark: { fog: [34, 27, 18], sky: ['#06080d', '#121310'], deep: ['#0c0a08', '#020202'], stars: 'rgba(255,240,210,.5)', ridge: '#141512', ridge2: '#0e110d',
+    ruin: '#221f17', pillar: '#17150f', door: 'rgba(255,190,70,.85)', haze: [34, 27, 18], vig: 'rgba(0,0,0,.7)' },
+  oled: { fog: [22, 17, 11], sky: ['#000000', '#0a0a08'], deep: ['#060504', '#000000'], stars: 'rgba(255,240,210,.45)', ridge: '#0d0e0b', ridge2: '#060705',
+    ruin: '#18150f', pillar: '#0f0d09', door: 'rgba(255,190,70,.85)', haze: [22, 17, 11], vig: 'rgba(0,0,0,.8)' },
+  light: { fog: [221, 210, 184], sky: ['#8dbad9', '#c4d6dc'], deep: ['#a48d69', '#4d3d2b'], stars: null, ridge: '#93a07a', ridge2: '#6f8055',
+    ruin: '#a3916f', pillar: '#8e7c5c', door: 'rgba(255,170,40,.95)', haze: [221, 210, 184], vig: 'rgba(96,74,44,.32)' },
+};
+const scene = () => (THEME.light ? SCENE.light : THEME.mode === 'oled' ? SCENE.oled : SCENE.dark);
+let FOG = SCENE.dark.fog;
 
 export default {
   howTo: 'Swipe left/right to turn at corners and switch lanes, up to jump, down to slide. Stumble twice and it catches you.',
@@ -28,7 +38,7 @@ export default {
     let camAng = 0, camTarget = 0, camOff = 0;
     let chase = 1, stumbleT = 0, slowT = 0, chaseX = g.cx;
     let camX = 0, camY = -CB, fX = 0, fY = 1, rX = 1, rY = 0, F = 1, HY = 0, CXs = 0, camH = CH;
-    let backdrop = null, vignette = null, band = null, glowSpr = null;
+    let backdrop = null, vignette = null, band = null, glowSpr = null, artKey = '';
     const diff = () => clamp(dist / 2600, 0, 1);
 
     // ---------------------------------------------------------------- the path
@@ -294,32 +304,65 @@ export default {
       return Array.from({ length: 17 }, (_, i) => { const t = (i / 16) ** 0.9; return `rgb(${c.map((v, j) => Math.round(lerp(v, FOG[j], t))).join(',')})`; });
     }
     const fogI = (z) => clamp(Math.round((z - 10) / (VIEW - 10) * 16), 0, 16);
-    const STONE = [pal('#958060'), pal('#857256'), pal('#9f8a66')];
-    const CURB = pal('#a89470'), CLIFF = pal('#3b3024'), CLIFF2 = pal('#2a2219'), GROOVE = pal('#4a3e2e');
-    const LOG = pal('#6b4a2b'), LOGTOP = pal('#8a6238'), ROCK = pal('#8d8778'), ROCKD = pal('#5d584d');
-    const ARCH = pal('#6f6250'), ARCHD = pal('#4f4538'), ARCHT = pal('#8b7c64');
-    const GOLD = pal('#ffc94a'), GOLDD = pal('#c8901a');
+    let STONE, CURB, CLIFF, CLIFF2, GROOVE, LOG, LOGTOP, ROCK, ROCKD, ARCH, ARCHD, ARCHT, GOLD, GOLDD;
+    function buildPalettes() {   // the fog colour follows the theme mode, so these are rebuilt with the art
+      STONE = [pal('#958060'), pal('#857256'), pal('#9f8a66')];
+      CURB = pal('#a89470'); CLIFF = pal('#3b3024'); CLIFF2 = pal('#2a2219'); GROOVE = pal('#4a3e2e');
+      LOG = pal('#6b4a2b'); LOGTOP = pal('#8a6238'); ROCK = pal('#8d8778'); ROCKD = pal('#5d584d');
+      ARCH = pal('#6f6250'); ARCHD = pal('#4f4538'); ARCHT = pal('#8b7c64');
+      GOLD = pal('#ffc94a'); GOLDD = pal('#c8901a');
+    }
+    // vertical fill: a gradient, or (flat themes) a few solid steps through the same colours
+    const toRgb = (c) => (Array.isArray(c) ? c : [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)));
+    function vfill(k, x, y0, w, y1, stops) {
+      if (!THEME.flat) {
+        const gr = k.createLinearGradient(0, y0, 0, y1);
+        for (const [at, c] of stops) gr.addColorStop(at, `rgb(${toRgb(c).join(',')})`);
+        k.fillStyle = gr; k.fillRect(x, y0, w, y1 - y0);
+        return;
+      }
+      const n = 6;
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n;
+        let j = 0; while (j < stops.length - 2 && u > stops[j + 1][0]) j++;
+        const [a0, c0] = stops[j], [a1, c1] = stops[j + 1], t = clamp((u - a0) / (a1 - a0 || 1), 0, 1);
+        const A = toRgb(c0), B = toRgb(c1);
+        k.fillStyle = `rgb(${A.map((v, q) => Math.round(lerp(v, B[q], t))).join(',')})`;
+        k.fillRect(x, y0 + (y1 - y0) * i / n, w, (y1 - y0) / n + 1);
+      }
+    }
+    // the soft glow sprite on torches, runes and eyes (none in themes without glow; not additive on a bright day)
+    function glowAt(x, y, w) {
+      if (!THEME.glow) return;
+      const a = ctx.globalAlpha;
+      if (THEME.light) ctx.globalAlpha = a * 0.55; else ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(glowSpr, x, y, w, w);
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
+    }
 
     // ---------------------------------------------------------------- drawing
     function buildArt() {
       const R = g.R, S = g.S, dpr = g.dpr || 1;
+      const sc = scene();
+      FOG = sc.fog; buildPalettes();
+      artKey = `${THEME.id}|${THEME.mode}`;
       // the backdrop (sky, void, the warm glow at the horizon) never moves: paint it once
       backdrop = document.createElement('canvas');
       backdrop.width = backdrop.height = Math.max(1, Math.round(S * dpr));
       const k = backdrop.getContext('2d'); k.scale(dpr, dpr);
       const hy = g.cy - R * 0.3;
-      const sky = k.createLinearGradient(0, g.cy - R, 0, hy);
-      sky.addColorStop(0, '#06080d'); sky.addColorStop(0.55, '#121310'); sky.addColorStop(1, `rgb(${FOG.join(',')})`);
-      k.fillStyle = sky; k.fillRect(0, 0, S, hy + 1);
-      const vd = k.createLinearGradient(0, hy, 0, g.cy + R);
-      vd.addColorStop(0, `rgb(${FOG.join(',')})`); vd.addColorStop(0.18, '#0c0a08'); vd.addColorStop(1, '#020202');
-      k.fillStyle = vd; k.fillRect(0, hy, S, S - hy);
-      const hg = k.createRadialGradient(g.cx, hy, 0, g.cx, hy, R * 0.95);
-      hg.addColorStop(0, g.draw.alpha(g.color, 0.2)); hg.addColorStop(0.5, g.draw.alpha(g.color, 0.06)); hg.addColorStop(1, 'rgba(0,0,0,0)');
-      k.fillStyle = hg; k.fillRect(0, 0, S, S);
-      // a dark rim (drawn as a thick ring so only the edge pixels are touched)
-      vignette = ctx.createRadialGradient(g.cx, g.cy, R * 0.6, g.cx, g.cy, R);
-      vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.7)');
+      k.fillStyle = sc.sky[0]; k.fillRect(0, 0, S, g.cy - R);
+      vfill(k, 0, g.cy - R, S, hy + 1, [[0, sc.sky[0]], [0.55, sc.sky[1]], [1, FOG]]);
+      vfill(k, 0, hy, S, g.cy + R, [[0, FOG], [0.18, sc.deep[0]], [1, sc.deep[1]]]);
+      k.fillStyle = sc.deep[1]; k.fillRect(0, g.cy + R, S, S);
+      if (!THEME.flat) {
+        const hg = k.createRadialGradient(g.cx, hy, 0, g.cx, hy, R * 0.95);
+        hg.addColorStop(0, g.draw.alpha(g.color, 0.2)); hg.addColorStop(0.5, g.draw.alpha(g.color, 0.06)); hg.addColorStop(1, 'rgba(0,0,0,0)');
+        k.fillStyle = hg; k.fillRect(0, 0, S, S);
+        // a dark rim (drawn as a thick ring so only the edge pixels are touched)
+        vignette = ctx.createRadialGradient(g.cx, g.cy, R * 0.6, g.cx, g.cy, R);
+        vignette.addColorStop(0, g.draw.alpha(sc.vig, 0)); vignette.addColorStop(1, sc.vig);
+      } else vignette = null;
       // a wrap-around band of jungle ridges and glowing ruins along the horizon
       const BW = Math.round(R * 4.8), BH = Math.round(R * 0.5);
       band = document.createElement('canvas');
@@ -334,33 +377,38 @@ export default {
         b.lineTo(BW, BH); b.closePath(); b.fillStyle = col; b.fill();
       };
       // stars
-      b.fillStyle = 'rgba(255,240,210,.5)';
-      for (let i = 0; i < 70; i++) b.fillRect(rand(BW), rand(BH * 0.55), rand(0.8, 1.8), rand(0.8, 1.8));
-      ridge(R * 0.05, BH * 0.38, [[3, 0.3, 1], [7, 1.1, 0.6], [13, 2.4, 0.35]], '#141512');
+      if (sc.stars) {
+        b.fillStyle = sc.stars;
+        for (let i = 0; i < 70; i++) b.fillRect(rand(BW), rand(BH * 0.55), rand(0.8, 1.8), rand(0.8, 1.8));
+      }
+      ridge(R * 0.05, BH * 0.38, [[3, 0.3, 1], [7, 1.1, 0.6], [13, 2.4, 0.35]], sc.ridge);
       // ruins: stepped temples with glowing doorways
       const ruins = 6;
       for (let i = 0; i < ruins; i++) {
         const x0 = (i + rand(0.15, 0.6)) * BW / ruins, w = R * rand(0.22, 0.34), steps = 4 + Math.floor(rand(3));
         const hgt = R * rand(0.16, 0.26);
-        b.fillStyle = '#221f17';
+        b.fillStyle = sc.ruin;
         for (let st = 0; st < steps; st++) {
           const ww = w * (1 - st / (steps + 1)), hh = hgt / steps;
           b.fillRect(x0 - ww / 2, BH - BH * 0.18 - hh * (st + 1), ww, hh + 1);
         }
-        b.save(); b.shadowColor = '#eab308'; b.shadowBlur = 14;
-        b.fillStyle = 'rgba(255,190,70,.85)';
+        b.save(); if (THEME.glow) { b.shadowColor = '#eab308'; b.shadowBlur = 14; }
+        b.fillStyle = sc.door;
         b.fillRect(x0 - w * 0.04, BH - BH * 0.18 - hgt * 0.35, w * 0.08, hgt * 0.35);
         b.beginPath(); b.arc(x0, BH - BH * 0.18 - hgt - 4, 3, 0, TAU); b.fill();
         b.restore();
         // broken pillars nearby
-        b.fillStyle = '#17150f';
+        b.fillStyle = sc.pillar;
         for (let k = 0; k < 3; k++) { const px = x0 + w * rand(0.6, 1.4) * (k % 2 ? 1 : -1), ph = R * rand(0.06, 0.16); b.fillRect(px, BH - BH * 0.18 - ph, R * 0.025, ph); }
       }
-      ridge(R * 0.035, BH * 0.16, [[5, 0.8, 1], [11, 0.2, 0.7], [23, 1.7, 0.4]], '#0e110d');
+      ridge(R * 0.035, BH * 0.16, [[5, 0.8, 1], [11, 0.2, 0.7], [23, 1.7, 0.4]], sc.ridge2);
       // haze along the bottom
-      const hz = b.createLinearGradient(0, BH * 0.6, 0, BH);
-      hz.addColorStop(0, 'rgba(34,27,18,0)'); hz.addColorStop(1, 'rgba(34,27,18,.75)');
-      b.fillStyle = hz; b.fillRect(0, BH * 0.6, BW, BH * 0.4);
+      const hzc = sc.haze.join(',');
+      if (!THEME.flat) {
+        const hz = b.createLinearGradient(0, BH * 0.6, 0, BH);
+        hz.addColorStop(0, `rgba(${hzc},0)`); hz.addColorStop(1, `rgba(${hzc},.75)`);
+        b.fillStyle = hz; b.fillRect(0, BH * 0.6, BW, BH * 0.4);
+      } else { b.fillStyle = `rgba(${hzc},.45)`; b.fillRect(0, BH * 0.86, BW, BH * 0.14); }
       band.bw = BW; band.bh = BH;
       // a soft glow sprite for torches and eyes
       glowSpr = document.createElement('canvas'); glowSpr.width = glowSpr.height = 64;
@@ -540,9 +588,7 @@ export default {
           ctx.globalAlpha = 1 - fi / 20;
           ctx.fillStyle = '#ffcf4a';
           ctx.beginPath(); ctx.moveTo(SX, SY - r); ctx.lineTo(SX + r * 0.7, SY); ctx.lineTo(SX, SY + r); ctx.lineTo(SX - r * 0.7, SY); ctx.closePath(); ctx.fill();
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.drawImage(glowSpr, SX - r * 3, SY - r * 3, r * 6, r * 6);
-          ctx.globalCompositeOperation = 'source-over';
+          glowAt(SX - r * 3, SY - r * 3, r * 6);
           ctx.globalAlpha = 1;
         }
         // hanging vines
@@ -568,9 +614,7 @@ export default {
           if (!projP(p, s0, o.l + sd * 0.17, 1.35)) continue;
           const r = 0.07 * SK;
           ctx.fillStyle = '#ffdf7a'; ctx.fillRect(SX - r, SY - r * 0.6, r * 2, r * 1.2);
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.drawImage(glowSpr, SX - r * 4, SY - r * 4, r * 8, r * 8);
-          ctx.globalCompositeOperation = 'source-over';
+          glowAt(SX - r * 4, SY - r * 4, r * 8);
         }
         ctx.globalAlpha = 1;
       }
@@ -594,11 +638,9 @@ export default {
       const r = 0.22 * SK * fl;
       ctx.fillStyle = '#ffcf6a';
       ctx.beginPath(); ctx.ellipse(SX, SY - r * 0.6, r * 0.45, r * 0.9, 0, 0, TAU); ctx.fill();
-      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.9 - fi / 20;
-      ctx.drawImage(glowSpr, SX - r * 5, SY - r * 5.6, r * 10, r * 10);
+      glowAt(SX - r * 5, SY - r * 5.6, r * 10);
       ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
     }
 
     function drawRunner() {
@@ -698,11 +740,9 @@ export default {
         const ex = chaseX + sd * sz * 0.28, ey = y - sz * 0.25;
         ctx.fillStyle = '#ff6a2a';
         ctx.beginPath(); ctx.ellipse(ex, ey, sz * 0.09, sz * 0.05 * blink, sd * -0.35, 0, TAU); ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.8;
-        ctx.drawImage(glowSpr, ex - sz * 0.35, ey - sz * 0.35, sz * 0.7, sz * 0.7);
+        glowAt(ex - sz * 0.35, ey - sz * 0.35, sz * 0.7);
         ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
       }
     }
 
@@ -717,6 +757,7 @@ export default {
       if (sub !== shownSub) { shownSub = sub; g.sub(sub); }
 
       const R = g.R;
+      if (artKey !== `${THEME.id}|${THEME.mode}`) buildArt();   // the theme changed: repaint the cached scenery once
       ctx.save();
       g.draw.clipCircle(R);
       drawSky();
@@ -724,8 +765,8 @@ export default {
       drawGround();
       drawSprites();
       drawChaser();
-      if (state === 'caught') { ctx.fillStyle = `rgba(0,0,0,${Math.min(0.75, stateT * 0.8)})`; ctx.fillRect(0, 0, g.S, g.S); }
-      ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.8, 0, TAU); ctx.strokeStyle = vignette; ctx.lineWidth = R * 0.4; ctx.stroke();
+      if (state === 'caught') { ctx.fillStyle = THEME.paper(Math.min(0.75, stateT * 0.8)); ctx.fillRect(0, 0, g.S, g.S); }
+      if (vignette) { ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.8, 0, TAU); ctx.strokeStyle = vignette; ctx.lineWidth = R * 0.4; ctx.stroke(); }
       if (flash > 0) { ctx.fillStyle = `rgba(255,${state === 'crash' ? 230 : 120},${state === 'crash' ? 200 : 90},${flash * 0.35})`; ctx.fillRect(0, 0, g.S, g.S); }
       ctx.restore();
       ctx.beginPath(); ctx.arc(g.cx, g.cy, R * 0.948, 0, TAU); ctx.strokeStyle = g.theme.line; ctx.lineWidth = Math.max(1, R * 0.008); ctx.stroke();

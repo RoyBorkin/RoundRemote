@@ -41,7 +41,7 @@ export default {
     let cur = 0, nxt = 1, aim = -Math.PI / 2, reload = 0, loadT = 1, swapT = 1, recoil = 0;
     let phase = 'play', phaseT = 0, fade = 0, lostV = 0, tickT = 0, danger = 0;
     let aiming = false, downOnShooter = false;
-    let layer = null, sprites = [], spriteHalf = 0;
+    let layer = null, layerKey = '', sprites = [], spriteHalf = 0;
 
     const X = (x) => g.cx + x * g.R, Y = (y) => g.cy + y * g.R;
     const mk = (c, s) => ({ c, s, k: 1, ft: 1, fx: 0, fy: 0, settle: false, pull: 0, pulling: false, chain: 0, x: 0, y: 0 });
@@ -107,11 +107,13 @@ export default {
       const p = trackPath(), w = D * g.R;
       x.lineCap = 'round'; x.lineJoin = 'round';
       x.strokeStyle = g.draw.alpha(g.color, 0.07); x.lineWidth = w * 2; x.stroke(p);
-      x.strokeStyle = 'rgba(255,255,255,.17)'; x.lineWidth = w * 1.26; x.stroke(p);
-      x.strokeStyle = '#07070a'; x.lineWidth = w * 1.14; x.stroke(p);
-      x.strokeStyle = 'rgba(255,255,255,.04)'; x.lineWidth = w * 1.14; x.stroke(p);
+      // the groove: a rim in the theme's line colour around a channel a little off the background
+      const classic = THEME.id === 'classic' && !THEME.light;
+      x.strokeStyle = THEME.ink(0.17); x.lineWidth = w * 1.26; x.stroke(p);
+      x.strokeStyle = classic ? '#07070a' : THEME.bg; x.lineWidth = w * 1.14; x.stroke(p);
+      x.strokeStyle = THEME.ink(THEME.light ? 0.06 : 0.04); x.lineWidth = w * 1.14; x.stroke(p);
       x.setLineDash([1, w * 0.55]); x.strokeStyle = g.draw.alpha(g.color, 0.4); x.lineWidth = Math.max(1.5, w * 0.08); x.stroke(p);
-      layer = c;
+      layer = c; layerKey = THEME.id + THEME.mode;
     }
     function onResize() { buildSprites(); buildLayer(); }
     g.on('resize', onResize);
@@ -160,7 +162,7 @@ export default {
         if (b.s > 0) { pops.push({ x: b.x, y: b.y, c: b.c, t: 0 }); g.draw.burst(X(b.x), Y(b.y), COLS[b.c], 6, g.R * 0.45, g.R * 0.011); }
       }
       mx /= gone.length; my /= gone.length;
-      g.draw.float(`+${pts}`, X(mx), Y(my) - MR * g.R * 1.6, level_ > 1 ? '#ffe28a' : '#fff', g.R * (0.06 + 0.012 * Math.min(4, level_)));
+      g.draw.float(`+${pts}`, X(mx), Y(my) - MR * g.R * 1.6, level_ > 1 ? (THEME.light ? '#d99a00' : '#ffe28a') : THEME.fg, g.R * (0.06 + 0.012 * Math.min(4, level_)));
       g.sfx('pop', { pitch: 1 + 0.14 * (level_ - 1) });
       if (level_ > 1) {
         g.toast(`Chain ×${level_}!`, 1000); g.sfx('coin', { volume: 0.8 }); g.vibrate(20);
@@ -293,7 +295,7 @@ export default {
       ctx.save();
       // flat: a solid tinted disc with a solid black hole in it
       ctx.fillStyle = g.draw.alpha(col, 0.16 + 0.22 * danger); ctx.beginPath(); ctx.arc(hx, hy, rv * 1.45, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx, hy, rv * 1.12, 0, TAU); ctx.fill();
+      ctx.fillStyle = THEME.shade(1); ctx.beginPath(); ctx.arc(hx, hy, rv * 1.12, 0, TAU); ctx.fill();
       ctx.lineCap = 'round';
       const spin = t * (2.2 + 4 * danger);
       for (let k = 0; k < 4; k++) {           // swirling arms
@@ -307,7 +309,7 @@ export default {
       ctx.beginPath(); ctx.arc(hx, hy, rv * 1.12, 0, TAU);
       ctx.strokeStyle = g.draw.alpha(col, 0.55 + 0.35 * danger); ctx.lineWidth = g.R * 0.009; ctx.stroke();
       ctx.restore();
-      g.draw.circle(hx, hy, rv * 0.32, '#000');
+      g.draw.circle(hx, hy, rv * 0.32, THEME.shade(1));
     }
     function drawPortal(t) {
       const { ctx } = g;
@@ -315,7 +317,7 @@ export default {
       const x = X(tmp[0]), y = Y(tmp[1]), r = MR * g.R * 1.55, a = Math.atan2(tmp[3], tmp[2]);
       ctx.save(); ctx.translate(x, y); ctx.rotate(a);
       ctx.beginPath(); ctx.ellipse(0, 0, r * 0.45, r, 0, 0, TAU);
-      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
+      ctx.fillStyle = THEME.shade(0.6); ctx.fill();
       ctx.setLineDash([r * 0.35, r * 0.25]); ctx.lineDashOffset = -t * r * 2;
       ctx.strokeStyle = g.draw.alpha(g.color, 0.8); ctx.lineWidth = g.R * 0.008;
       ctx.stroke();
@@ -338,7 +340,7 @@ export default {
       ctx.save();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = Math.sin(k * Math.PI);
       ctx.strokeStyle = g.draw.alpha(g.color, 0.55); ctx.lineWidth = D * g.R * 0.5;
-      ctx.shadowColor = g.color; ctx.shadowBlur = g.R * 0.05;
+      if (THEME.glow) { ctx.shadowColor = g.color; ctx.shadowBlur = g.R * 0.05; }
       ctx.stroke(trackPath(from, Math.max(from + 1, head)));
       ctx.restore();
     }
@@ -372,15 +374,17 @@ export default {
         const x0 = x + dx * rs * 1.4, y0 = y + dy * rs * 1.4, x1 = x0 + dx * len * g.R, y1 = y0 + dy * len * g.R;
         ctx.save();
         ctx.setLineDash([g.R * 0.008, g.R * 0.03]); ctx.lineDashOffset = -t * g.R * 0.12; ctx.lineCap = 'round';
-        ctx.strokeStyle = g.draw.alpha(col, 0.55); ctx.lineWidth = g.R * 0.009;
+        ctx.strokeStyle = g.draw.alpha(col, THEME.light ? 0.85 : 0.55); ctx.lineWidth = g.R * 0.009;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         ctx.restore();
         if (onBall) g.draw.circle(x1 + dx * MR * g.R, y1 + dy * MR * g.R, MR * g.R * 1.05, null, { stroke: g.draw.alpha(col, 0.7), lw: 2 });
       }
       // the orb
       ctx.save();
-      ctx.beginPath(); ctx.arc(x, y, rs, 0, TAU); ctx.fillStyle = '#17171c'; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, rs, 0, TAU);
+      if (THEME.id === 'classic' && !THEME.light) { ctx.fillStyle = '#17171c'; ctx.fill(); }
+      else { ctx.fillStyle = THEME.bg; ctx.fill(); ctx.fillStyle = THEME.ink(0.07); ctx.fill(); }
+      ctx.strokeStyle = THEME.ink(0.2); ctx.lineWidth = 1.5; ctx.stroke();
       // flat ring segments in the loaded colour
       ctx.lineCap = 'round';
       ctx.strokeStyle = col; ctx.lineWidth = g.R * 0.011;
@@ -391,7 +395,7 @@ export default {
       // pointer
       ctx.translate(x, y); ctx.rotate(aim);
       ctx.beginPath(); ctx.moveTo(rs * 1.62, 0); ctx.lineTo(rs * 1.28, -rs * 0.24); ctx.lineTo(rs * 1.36, 0); ctx.lineTo(rs * 1.28, rs * 0.24); ctx.closePath();
-      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.fillStyle = THEME.fg; ctx.fill();
       ctx.restore();
       // next marble behind, current one in the middle (slides in after a shot, little pop on swap)
       const nb = (1 - ease.out(Math.min(1, swapT))) * 0.25;
@@ -434,6 +438,7 @@ export default {
       g.draw.bg({ glow: 0.13 });
       ctx.save();
       ctx.globalAlpha = fade;
+      if (layerKey !== THEME.id + THEME.mode) buildLayer();   // the theme changed
       if (layer) ctx.drawImage(layer, 0, 0, g.S, g.S);
       drawDanger(t);
       if (phase === 'clear') drawSweep();

@@ -1,7 +1,7 @@
 // Tic Tac Toe — the classic 3×3, drawn as glowing neon strokes on the round screen.
 // 1P vs COM (Easy / Normal / Hard): a run of rounds, win +3, draw +1, until COM wins.
 // 2 players on one screen: first to 3 wins; fewer rounds = a more dominant win.
-import { TAU, clamp, ease, pick, rand } from './kit.js';
+import { TAU, clamp, ease, pick, rand, THEME } from './kit.js';
 
 const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 const X = 1, O = 2;
@@ -166,7 +166,7 @@ export default {
         ending = true; wait = 1.5;
       } else {
         draws++; g.add(1); g.sfx('tick');
-        draw.float('+1', g.cx, g.cy + g.R * 0.1, '#fff', g.R * 0.1);
+        draw.float('+1', g.cx, g.cy + g.R * 0.1, THEME.fg, g.R * 0.1);
       }
       status();
     }
@@ -253,7 +253,7 @@ export default {
       const hl = kbd ? cursor : hover;
       if (humanTurn() && hl >= 0 && (kbd || !board[hl])) {
         const hx = x0 + (hl % 3) * cs, hy = y0 + Math.floor(hl / 3) * cs, pad = cs * 0.1;
-        draw.roundRect(hx + pad, hy + pad, cs - 2 * pad, cs - 2 * pad, cs * 0.16, board[hl] ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.075)',
+        draw.roundRect(hx + pad, hy + pad, cs - 2 * pad, cs - 2 * pad, cs * 0.16, board[hl] ? THEME.ink(0.04) : THEME.glass,
           { stroke: kbd ? draw.alpha(COL[turn], 0.7) : null, lw: Math.max(1.5, g.R * 0.006) });
         if (!board[hl]) piece(turn, hx + cs / 2, hy + cs / 2, cs, 1, 0.18 + 0.06 * Math.sin(t * 5), 1, 0);
       }
@@ -261,7 +261,7 @@ export default {
       // the grid: four soft lines that draw themselves in each round
       const clearK = phase === 'clear' ? clamp(clearT / 0.35, 0, 1) : 0;
       ctx.save();
-      ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = Math.max(2, cs * 0.035);
+      ctx.lineCap = 'round'; ctx.strokeStyle = THEME.ink(0.2); ctx.lineWidth = Math.max(2, cs * 0.035);
       const gk = ease.out(clamp(gridT / 0.45, 0, 1)), inset = cs * 0.08;
       for (let i = 1; i < 3; i++) {
         const len = (s - 2 * inset) * gk;
@@ -293,7 +293,7 @@ export default {
         if (k > 0) {
           ctx.save();
           ctx.globalAlpha = 1 - clearK; ctx.lineCap = 'round';
-          ctx.shadowColor = winCol; ctx.shadowBlur = g.R * 0.06;
+          if (THEME.glow) { ctx.shadowColor = winCol; ctx.shadowBlur = g.R * 0.06; }
           ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + ux * tl, ay + uy * tl);
           ctx.strokeStyle = winCol; ctx.lineWidth = cs * 0.075; ctx.stroke();
           ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = cs * 0.025; ctx.stroke();
@@ -312,18 +312,18 @@ export default {
         const total = ic * 1.75 + tw + (dots ? ic * 1.4 : 0);
         const sx = cx - total / 2;
         piece(turn, sx + ic * 0.5, ty, ic * 2.1, 1, 1, 1, 0.5);
-        draw.text(who, sx + ic * 1.75, ty + 1, g.R * 0.05, { align: 'left', color: 'rgba(255,255,255,.82)' });
-        if (dots) for (let k = 0; k < 3; k++) draw.circle(sx + ic * 1.75 + tw + ic * (0.5 + k * 0.42), ty + g.R * 0.008, g.R * 0.008, `rgba(255,255,255,${0.3 + 0.6 * Math.max(0, Math.sin(t * 7 - k * 0.8))})`);
+        draw.text(who, sx + ic * 1.75, ty + 1, g.R * 0.05, { align: 'left', color: THEME.ink(0.82) });
+        if (dots) for (let k = 0; k < 3; k++) draw.circle(sx + ic * 1.75 + tw + ic * (0.5 + k * 0.42), ty + g.R * 0.008, g.R * 0.008, THEME.ink(0.3 + 0.6 * Math.max(0, Math.sin(t * 7 - k * 0.8))));
       } else if (phase === 'result' || phase === 'done') {
         const txt = !res.p ? (two ? 'Draw' : 'Draw  +1') : two ? (matchWinner ? `${NAME[res.p]} wins the match!` : `${NAME[res.p]} wins the round`) : res.p === HUMAN ? 'You win  +3' : 'COM wins';
         const pk = ease.back(clamp(resT * 3.5, 0, 1));
-        draw.text(txt, cx, ty + 1, g.R * 0.064 * (0.6 + 0.4 * pk), { color: res.p ? winCol : 'rgba(255,255,255,.85)', alpha: clamp(resT * 4, 0, 1) * (1 - clearK), glow: res.p ? g.R * 0.03 : 0 });
+        draw.text(txt, cx, ty + 1, g.R * 0.064 * (0.6 + 0.4 * pk), { color: res.p ? winCol : THEME.ink(0.85), alpha: clamp(resT * 4, 0, 1) * (1 - clearK), glow: res.p ? g.R * 0.03 : 0 });
       }
       if (two) { // little match pips: three per player
         const py = ty + g.R * 0.085;
         for (const p of [X, O]) for (let k = 0; k < 3; k++) {
           const x = cx + (p === X ? -1 : 1) * (g.R * 0.07 + k * g.R * 0.045);
-          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)');
+          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : THEME.ink(0.14));
         }
       }
       draw.particles(dt);

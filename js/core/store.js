@@ -80,6 +80,9 @@ export const DEFAULTS = Object.freeze({
   ghCommands: null,            // Google Home command tiles [{ label, cmd, icon }] (null = the default set)
   ghSpeak: true,               // play Google Assistant's spoken answers on this display
   ghLanguage: '',              // Assistant language ('' = the browser's)
+  // Look
+  theme: 'classic',            // classic | glass | soft | slate | vivid | bauhaus (js/core/theme.js)
+  themeCfg: {},                // per theme: { mode: dark|oled|light, c1, c2, follow }
   // Games
   gameScores: {},              // top 5 per game + mode: { 'pong:default': [{ score, label, at, text }] }
   gameModes: {},               // last mode picked per game

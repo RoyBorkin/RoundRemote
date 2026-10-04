@@ -1,6 +1,6 @@
 // 2048 — swipe to slide every tile; two equal tiles that bump join into their sum.
 // Score = the sum of all the tiles you made by joining. Reach 2048 (and keep going).
-import { clamp, ease, pick } from './kit.js';
+import { clamp, ease, pick, THEME } from './kit.js';
 
 const N = 4, SLIDE = 0.11, POP = 0.17;
 
@@ -20,7 +20,12 @@ const STYLE = {
   4096: { bg: '#2ee6d6', fg: '#03201d', glow: 1 },
   8192: { bg: '#4d9bff', fg: '#fff', glow: 1 },
 };
-const style = (v) => STYLE[v] || { bg: '#f5f5f7', fg: '#111', glow: 1 };
+// Light mode: the two glassy small tiles become solid warm creams with dark numbers
+const STYLE_LIGHT = {
+  2: { bg: '#f1e4d3', fg: '#5e4a36' },
+  4: { bg: '#f3d3b0', fg: '#5a3818' },
+};
+const style = (v) => (THEME.light && STYLE_LIGHT[v]) || STYLE[v] || { bg: '#f5f5f7', fg: '#111', glow: 1 };
 
 export default {
   howTo: 'Swipe (or use the arrow keys) to slide all tiles. Two equal tiles that meet join into one. Make 2048!',
@@ -122,25 +127,37 @@ export default {
       if (dir) move(dir);
     });
 
+    // the glassy sheen: one gradient in tile-local coordinates (0…ts), rebuilt only when the size or theme changes
+    let sheen = null, sheenKey = '';
+    function sheenFor(ts) {
+      const key = `${ts}|${THEME.id}|${THEME.mode}`;
+      if (key !== sheenKey) {
+        sheenKey = key; sheen = null;
+        if (!THEME.flat) {
+          sheen = g.ctx.createLinearGradient(0, 0, 0, ts);
+          sheen.addColorStop(0, 'rgba(255,255,255,.22)'); sheen.addColorStop(0.5, 'rgba(255,255,255,.04)'); sheen.addColorStop(1, 'rgba(0,0,0,.08)');
+        }
+      }
+      return sheen;
+    }
     function tile(v, x, y, ts, scale, alpha = 1) {
       const { ctx } = g;
-      const st = style(v), w = ts * scale, ox = x + (ts - w) / 2, oy = y + (ts - w) / 2, rr = w * 0.14;
+      const st = style(v), rr = ts * 0.14;
       ctx.save();
       ctx.globalAlpha = alpha;
-      if (st.glow) { ctx.shadowColor = st.bg; ctx.shadowBlur = g.R * 0.06 * st.glow; }
-      ctx.beginPath(); ctx.roundRect(ox, oy, w, w, rr);
+      ctx.translate(x + ts / 2, y + ts / 2); ctx.scale(scale, scale); ctx.translate(-ts / 2, -ts / 2);
+      if (st.glow && THEME.glow) { ctx.shadowColor = st.bg; ctx.shadowBlur = g.R * 0.06 * st.glow * scale; }
+      ctx.beginPath(); ctx.roundRect(0, 0, ts, ts, rr);
       ctx.fillStyle = st.bg; ctx.fill();
       ctx.shadowBlur = 0;
-      // glassy sheen on the top half
-      const gr = ctx.createLinearGradient(0, oy, 0, oy + w);
-      gr.addColorStop(0, 'rgba(255,255,255,.22)'); gr.addColorStop(0.5, 'rgba(255,255,255,.04)'); gr.addColorStop(1, 'rgba(0,0,0,.08)');
-      ctx.fillStyle = gr; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = Math.max(1, g.R * 0.004); ctx.stroke();
+      const gr = sheenFor(ts);
+      if (gr) { ctx.fillStyle = gr; ctx.fill(); }
+      ctx.strokeStyle = THEME.light ? THEME.ink(0.1) : 'rgba(255,255,255,.14)'; ctx.lineWidth = Math.max(1, g.R * 0.004) / scale; ctx.stroke();
       const digits = String(v).length;
-      const fs = w * (digits <= 2 ? 0.46 : digits === 3 ? 0.38 : digits === 4 ? 0.3 : 0.24);
-      ctx.font = `700 ${fs}px ${g.theme.display}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const fs = ts * (digits <= 2 ? 0.46 : digits === 3 ? 0.38 : digits === 4 ? 0.3 : 0.24);
+      ctx.font = `700 ${fs}px ${THEME.display}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = st.fg;
-      ctx.fillText(String(v), ox + w / 2, oy + w / 2 + fs * 0.04);
+      ctx.fillText(String(v), ts / 2, ts / 2 + fs * 0.04);
       ctx.restore();
     }
 
@@ -162,11 +179,15 @@ export default {
       ctx.translate(nudge.dx * nk, nudge.dy * nk);
 
       // the board and its empty slots
-      draw.roundRect(x0, y0, s, s, s * 0.06, 'rgba(255,255,255,.055)', { stroke: 'rgba(255,255,255,.1)', lw: Math.max(1, g.R * 0.005) });
+      const lt = THEME.light;
+      draw.roundRect(x0, y0, s, s, s * 0.06, THEME.ink(lt ? 0.06 : 0.055), { stroke: THEME.ink(lt ? 0.12 : 0.1), lw: Math.max(1, g.R * 0.005) });
+      ctx.fillStyle = THEME.ink(lt ? 0.07 : 0.05);
+      ctx.beginPath();
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
         const [x, y] = cellXY(r, c);
-        draw.roundRect(x, y, ts, ts, ts * 0.14, 'rgba(255,255,255,.05)');
+        ctx.roundRect(x, y, ts, ts, ts * 0.14);
       }
+      ctx.fill();
       const pos = (t) => {
         const e = ease.out(clamp((now - t.t0) / SLIDE, 0, 1));
         const [ax, ay] = cellXY(t.fr, t.fc), [bx, by] = cellXY(t.r, t.c);
@@ -194,8 +215,8 @@ export default {
 
       if (over) {
         const a = clamp(overT / 0.6, 0, 1);
-        draw.roundRect(x0, y0, s, s, s * 0.06, `rgba(5,5,6,${0.55 * a})`);
-        draw.text('No more moves', g.cx, y0 + s / 2, g.R * 0.09, { alpha: a, glow: g.R * 0.04, color: '#fff' });
+        draw.roundRect(x0, y0, s, s, s * 0.06, THEME.paper((THEME.light ? 0.7 : 0.55) * a));
+        draw.text('No more moves', g.cx, y0 + s / 2, g.R * 0.09, { alpha: a, glow: g.R * 0.04, color: THEME.fg });
       }
       draw.particles(dt);
       draw.floaters(dt);

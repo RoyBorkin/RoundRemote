@@ -3,7 +3,7 @@
 // Four packs of 12 generated levels (see rushhour-levels.js). A round = a run through one pack: pick levels
 // from the ring, solve them, collect points (100 × optimal / moves + a small time bonus, best per level)
 // and finish the run from the picker — or by solving the pack's last level.
-import { TAU, clamp, ease } from './kit.js';
+import { TAU, clamp, ease, THEME } from './kit.js';
 import { PACKS } from './rushhour-levels.js';
 
 const KEY = 'rr.rushhour.v1';
@@ -14,9 +14,9 @@ const PACK_COL = { beginner: '#3ddc84', intermediate: '#ffc857', advanced: '#4d9
 // vehicle colours (THEME.pieces without its red, so the red car stays unique) + two extra calm tones
 const CARS = ['#ffc857', '#3ddc84', '#4d9bff', '#b57bff', '#ff8ad8', '#2ee6d6', '#ff9f43', '#a3e635', '#94a3b8'];
 const STAR = '#ffc857';
+const starText = () => (THEME.light ? '#b97d00' : STAR);   // gold text needs more weight on a light background
 const N = 6, EXIT_ROW = 2;
 const RING_A0 = 40;      // the level ring leaves the top (score, pause) free: levels sit from 40° to 320°
-const GLASS2 = 'rgba(255,255,255,.12)';
 
 /** '36-char row-major string' → vehicles (red car 'A' first) and walls. */
 function parseLevel(str) {
@@ -76,7 +76,7 @@ export default {
   unit: 'pts',
   create(g, { mode }) {
     const { ctx } = g;
-    const draw = g.draw, THEME_FONT = g.theme.font;
+    const draw = g.draw;
     const pack = PACKS.find((p) => p.id === mode) || PACKS[0];
     const PC = PACK_COL[pack.id] || g.color;
     const NL = pack.levels.length;
@@ -201,7 +201,7 @@ export default {
       const s = solvedInfo;
       if (s.gain > 0) { total += s.gain; g.add(s.gain); }
       g.sfx(s.stars === 3 ? 'perfect' : 'win');
-      for (let k = 0; k < 3; k++) draw.burst(L.bcx + (k - 1) * g.R * 0.22, L.bcy - g.R * 0.1, k < s.stars ? STAR : 'rgba(255,255,255,.4)', 10, g.R * 0.35, g.R * 0.01);
+      for (let k = 0; k < 3; k++) draw.burst(L.bcx + (k - 1) * g.R * 0.22, L.bcy - g.R * 0.1, k < s.stars ? STAR : THEME.ink(0.4), 10, g.R * 0.35, g.R * 0.01);
       if (s.last) autoEnd = 3.2;
     }
     function finishRun(complete = false) {
@@ -353,21 +353,21 @@ export default {
       ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
       if (primary) rr(-w / 2, -h / 2, w, h, h / 2, col);
       else {
-        rr(-w / 2, -h / 2, w, h, h / 2, '#121215');          // opaque base so the board doesn't show through
-        rr(-w / 2, -h / 2, w, h, h / 2, GLASS2);
-        ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.5; ctx.stroke();
+        rr(-w / 2, -h / 2, w, h, h / 2, THEME.surface);      // opaque base so the board doesn't show through
+        rr(-w / 2, -h / 2, w, h, h / 2, THEME.ink(0.12));
+        ctx.strokeStyle = THEME.ink(0.16); ctx.lineWidth = 1.5; ctx.stroke();
       }
       ctx.restore();
-      draw.text(label, x, y + 1, size, { color: '#fff', weight: 700 });
+      draw.text(label, x, y + 1, size, { color: primary ? '#fff' : THEME.fg, weight: 700 });
       if (fn) btns.push({ x, y, w, h, fn });
     }
     function roundBtn(x, y, r, kind, fn, enabled = true) {
       const down = pressed && pressed.x === x && pressed.y === y;
       const k = down ? 0.92 : 1;
       ctx.save(); ctx.globalAlpha = enabled ? 1 : 0.4;
-      draw.circle(x, y, r * k, 'rgba(255,255,255,.075)', { stroke: 'rgba(255,255,255,.14)', lw: 1.5 });
+      draw.circle(x, y, r * k, THEME.ink(0.075), { stroke: THEME.ink(0.14), lw: 1.5 });
       const s = r * 0.62 * k;
-      ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.11); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = THEME.fg; ctx.fillStyle = THEME.fg; ctx.lineWidth = Math.max(2, r * 0.11); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       const head = (x1, y1, dx, dy, sz) => {   // filled arrow head at (x1,y1) pointing along (dx,dy)
         const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
         ctx.beginPath(); ctx.moveTo(x1 + dx * sz, y1 + dy * sz); ctx.lineTo(x1 - dy * sz * 0.8, y1 + dx * sz * 0.8); ctx.lineTo(x1 + dy * sz * 0.8, y1 - dx * sz * 0.8); ctx.closePath(); ctx.fill();
@@ -382,7 +382,7 @@ export default {
         head(x + Math.cos(a1) * rr0, y + Math.sin(a1) * rr0, -Math.sin(a1), Math.cos(a1), s * 0.3);
       } else if (kind === 'levels') {
         const q = s * 0.5, gp = s * 0.14;
-        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) rr(x + (dx < 0 ? -q - gp / 2 : gp / 2), y + (dy < 0 ? -q - gp / 2 : gp / 2), q, q, q * 0.3, '#fff');
+        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) rr(x + (dx < 0 ? -q - gp / 2 : gp / 2), y + (dy < 0 ? -q - gp / 2 : gp / 2), q, q, q * 0.3, THEME.fg);
       }
       ctx.restore();
       if (enabled) btns.push({ x, y, r, fn });
@@ -429,7 +429,7 @@ export default {
         const a = v.h ? 0 : Math.PI / 2;
         ctx.save(); ctx.rotate(a);
         ctx.beginPath(); ctx.roundRect(-Lp / 2 - 3, -W / 2 - 3, Lp + 6, W + 6, c * 0.23);
-        ctx.strokeStyle = grabbed ? 'rgba(255,255,255,.9)' : `rgba(255,255,255,${0.5 + 0.35 * Math.sin(t * 6)})`; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.strokeStyle = THEME.ink(grabbed ? 0.9 : 0.5 + 0.35 * Math.sin(t * 6)); ctx.lineWidth = 2.5; ctx.stroke();
         ctx.restore();
       }
       ctx.rotate(v.ang); ctx.scale(sc, sc);
@@ -442,12 +442,12 @@ export default {
       const w = 6 * c;
       ctx.save(); ctx.globalAlpha = alpha;
       // glassy board
-      rr(x0 - pad, y0 - pad, w + 2 * pad, w + 2 * pad, g.R * 0.06, 'rgba(255,255,255,.035)');
-      for (let r = 0; r < N; r++) for (let q = 0; q < N; q++) rr(x0 + q * c + c * 0.045, y0 + r * c + c * 0.045, c * 0.91, c * 0.91, c * 0.14, r === EXIT_ROW ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.055)');
+      rr(x0 - pad, y0 - pad, w + 2 * pad, w + 2 * pad, g.R * 0.06, THEME.ink(0.035));
+      for (let r = 0; r < N; r++) for (let q = 0; q < N; q++) rr(x0 + q * c + c * 0.045, y0 + r * c + c * 0.045, c * 0.91, c * 0.91, c * 0.14, THEME.ink(r === EXIT_ROW ? 0.07 : 0.055));
       for (const wcell of walls) {
         const q = wcell % 6, r = Math.floor(wcell / 6);
-        rr(x0 + q * c + c * 0.06, y0 + r * c + c * 0.06, c * 0.88, c * 0.88, c * 0.14, 'rgba(255,255,255,.2)');
-        ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = c * 0.08; ctx.lineCap = 'round';
+        rr(x0 + q * c + c * 0.06, y0 + r * c + c * 0.06, c * 0.88, c * 0.88, c * 0.14, THEME.ink(0.2));
+        ctx.strokeStyle = THEME.paper(THEME.light ? 0.75 : 0.35); ctx.lineWidth = c * 0.08; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(x0 + q * c + c * 0.3, y0 + r * c + c * 0.3); ctx.lineTo(x0 + q * c + c * 0.7, y0 + r * c + c * 0.7);
         ctx.moveTo(x0 + q * c + c * 0.7, y0 + r * c + c * 0.3); ctx.lineTo(x0 + q * c + c * 0.3, y0 + r * c + c * 0.7); ctx.stroke();
       }
@@ -461,7 +461,7 @@ export default {
       ctx.lineTo(fx, fy + fr); ctx.arcTo(fx, fy, fx + fr, fy, fr);
       ctx.lineTo(fx + fw - fr, fy); ctx.arcTo(fx + fw, fy, fx + fw, fy + fr, fr);
       ctx.lineTo(fx + fw, gy0);
-      ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = Math.max(1.5, g.R * 0.008); ctx.lineCap = 'round'; ctx.stroke();
+      ctx.strokeStyle = THEME.ink(0.2); ctx.lineWidth = Math.max(1.5, g.R * 0.008); ctx.lineCap = 'round'; ctx.stroke();
       // the gate: two red posts and a lane with chevrons
       const gx = fx + fw, gm = (gy0 + gy1) / 2;
       ctx.fillStyle = draw.alpha(g.color, 0.12);
@@ -484,7 +484,7 @@ export default {
       const { ringR, bubR } = L;
       ctx.save(); ctx.globalAlpha = a;
       // ring track
-      draw.arc(g.cx, g.cy, ringR, TAU * RING_A0 / 360, TAU * (360 - RING_A0) / 360, 'rgba(255,255,255,.06)', g.R * 0.012);
+      draw.arc(g.cx, g.cy, ringR, TAU * RING_A0 / 360, TAU * (360 - RING_A0) / 360, THEME.ink(0.06), g.R * 0.012);
       for (let i = 0; i < NL; i++) {
         const ang = (RING_A0 + i * (360 - 2 * RING_A0) / (NL - 1)) * Math.PI / 180;
         let bx = g.cx + Math.sin(ang) * ringR, by = g.cy - Math.cos(ang) * ringR;
@@ -494,26 +494,26 @@ export default {
         const open = unlocked(i), done = pp()[i], inRun = run.get(i);
         const next = open && !done;
         if (done) draw.circle(bx, by, r, draw.alpha(PC, inRun ? 0.34 : 0.18), { stroke: draw.alpha(PC, 0.85), lw: 2 });
-        else if (open) draw.circle(bx, by, r, 'rgba(255,255,255,.1)', { stroke: draw.alpha(PC, 0.6 + 0.4 * Math.sin(t * 4)), lw: 2.5 });
-        else draw.circle(bx, by, r, 'rgba(255,255,255,.04)', { stroke: 'rgba(255,255,255,.1)', lw: 1.5 });
-        if (sel === i) draw.circle(bx, by, r + g.R * 0.022, null, { stroke: 'rgba(255,255,255,.85)', lw: 2.5 });
+        else if (open) draw.circle(bx, by, r, THEME.ink(0.1), { stroke: draw.alpha(PC, 0.6 + 0.4 * Math.sin(t * 4)), lw: 2.5 });
+        else draw.circle(bx, by, r, THEME.ink(0.04), { stroke: THEME.ink(0.1), lw: 1.5 });
+        if (sel === i) draw.circle(bx, by, r + g.R * 0.022, null, { stroke: THEME.ink(0.85), lw: 2.5 });
         if (open) {
-          draw.text(String(i + 1), bx, by - r * (done ? 0.18 : 0.04), r * 0.62, { color: '#fff' });
-          if (done) for (let k = 0; k < 3; k++) star(bx + (k - 1) * r * 0.34, by + r * 0.42, r * 0.15, k < done.s ? STAR : null, k < done.s ? null : 'rgba(255,255,255,.35)');
-          else if (next) draw.text(`${pack.levels[i][1]} moves`, bx, by + r * 0.45, r * 0.2, { color: 'rgba(255,255,255,.6)', weight: 600, font: THEME_FONT });
-        } else lock(bx, by - r * 0.08, r * 0.55, 'rgba(255,255,255,.32)');
+          draw.text(String(i + 1), bx, by - r * (done ? 0.18 : 0.04), r * 0.62, { color: THEME.fg });
+          if (done) for (let k = 0; k < 3; k++) star(bx + (k - 1) * r * 0.34, by + r * 0.42, r * 0.15, k < done.s ? STAR : null, k < done.s ? null : THEME.ink(0.35));
+          else if (next) draw.text(`${pack.levels[i][1]} moves`, bx, by + r * 0.45, r * 0.2, { color: THEME.ink(0.6), weight: 600, font: THEME.font });
+        } else lock(bx, by - r * 0.08, r * 0.55, THEME.ink(0.32));
         btns.push({ x: bx, y: by, r: bubR, fn: () => { sel = i; openSel(); } });
       }
       // centre: pack, stars, this run, finish
       let starsAll = 0; for (let i = 0; i < NL; i++) starsAll += pp()[i]?.s || 0;
-      draw.text(pack.name, g.cx, g.cy - g.R * 0.25, g.R * 0.1, { color: PC });
+      draw.text(pack.name, g.cx, g.cy - g.R * 0.25, g.R * 0.1, { color: THEME.light ? draw.shade(PC, -0.35) : PC });
       star(g.cx - g.R * 0.115, g.cy - g.R * 0.105, g.R * 0.04, STAR);
-      draw.text(`${starsAll} / ${NL * 3}`, g.cx - g.R * 0.055, g.cy - g.R * 0.1, g.R * 0.065, { color: '#fff', align: 'left' });
+      draw.text(`${starsAll} / ${NL * 3}`, g.cx - g.R * 0.055, g.cy - g.R * 0.1, g.R * 0.065, { color: THEME.fg, align: 'left' });
       const n = run.size;
-      draw.text(n ? `This run: ${n} solved · ${total} pts` : 'Tap a level to play', g.cx, g.cy + g.R * 0.03, g.R * 0.045, { color: 'rgba(255,255,255,.62)', weight: 600, font: THEME_FONT });
+      draw.text(n ? `This run: ${n} solved · ${total} pts` : 'Tap a level to play', g.cx, g.cy + g.R * 0.03, g.R * 0.045, { color: THEME.ink(0.62), weight: 600, font: THEME.font });
       const fy = g.cy + g.R * 0.22;
       pill(g.cx, fy, g.R * 0.5, g.R * 0.15, 'Finish run', { primary: n > 0, col: g.color, fn: () => finishRun(false), size: g.R * 0.058 });
-      if (sel === NL) { ctx.beginPath(); ctx.roundRect(g.cx - g.R * 0.27, fy - g.R * 0.095, g.R * 0.54, g.R * 0.19, g.R * 0.095); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.stroke(); }
+      if (sel === NL) { ctx.beginPath(); ctx.roundRect(g.cx - g.R * 0.27, fy - g.R * 0.095, g.R * 0.54, g.R * 0.19, g.R * 0.095); ctx.strokeStyle = THEME.ink(0.85); ctx.lineWidth = 2.5; ctx.stroke(); }
       ctx.restore();
     }
 
@@ -522,20 +522,20 @@ export default {
       const { bcx, bcy } = L;
       const w = 6 * L.c + 2 * L.pad;
       ctx.save(); ctx.globalAlpha = k;
-      rr(bcx - w / 2, bcy - w / 2, w, w, g.R * 0.06, 'rgba(5,5,6,.84)');
+      rr(bcx - w / 2, bcy - w / 2, w, w, g.R * 0.06, THEME.paper(0.84));
       ctx.restore();
       ctx.save(); ctx.globalAlpha = k;
-      draw.text(s.last ? 'Pack complete!' : 'Solved!', bcx, bcy - g.R * 0.36, g.R * 0.095, { color: '#fff' });
+      draw.text(s.last ? 'Pack complete!' : 'Solved!', bcx, bcy - g.R * 0.36, g.R * 0.095, { color: THEME.fg });
       for (let i = 0; i < 3; i++) {
         const sk = ease.back(clamp((sceneT - 0.15 - i * 0.18) / 0.35, 0, 1));
         const x = bcx + (i - 1) * g.R * 0.22, y = bcy - g.R * 0.15 - (i === 1 ? g.R * 0.03 : 0);
         const r = g.R * (i === 1 ? 0.085 : 0.07);
-        star(x, y, r, 'rgba(255,255,255,.1)');
+        star(x, y, r, THEME.ink(0.1));
         if (i < s.stars && sk > 0) star(x, y, r * sk, STAR);
       }
-      draw.text(`${moves} move${moves === 1 ? '' : 's'}  ·  best ${opt}${s.newBest ? '  ·  new record' : ''}`, bcx, bcy + g.R * 0.02, g.R * 0.05, { color: 'rgba(255,255,255,.75)', weight: 600, font: THEME_FONT });
+      draw.text(`${moves} move${moves === 1 ? '' : 's'}  ·  best ${opt}${s.newBest ? '  ·  new record' : ''}`, bcx, bcy + g.R * 0.02, g.R * 0.05, { color: THEME.ink(0.75), weight: 600, font: THEME.font });
       const ptsTxt = s.gain > 0 ? `+${s.gain} pts` : `${s.pts} pts · no better`;
-      draw.text(ptsTxt, bcx, bcy + g.R * 0.115, g.R * 0.062, { color: s.gain > 0 ? STAR : 'rgba(255,255,255,.5)' });
+      draw.text(ptsTxt, bcx, bcy + g.R * 0.115, g.R * 0.062, { color: s.gain > 0 ? starText() : THEME.ink(0.5) });
       ctx.restore();
       if (sceneT > 0.35) {
         const by = bcy + g.R * 0.3;
@@ -564,7 +564,7 @@ export default {
           const red = vs[0];
           red.vx = (red.vx || 0) + dt * 40;
           red.x = Math.max(red.x, red.pos) + red.vx * dt;
-          if (Math.random() < 0.5) draw.burst(L.x0 + red.x * L.c, L.y0 + (EXIT_ROW + 0.5) * L.c + (Math.random() - 0.5) * L.c * 0.5, 'rgba(255,255,255,.5)', 1, g.R * 0.15, g.R * 0.008);
+          if (Math.random() < 0.5) draw.burst(L.x0 + red.x * L.c, L.y0 + (EXIT_ROW + 0.5) * L.c + (Math.random() - 0.5) * L.c * 0.5, THEME.ink(0.5), 1, g.R * 0.15, g.R * 0.008);
           if (sceneT > 0.75) showSolved();
         }
         const ba = scene === 'play' && sceneT < 0.3 ? ease.out(sceneT / 0.3) : 1;

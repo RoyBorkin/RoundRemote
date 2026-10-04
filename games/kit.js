@@ -1,6 +1,7 @@
 // Shared bits for the games: sound effects, drawing helpers in the app's look, small maths.
 // Every game gets these through its `g` object (see shell.js) — e.g. g.sfx('pop'), g.draw.bg().
 import { store } from '../js/core/store.js';
+import { currentTheme, themeEvents } from '../js/core/theme.js';
 
 export const TAU = Math.PI * 2;
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -15,7 +16,15 @@ export const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= 
 export const polar = (cx, cy, a, r) => [cx + Math.sin(a) * r, cy - Math.cos(a) * r];
 export const ease = { out: (t) => 1 - (1 - t) ** 3, inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2), back: (t) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2 };
 
-/** Colours that match the music & media screens. */
+/**
+ * Colours of the app's current theme (Settings → Theme), kept up to date when the theme changes —
+ * always read them when drawing (THEME.fg, THEME.ink(.5) …), don't copy them once at start.
+ *   bg bg2 surface         background / card colours        fg muted dim glass glass2 line   text & line colours
+ *   ink(a) paper(a) shade(a)  rgba() of the theme's ink (text), paper (its opposite) and shadow colour
+ *   light                  true in Light mode               c1 c2  the theme's main and secondary colours
+ *   glow                   false for themes without glow effects (Soft, Slate, Bauhaus)   flat  no gradients
+ *   id  mode  display  font
+ */
 export const THEME = {
   bg: '#050506', fg: '#f5f5f7', muted: 'rgba(255,255,255,.64)', dim: 'rgba(255,255,255,.38)',
   glass: 'rgba(255,255,255,.075)', glass2: 'rgba(255,255,255,.14)', line: 'rgba(255,255,255,.13)',
@@ -24,7 +33,22 @@ export const THEME = {
   pieces: ['#ff5a6a', '#ffc857', '#3ddc84', '#4d9bff', '#b57bff', '#ff8ad8', '#2ee6d6', '#ff9f43'],
   display: "'Space Grotesk', 'Rubik', 'Inter', system-ui, sans-serif",
   font: "'Inter', 'Rubik', system-ui, sans-serif",
+  ink: (a = 1) => `rgba(245,245,247,${a})`, paper: (a = 1) => `rgba(0,0,0,${a})`, shade: (a = 1) => `rgba(0,0,0,${a})`,
+  light: false, glow: true, flat: false, id: 'classic', mode: 'dark', bg2: '#151518', surface: '#121215', c1: '#1ed760', c2: '#7c5cff',
 };
+function syncTheme() {
+  const t = currentTheme();
+  const ink = t.inkRgb.join(','), paper = t.paperRgb.join(','), shade = t.shadeRgb.join(',');
+  Object.assign(THEME, {
+    id: t.id, mode: t.mode, light: t.light, glow: t.glow && t.id !== 'slate', flat: t.flat,
+    bg: t.bg, bg2: t.bg2, surface: t.surface, c1: t.c1, c2: t.c2,
+    fg: `rgb(${ink})`, muted: `rgba(${ink},.64)`, dim: `rgba(${ink},.38)`, glass: `rgba(${ink},.075)`, glass2: `rgba(${ink},.14)`, line: `rgba(${ink},.13)`,
+    ink: (a = 1) => `rgba(${ink},${a})`, paper: (a = 1) => `rgba(${paper},${a})`, shade: (a = 1) => `rgba(${shade},${a})`,
+    display: t.display, font: t.font,
+  });
+}
+syncTheme();
+themeEvents.on('change', syncTheme);
 
 // ---------------------------------------------------------------- sound (tiny Web Audio synth, no files)
 let ac = null;
@@ -98,9 +122,18 @@ export function makeDraw(g) {
     bg({ color = g.color, glow = 0.16, ring = true, fill = THEME.bg, glowAt = [0, 0] } = {}) {
       const { ctx, cx, cy, R, S } = g;
       ctx.fillStyle = fill; ctx.fillRect(0, 0, S, S);
-      const gr = ctx.createRadialGradient(cx + glowAt[0] * R, cy + glowAt[1] * R, 0, cx, cy, R * 1.05);
-      gr.addColorStop(0, d.alpha(color, glow)); gr.addColorStop(0.65, d.alpha(color, glow * 0.25)); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = gr; ctx.fillRect(0, 0, S, S);
+      if (THEME.id === 'glass') {          // Liquid Glass: soft colour light behind everything
+        for (const [x, y, col, a] of [[-0.45, -0.45, color, glow * 1.6], [0.5, 0.45, THEME.c2, glow * 1.3]]) {
+          const b = ctx.createRadialGradient(cx + x * R, cy + y * R, 0, cx + x * R, cy + y * R, R * 0.95);
+          b.addColorStop(0, d.alpha(col, a)); b.addColorStop(1, d.alpha(col, 0));
+          ctx.fillStyle = b; ctx.fillRect(0, 0, S, S);
+        }
+      } else if (!THEME.flat) {
+        const gr = ctx.createRadialGradient(cx + glowAt[0] * R, cy + glowAt[1] * R, 0, cx, cy, R * 1.05);
+        const k = THEME.light ? 0.7 : 1;
+        gr.addColorStop(0, d.alpha(color, glow * k)); gr.addColorStop(0.65, d.alpha(color, glow * 0.25 * k)); gr.addColorStop(1, d.alpha(color, 0));
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, S, S);
+      }
       if (ring) { ctx.beginPath(); ctx.arc(cx, cy, R * 0.948, 0, TAU); ctx.strokeStyle = THEME.line; ctx.lineWidth = Math.max(1, R * 0.008); ctx.stroke(); }
     },
     /** A colour with alpha: '#ff0' / '#ff8800' / 'rgb()' → rgba. */
@@ -122,7 +155,7 @@ export function makeDraw(g) {
     circle(x, y, r, fill, { glow = 0, stroke = null, lw = 2 } = {}) {
       const { ctx } = g;
       ctx.save();
-      if (glow) { ctx.shadowColor = typeof glow === 'string' ? glow : fill; ctx.shadowBlur = typeof glow === 'number' ? glow : g.R * 0.05; }
+      if (glow && THEME.glow) { ctx.shadowColor = typeof glow === 'string' ? glow : fill; ctx.shadowBlur = typeof glow === 'number' ? glow : g.R * 0.05; }
       ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, TAU);
       if (fill) { ctx.fillStyle = fill; ctx.fill(); }
       if (stroke) { ctx.shadowBlur = 0; ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
@@ -137,7 +170,7 @@ export function makeDraw(g) {
     arc(cx, cy, r, a0, a1, color, width, { glow = 0, cap = 'round' } = {}) {
       const { ctx } = g;
       ctx.save();
-      if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
+      if (glow && THEME.glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
       ctx.beginPath(); ctx.arc(cx, cy, r, a0 - Math.PI / 2, a1 - Math.PI / 2);
       ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = cap; ctx.stroke();
       ctx.restore();
@@ -145,7 +178,7 @@ export function makeDraw(g) {
     roundRect(x, y, w, h, r, fill, { stroke = null, lw = 2, glow = 0 } = {}) {
       const { ctx } = g;
       ctx.save();
-      if (glow) { ctx.shadowColor = typeof glow === 'string' ? glow : fill; ctx.shadowBlur = typeof glow === 'number' ? glow : g.R * 0.04; }
+      if (glow && THEME.glow) { ctx.shadowColor = typeof glow === 'string' ? glow : fill; ctx.shadowBlur = typeof glow === 'number' ? glow : g.R * 0.04; }
       ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
       if (fill) { ctx.fillStyle = fill; ctx.fill(); }
       if (stroke) { ctx.shadowBlur = 0; ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
@@ -157,7 +190,7 @@ export function makeDraw(g) {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.font = `${weight} ${size}px ${font}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
-      if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
+      if (glow && THEME.glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
       ctx.fillText(str, x, y);
       ctx.restore();
     },

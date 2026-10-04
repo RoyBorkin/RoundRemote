@@ -1,7 +1,7 @@
 // Floppy Bird — tap to flap, gravity does the rest. Glide through the gaps between the glass pillars;
 // every pair you pass is a point. Touch a pillar, the ground or fly off the top and it's over.
 // Everything is laid out in units of R so it fits the round screen at any size.
-import { TAU, clamp, lerp, rand } from './kit.js';
+import { TAU, clamp, lerp, rand, THEME } from './kit.js';
 
 const GROUND = 0.72;      // ground line, × R below the centre
 const CEIL = -0.9;        // fly above this and you're gone
@@ -11,6 +11,20 @@ const GRAV = 2.75, FLAP = -0.88, MAXV = 1.55;
 const PIPE_W = 0.19;
 const SPAWN_X = 1.12;     // pillars appear just outside the circle
 const BIRD_COL = '#ffb35c', BELLY = '#ffe3b0', BEAK = '#ff6f61';
+
+// The scenery: a night city in the dark modes (as before), a pale day in Light mode.
+const NIGHT = {
+  day: false, sky0: 'rgba(10,18,40,0)', sky1: 'rgba(40,110,100,.16)', star: '#e8fff6',
+  moonDark: 'rgba(225,250,240,.08)', moon: 'rgba(225,250,240,.8)',
+  city: '#0d1d1c', win: 'rgba(110,231,183,.22)', hills: '#0a1514', ground: '#081010', stripe: 'rgba(110,231,183,.08)',
+  pipe: '110,231,183', pipeA: [0.10, 0.26, 0.12, 0.05], edge: 0.55, rim: 0.22, streak: 'rgba(255,255,255,.16)', line: null,
+};
+const DAY = {
+  day: true, sky0: 'rgba(120,196,235,.42)', sky1: 'rgba(196,236,222,.30)', star: null,
+  sun: '#ffd36b', sunHalo: 'rgba(255,211,107,.22)',
+  city: '#b9d9d0', win: 'rgba(255,255,255,.55)', hills: '#8fcab2', ground: '#5f9f86', stripe: 'rgba(255,255,255,.14)',
+  pipe: '52,168,120', pipeA: [0.55, 0.78, 0.62, 0.5], edge: 0.9, rim: 0.75, streak: 'rgba(255,255,255,.35)', line: '#2f8f68',
+};
 
 const MEDALS = [[50, 'Platinum'], [30, 'Gold'], [20, 'Silver'], [10, 'Bronze']];
 
@@ -79,6 +93,26 @@ export default {
       return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r;
     };
 
+    // ---- palette + cached gradients, rebuilt only when the size or the theme changes ----
+    let P = NIGHT, sky = null, body = null, cacheKey = '';
+    function cache() {
+      const { ctx, cy, R } = g;
+      const key = `${R}|${cy}|${THEME.id}|${THEME.mode}`;
+      if (key === cacheKey) return;
+      cacheKey = key;
+      P = THEME.light ? DAY : NIGHT;
+      if (THEME.mode === 'oled') P = { ...NIGHT, ground: '#000000', hills: '#050b0a' };
+      if (THEME.flat) { sky = P.day ? P.sky1 : 'rgba(40,110,100,.08)'; body = `rgba(${P.pipe},${P.pipeA[1]})`; return; }
+      sky = ctx.createLinearGradient(0, cy - R, 0, cy + GROUND * R);
+      sky.addColorStop(0, P.sky0); sky.addColorStop(1, P.sky1);
+      // the pillar's glassy body, across its width (drawn translated to each pillar)
+      const w = PIPE_W * R;
+      body = ctx.createLinearGradient(0, 0, w, 0);
+      const c = P.pipe, a = P.pipeA;
+      body.addColorStop(0, `rgba(${c},${a[0]})`); body.addColorStop(0.3, `rgba(${c},${a[1]})`);
+      body.addColorStop(0.55, `rgba(${c},${a[2]})`); body.addColorStop(1, `rgba(${c},${a[3]})`);
+    }
+
     // ---------------------------------------------------------------- frame
     g.loop((dt, t) => {
       const { ctx, cx, cy, R } = g;
@@ -124,28 +158,33 @@ export default {
       for (const p of pipes) p.glow = Math.max(0, p.glow - dt * 2.5);
 
       // ---- draw ----
+      cache();
       g.draw.bg({ glow: 0.13, glowAt: [0.35, -0.45] });
       ctx.save();
       g.draw.clipCircle();
       const X = (x) => cx + x * R, Y = (y) => cy + y * R;
-      // sky: a faint wash toward the horizon, stars and a moon
-      const sky = ctx.createLinearGradient(0, Y(-1), 0, Y(GROUND));
-      sky.addColorStop(0, 'rgba(10,18,40,0)'); sky.addColorStop(1, 'rgba(40,110,100,.16)');
+      // sky: a wash toward the horizon; at night stars and a moon, by day the sun
       ctx.fillStyle = sky; ctx.fillRect(0, 0, g.S, Y(GROUND));
-      for (const s of stars) {
-        let sx = ((s.x - scroll * 0.02) % 2 + 3) % 2 - 1;
-        ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t * 1.7 + s.tw);
-        ctx.fillStyle = '#e8fff6'; ctx.beginPath(); ctx.arc(X(sx), Y(s.y), s.r * R, 0, TAU); ctx.fill();
+      if (P.star) {
+        ctx.fillStyle = P.star;
+        for (const s of stars) {
+          let sx = ((s.x - scroll * 0.02) % 2 + 3) % 2 - 1;
+          ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t * 1.7 + s.tw);
+          ctx.beginPath(); ctx.arc(X(sx), Y(s.y), s.r * R, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        // a thin crescent moon
+        ctx.save();
+        ctx.beginPath(); ctx.arc(X(0.46), Y(-0.5), R * 0.062, 0, TAU);
+        ctx.fillStyle = P.moonDark; ctx.fill();          // the dark side, barely there
+        ctx.clip();
+        ctx.beginPath(); ctx.rect(X(0.3), Y(-0.7), R * 0.4, R * 0.4); ctx.arc(X(0.49), Y(-0.525), R * 0.058, 0, TAU);
+        ctx.fillStyle = P.moon; ctx.fill('evenodd');
+        ctx.restore();
+      } else {
+        ctx.fillStyle = P.sunHalo; ctx.beginPath(); ctx.arc(X(0.46), Y(-0.5), R * 0.1, 0, TAU); ctx.fill();
+        ctx.fillStyle = P.sun; ctx.beginPath(); ctx.arc(X(0.46), Y(-0.5), R * 0.065, 0, TAU); ctx.fill();
       }
-      ctx.globalAlpha = 1;
-      // a thin crescent moon
-      ctx.save();
-      ctx.beginPath(); ctx.arc(X(0.46), Y(-0.5), R * 0.062, 0, TAU);
-      ctx.fillStyle = 'rgba(225,250,240,.08)'; ctx.fill();          // the dark side, barely there
-      ctx.clip();
-      ctx.beginPath(); ctx.rect(X(0.3), Y(-0.7), R * 0.4, R * 0.4); ctx.arc(X(0.49), Y(-0.525), R * 0.058, 0, TAU);
-      ctx.fillStyle = 'rgba(225,250,240,.8)'; ctx.fill('evenodd');
-      ctx.restore();
       // far city (slow parallax)
       const cOff = (scroll * 0.16) % CITY_P;
       for (let rep = -1; rep <= 1; rep++) {
@@ -153,10 +192,10 @@ export default {
           const bx = b.x - cOff + rep * CITY_P - 1.3;
           if (bx > 1.05 || bx + b.w < -1.05) continue;
           const top = GROUND - b.h;
-          ctx.fillStyle = '#0d1d1c';
+          ctx.fillStyle = P.city;
           ctx.fillRect(X(bx), Y(top), b.w * R + 0.5, (GROUND - top) * R);
           if (b.roof) { ctx.fillRect(X(bx + b.w * 0.45), Y(top - 0.05), Math.max(1, R * 0.006), R * 0.05); }
-          ctx.fillStyle = 'rgba(110,231,183,.22)';
+          ctx.fillStyle = P.win;
           for (const [wx, wy] of b.lit) ctx.fillRect(X(bx + wx * b.w), Y(top + wy * b.h * 0.85), R * 0.012, R * 0.014);
         }
       }
@@ -169,21 +208,22 @@ export default {
         ctx.lineTo(X(x), Y(GROUND - h));
       }
       ctx.lineTo(X(1.06), Y(GROUND)); ctx.closePath();
-      ctx.fillStyle = '#0a1514'; ctx.fill();
+      ctx.fillStyle = P.hills; ctx.fill();
 
       // pillars
       for (const p of pipes) drawPillar(p);
 
       // ground band
-      ctx.fillStyle = '#081010'; ctx.fillRect(0, Y(GROUND), g.S, g.S);
+      ctx.fillStyle = P.ground; ctx.fillRect(0, Y(GROUND), g.S, g.S);
       ctx.save();
       ctx.beginPath(); ctx.rect(0, Y(GROUND), g.S, g.S); ctx.clip();
-      ctx.strokeStyle = 'rgba(110,231,183,.08)'; ctx.lineWidth = R * 0.03;
+      ctx.strokeStyle = P.stripe; ctx.lineWidth = R * 0.03;
       const gOff = (scroll % 0.16);
       for (let x = -1.2 - gOff; x < 1.2; x += 0.16) { ctx.beginPath(); ctx.moveTo(X(x), Y(GROUND + 0.02)); ctx.lineTo(X(x - 0.12), Y(GROUND + 0.3)); ctx.stroke(); }
       ctx.restore();
       ctx.save();
-      ctx.strokeStyle = g.color; ctx.lineWidth = R * 0.008; ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04;
+      ctx.strokeStyle = P.line || g.color; ctx.lineWidth = R * 0.008;
+      if (THEME.glow) { ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04; }
       ctx.beginPath(); ctx.moveTo(0, Y(GROUND)); ctx.lineTo(g.S, Y(GROUND)); ctx.stroke();
       ctx.restore();
 
@@ -194,10 +234,10 @@ export default {
 
       if (phase === 'ready') {
         const a = 0.6 + 0.4 * Math.sin(t * 4);
-        g.draw.text('Get ready', cx, Y(-0.36), R * 0.1, { color: '#fff', glow: 16 });
-        g.draw.text('Tap to flap', cx, Y(0.27), R * 0.056, { color: '#fff', weight: 600, font: g.theme.font, alpha: a });
+        g.draw.text('Get ready', cx, Y(-0.36), R * 0.1, { color: THEME.fg, glow: 16 });
+        g.draw.text('Tap to flap', cx, Y(0.27), R * 0.056, { color: THEME.fg, weight: 600, font: THEME.font, alpha: a });
         // a little tap hint under the bird
-        g.draw.circle(X(BIRD_X), Y(0.14), R * (0.03 + 0.012 * Math.sin(t * 4)), null, { stroke: 'rgba(255,255,255,.35)', lw: 2 });
+        g.draw.circle(X(BIRD_X), Y(0.14), R * (0.03 + 0.012 * Math.sin(t * 4)), null, { stroke: THEME.ink(0.35), lw: 2 });
       }
       g.draw.particles(dt);
     });
@@ -208,26 +248,24 @@ export default {
       const x0 = g.cx + (p.x - PIPE_W / 2) * R, w = PIPE_W * R;
       const top = g.cy + (p.gy - p.gap / 2) * R, bot = g.cy + (p.gy + p.gap / 2) * R;
       const yA = g.cy - R * 1.05, yB = g.cy + GROUND * R;
-      const glow = 0.5 + p.glow * 0.5;
-      const body = ctx.createLinearGradient(x0, 0, x0 + w, 0);
-      body.addColorStop(0, 'rgba(110,231,183,.10)'); body.addColorStop(0.3, 'rgba(110,231,183,.26)');
-      body.addColorStop(0.55, 'rgba(110,231,183,.12)'); body.addColorStop(1, 'rgba(110,231,183,.05)');
+      const glow = 0.5 + p.glow * 0.5, pc = P.pipe;
       const capH = R * 0.06, capOut = R * 0.018, rr = R * 0.025;
       for (const [y0, y1, capY] of [[yA, top, top - capH], [bot, yB + R * 0.05, bot]]) {
-        // soft halo, glass body, bright edge
+        // soft halo, glass body, bright edge (the body gradient is cached in pillar-local x)
         ctx.save();
-        ctx.beginPath(); ctx.roundRect(x0, y0, w, y1 - y0, rr);
+        ctx.translate(x0, 0);
+        ctx.beginPath(); ctx.roundRect(0, y0, w, y1 - y0, rr);
         ctx.fillStyle = body; ctx.fill();
-        ctx.lineWidth = R * 0.03; ctx.strokeStyle = `rgba(110,231,183,${0.07 * glow})`; ctx.stroke();
-        ctx.lineWidth = R * 0.006; ctx.strokeStyle = `rgba(110,231,183,${0.55 + 0.4 * p.glow})`; ctx.stroke();
+        if (THEME.glow) { ctx.lineWidth = R * 0.03; ctx.strokeStyle = `rgba(${pc},${0.07 * glow})`; ctx.stroke(); }
+        ctx.lineWidth = R * 0.006; ctx.strokeStyle = `rgba(${pc},${P.edge + 0.4 * p.glow})`; ctx.stroke();
         // highlight streak
-        ctx.fillStyle = 'rgba(255,255,255,.16)';
-        ctx.fillRect(x0 + w * 0.2, y0 + R * 0.02, Math.max(1, w * 0.06), Math.max(0, y1 - y0 - R * 0.04));
+        ctx.fillStyle = P.streak;
+        ctx.fillRect(w * 0.2, y0 + R * 0.02, Math.max(1, w * 0.06), Math.max(0, y1 - y0 - R * 0.04));
         // the rim at the gap
-        ctx.beginPath(); ctx.roundRect(x0 - capOut, capY, w + capOut * 2, capH, R * 0.02);
-        ctx.fillStyle = `rgba(110,231,183,${0.22 + 0.3 * p.glow})`; ctx.fill();
-        ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04 * glow;
-        ctx.lineWidth = R * 0.007; ctx.strokeStyle = g.color; ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(-capOut, capY, w + capOut * 2, capH, R * 0.02);
+        ctx.fillStyle = `rgba(${pc},${P.rim + 0.3 * p.glow})`; ctx.fill();
+        if (THEME.glow) { ctx.shadowColor = g.color; ctx.shadowBlur = R * 0.04 * glow; }
+        ctx.lineWidth = R * 0.007; ctx.strokeStyle = P.line || g.color; ctx.stroke();
         ctx.restore();
       }
     }

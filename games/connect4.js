@@ -1,7 +1,7 @@
 // Four in a Row — drop discs into a 7×6 board, line up four. Discs slide down behind a glassy frame
 // with a little bounce. 1P vs COM (Easy / Normal / Hard): a run of rounds, win +3, draw +1, until COM
 // wins. 2 players on one screen: first to 3 wins; fewer rounds = a more dominant win.
-import { TAU, clamp, ease, rand, pick } from './kit.js';
+import { TAU, clamp, ease, rand, pick, THEME } from './kit.js';
 
 const W = 7, H = 6;                       // columns × rows; cell index = col * H + row (row 0 = bottom)
 const P1 = 1, P2 = 2;
@@ -252,7 +252,7 @@ export default {
       }
       if (o.p === HUMAN) { wins++; g.add(3); g.sfx('score'); draw.float('+3', g.cx, g.cy - g.R * 0.05, COL[HUMAN], g.R * 0.12); }
       else if (o.p === CPU) { g.sfx('hit'); g.vibrate(40); ending = true; wait = 1.7; }
-      else { draws++; g.add(1); g.sfx('tick'); draw.float('+1', g.cx, g.cy - g.R * 0.05, '#fff', g.R * 0.1); }
+      else { draws++; g.add(1); g.sfx('tick'); draw.float('+1', g.cx, g.cy - g.R * 0.05, THEME.fg, g.R * 0.1); }
       status();
     }
     function endGame() {
@@ -281,6 +281,27 @@ export default {
     newRound();
 
     // ---- drawing ----
+    // the frame's fill and sheen, rebuilt only when the layout or the theme changes
+    let paint = null, paintKey = '';
+    function framePaint() {
+      const { pad, h, y0 } = geo;
+      const key = `${y0}|${h}|${THEME.id}|${THEME.mode}`;
+      if (key === paintKey) return paint;
+      paintKey = key;
+      const { ctx } = g;
+      const lin = (a, b) => { const gr = ctx.createLinearGradient(0, y0 - pad, 0, y0 + h + pad); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
+      let fill;
+      if (THEME.id === 'classic' && !THEME.light) fill = lin('rgba(34,24,32,.95)', 'rgba(14,11,15,.97)');   // smoky glass slab
+      else if (THEME.flat) fill = THEME.surface;
+      else fill = lin(draw.alpha(THEME.surface, 0.97), draw.alpha(THEME.bg2, 0.97));
+      let sheen = null;
+      if (!THEME.flat && !THEME.light) {
+        sheen = ctx.createLinearGradient(0, y0 - pad, 0, y0 + h * 0.5);
+        sheen.addColorStop(0, 'rgba(255,255,255,.075)'); sheen.addColorStop(1, 'rgba(255,255,255,0)');
+      }
+      paint = { fill, sheen };
+      return paint;
+    }
     // flat token: one solid colour with a flat, slightly darker inner ring (like a pressed token)
     function disc(x, y, r, p, alpha = 1) {
       const { ctx } = g;
@@ -333,8 +354,8 @@ export default {
 
       // slot backs (darker wells) — behind the discs
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      for (let cc = 0; cc < W; cc++) for (let r = 0; r < H; r++) { const [x, y] = slotXY(cc, r); ctx.beginPath(); ctx.arc(x, y, c * 0.415, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = THEME.shade(THEME.light ? 0.13 : 0.35);
+      ctx.fill(holes);
       ctx.restore();
 
       // the column you're aiming at + a ghost disc where it will land
@@ -359,19 +380,16 @@ export default {
       }
       ctx.restore();
 
-      // the frame on top: smoky glass slab with round holes
-      const fg = ctx.createLinearGradient(0, y0 - pad, 0, y0 + h + pad);
-      fg.addColorStop(0, 'rgba(34,24,32,.95)'); fg.addColorStop(1, 'rgba(14,11,15,.97)');
+      // the frame on top: a slab with round holes (classic: smoky glass)
+      const fp = framePaint();
       ctx.save();
-      ctx.shadowColor = draw.alpha(g.color, 0.35); ctx.shadowBlur = g.R * 0.07;
-      ctx.fillStyle = fg; ctx.fill(frame, 'evenodd');
+      if (THEME.glow) { ctx.shadowColor = draw.alpha(g.color, 0.35); ctx.shadowBlur = g.R * 0.07; }
+      ctx.fillStyle = fp.fill; ctx.fill(frame, 'evenodd');
       ctx.shadowColor = 'transparent';
       // a soft sheen across the top, and the rims
-      const sh = ctx.createLinearGradient(0, y0 - pad, 0, y0 + h * 0.5);
-      sh.addColorStop(0, 'rgba(255,255,255,.075)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = sh; ctx.fill(frame, 'evenodd');
+      if (fp.sheen) { ctx.fillStyle = fp.sheen; ctx.fill(frame, 'evenodd'); }
       ctx.lineWidth = Math.max(1, g.R * 0.005);
-      ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.stroke(holes);
+      ctx.strokeStyle = THEME.ink(THEME.light ? 0.12 : 0.07); ctx.stroke(holes);
       ctx.strokeStyle = draw.alpha(g.color, 0.35); ctx.stroke(outer);
       ctx.restore();
 
@@ -390,11 +408,11 @@ export default {
         ctx.globalAlpha = fade; ctx.lineCap = 'round';
         for (const [x, y] of pts) {
           ctx.beginPath(); ctx.arc(x, y, dr * (1.05 + 0.05 * Math.sin(t * 6)), -Math.PI / 2, -Math.PI / 2 + TAU * k);
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = c * 0.06; ctx.stroke();
+          ctx.strokeStyle = THEME.fg; ctx.lineWidth = c * 0.06; ctx.stroke();
         }
         if (k > 0) {
           ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + (bx - ax) * k, ay + (by - ay) * k);
-          ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = c * 0.08; ctx.stroke();
+          ctx.strokeStyle = THEME.ink(0.9); ctx.lineWidth = c * 0.08; ctx.stroke();
         }
         ctx.restore();
       }
@@ -405,21 +423,21 @@ export default {
         const cpu = !two && turn === CPU;
         const who = two ? `${NAME[turn]} to play` : turn === HUMAN ? 'Your turn' : 'COM';
         const fs = g.R * 0.05, ir = g.R * 0.027;
-        ctx.save(); ctx.font = `700 ${fs}px ${g.theme.display}`; const tw = ctx.measureText(who).width; ctx.restore();
+        ctx.save(); ctx.font = `700 ${fs}px ${THEME.display}`; const tw = ctx.measureText(who).width; ctx.restore();
         const total = ir * 2 + g.R * 0.025 + tw + (cpu ? g.R * 0.075 : 0), sx = cx - total / 2;
         disc(sx + ir, ty, ir, turn);
-        draw.text(who, sx + ir * 2 + g.R * 0.025, ty + 1, fs, { align: 'left', color: 'rgba(255,255,255,.82)' });
-        if (cpu) for (let k = 0; k < 3; k++) draw.circle(sx + ir * 2 + g.R * 0.025 + tw + g.R * (0.022 + k * 0.021), ty + g.R * 0.008, g.R * 0.008, `rgba(255,255,255,${0.3 + 0.6 * Math.max(0, Math.sin(t * 7 - k * 0.8))})`);
+        draw.text(who, sx + ir * 2 + g.R * 0.025, ty + 1, fs, { align: 'left', color: THEME.ink(0.82) });
+        if (cpu) for (let k = 0; k < 3; k++) draw.circle(sx + ir * 2 + g.R * 0.025 + tw + g.R * (0.022 + k * 0.021), ty + g.R * 0.008, g.R * 0.008, THEME.ink(0.3 + 0.6 * Math.max(0, Math.sin(t * 7 - k * 0.8))));
       } else if (res && phase !== 'clear' || phase === 'clear' && clearK < 1) {
         const txt = !res.p ? (two ? 'Draw' : 'Draw  +1') : two ? (matchWinner ? `${NAME[res.p]} wins the match!` : `${NAME[res.p]} wins the round`) : res.p === HUMAN ? 'You win  +3' : 'COM wins';
         const pk = ease.back(clamp(resT * 3.5, 0, 1));
-        draw.text(txt, cx, ty + 1, g.R * 0.062 * (0.6 + 0.4 * pk), { color: res.p ? winCol : 'rgba(255,255,255,.85)', alpha: clamp(resT * 4, 0, 1) * (1 - clearK), glow: res.p ? g.R * 0.03 : 0 });
+        draw.text(txt, cx, ty + 1, g.R * 0.062 * (0.6 + 0.4 * pk), { color: res.p ? winCol : THEME.ink(0.85), alpha: clamp(resT * 4, 0, 1) * (1 - clearK), glow: res.p ? g.R * 0.03 : 0 });
       }
       if (two) {
         const py = ty + g.R * 0.075;
         for (const p of [P1, P2]) for (let k = 0; k < 3; k++) {
           const x = cx + (p === P1 ? -1 : 1) * (g.R * 0.07 + k * g.R * 0.045);
-          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : 'rgba(255,255,255,.14)');
+          draw.circle(x, py, g.R * 0.013, k < tally[p] ? COL[p] : THEME.ink(0.14));
         }
       }
       draw.particles(dt);

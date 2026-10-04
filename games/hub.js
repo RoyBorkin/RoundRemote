@@ -20,6 +20,8 @@ export function GamesHubScreen() {
   const n = GAMES.length;
   let sel = Math.max(0, GAMES.findIndex((x) => x.id === store.get('lastGame')));
   const ring = h('div.gh-ring');
+  // the icons shrink a little when there are many games so they never touch (ring radius 42% of the screen)
+  ring.style.setProperty('--gi', `${Math.min(9.6, (2 * Math.PI * 42 / n) * 0.8).toFixed(2)}cqmin`);
   const items = GAMES.map((gm, i) => {
     const a = (i / n) * Math.PI * 2;
     const b = h('button.gh-item', {

@@ -91,6 +91,7 @@ export const DEFAULTS = Object.freeze({
   gameModes: {},               // last mode picked per game
   gameOpts: {},                // last options picked per game (e.g. difficulty)
   gameKeys: {},                // which top 5 was last used per game (mode + options)
+  gameProgress: {},            // per-game progress that outlives a round (levels unlocked, stars …), keyed by game id
   gamePlayer: '',              // the name last entered for a top-5 score
   gameSound: true,             // sound effects in the games
   lastGame: null,              // the game selected on the Games ring

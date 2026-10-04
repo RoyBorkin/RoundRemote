@@ -8,7 +8,7 @@ const c = (x, y, r, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 0 : 
 export const GAMES = [
   { id: 'grow', file: './grow.js', name: 'Grow', color: '#ff5fa2', blurb: 'Hold to grow the bubble — as big as you dare, without touching anything.',
     icon: c(12, 12, 10) + c(12, 12, 8, true) + c(12, 12, 5) },
-  { id: 'marbles', file: './marbles.js', name: 'Marble Chain', color: '#ffb020', blurb: 'Shoot marbles into the rolling chain. Three of a colour pop. Six paths.',
+  { id: 'marbles', file: './marbles.js', name: 'Marble Chain', color: '#ffb020', blurb: 'Shoot marbles into the rolling chain. Three of a colour pop. A new track every level.',
     icon: c(6, 16, 3) + c(10.5, 9.5, 3) + c(17, 7, 3) + c(18, 17, 2.4) },
   { id: 'perfect', file: './perfect.js', name: 'Perfect Circle', color: '#22d3ee', blurb: 'Draw a circle in one go. How perfect is it?',
     icon: c(12, 12, 9) + c(12, 12, 7, true) + c(19.5, 5.5, 2.2) },
@@ -48,6 +48,18 @@ export const GAMES = [
     icon: 'M7 4h10v3H7zM4 9h7v3H4zM13 9h7v3h-7zM8 14h8v3H8z' + c(12, 20.2, 1.8) },
   { id: 'rushhour', file: './rushhour.js', name: 'Rush Hour', color: '#ef4444', blurb: 'Slide the cars and trucks to get the red car out. 40+ puzzles, easy to expert.',
     icon: 'M3 9h12v6H3zM17 3h4v12h-4zM9 17h12v4H9z' + c(6, 12, 1.2, true) },
+  { id: 'flow', file: './flow.js', name: 'Pipe Link', color: '#2dd4bf', blurb: 'Join each pair of matching dots with a pipe. Fill every cell — no crossing.',
+    icon: c(5, 5, 2.6) + c(19, 19, 2.6) + 'M4 4h2.5v9.5H18V21h-2.5v-5H4z' },
+  { id: 'hop', file: './hop.js', name: 'Sketch Jump', color: '#a3e635', blurb: 'Bounce up from ledge to ledge. Tilt left and right — don\'t fall!',
+    icon: 'M3 20h7v2H3zM14 14h7v2h-7zM5 8h7v2H5z' + c(16.5, 6.5, 3.2) },
+  { id: 'zoo', file: './zoo.js', name: 'Zoo Splash', color: '#22c55e', blurb: 'Flick your animals and knock the other team off the island into the sea.',
+    icon: 'M5 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1z' + c(8.5, 10, 2.2) + c(15, 14, 2.2) },
+  { id: 'rps', file: './rps.js', name: 'RPS Battle', color: '#84cc16', blurb: 'Rock, paper, scissors armies. Find and capture the hidden flag — mind the trap!',
+    icon: 'M3 3h8v8H3zM13 13h8v8h-8z' + c(17, 7, 4) + c(7, 17, 4) },
+  { id: 'orbits', file: './orbits.js', name: 'Orbits', color: '#818cf8', blurb: 'Fling planets into orbit around black holes — or launch from orbit to orbit and hit the targets.',
+    icon: c(12, 12, 3.2) + 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14z' + c(19.5, 7.5, 2.4) },
+  { id: 'rope', file: './rope.js', name: 'Rope Snip', color: '#fb7185', blurb: 'Cut the ropes to swing the sweet into the hungry critter. Grab all three stars.',
+    icon: 'M11 1h2v10h-2z' + c(12, 14.5, 4) + 'M17 18l4-4 1 1-4 4zM2 15l1-1 4 4-1 1z' },
 ];
 
 export const gameById = (id) => GAMES.find((g) => g.id === id) || null;

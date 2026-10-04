@@ -56,7 +56,14 @@ export function HomeScreen() {
 
   const clock = h('div.clock');
   const date = h('div.date');
-  const now = h('button.now-mini', { type: 'button', onclick: () => go('player') });
+  // Now playing: open the player that belongs to what's playing — Movies & TV for a film or show
+  // (e.g. Plex video), the music player otherwise.
+  const openNowPlaying = () => {
+    const p = player.provider;
+    if (p?.section === 'media') openService(p.id);
+    else go('player');
+  };
+  const now = h('button.now-mini', { type: 'button', onclick: openNowPlaying });
   // The main categories: Music · Media (movies & TV) · Home (smart home) · Games · Settings
   const setMode = (m) => { if (mode() !== m) { store.set('homeMode', m); ring.classList.remove('swap'); void ring.offsetWidth; ring.classList.add('swap'); } };
   const modeBtns = [['music', 'note', 'Music'], ['media', 'film', 'Media'], ['home', 'house', 'Home'], ['games', 'gamepad', 'Games'], ['settings', 'settings', 'Settings']].map(([m, ic, label]) => h('button.hm-btn', {
@@ -90,6 +97,7 @@ export function HomeScreen() {
     now.innerHTML = '';
     now.hidden = !t;
     if (!t) return;
+    now.classList.toggle('video', player.provider?.section === 'media');   // a poster doesn't spin like a record
     now.append(h('span.now-art', { style: { backgroundImage: t.art ? `url("${t.art}")` : '' } }),
       h('span.now-text', h('b', t.title), h('small', t.artist)));
   }

@@ -130,11 +130,11 @@ input { font: inherit; color: inherit; }
 @keyframes breathe { 50% { transform: scale(1.12); opacity: .7; } }
 .svc-ring { position: absolute; inset: 0; }
 .svc {
-  position: absolute; transform: translate(-50%, -50%);
+  position: absolute; translate: -50% -50%;   /* centring via `translate` so the `scale` below (control size) stays centred */
   display: flex; flex-direction: column; align-items: center; gap: .9cqmin;
   animation: pop-in .5s var(--spring) both;
 }
-@keyframes pop-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(.4); } }
 .svc:active .badge { transform: scale(.9); }
 .svc .badge { transition: transform .2s var(--spring); }
 /* the control size (XS…XL) scales Home too */
@@ -149,7 +149,7 @@ input { font: inherit; color: inherit; }
 .svc.off .badge { filter: saturate(.25) brightness(.7); }
 .svc.last .svc-name { color: var(--fg); }
 .home-center {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
   width: 46%; display: flex; flex-direction: column; align-items: center; text-align: center;
 }
 .brand { font-family: var(--display); font-size: 2.3cqmin; letter-spacing: .5em; color: var(--dim); margin-right: -.5em; }
@@ -161,6 +161,7 @@ input { font: inherit; color: inherit; }
 }
 .now-mini[hidden] { display: none; }
 .now-art { width: 7cqmin; height: 7cqmin; border-radius: 50%; background: var(--ph) center/cover; flex: none; animation: spin 8s linear infinite; }
+.now-mini.video .now-art { animation: none; border-radius: 1.4cqmin; width: 5.4cqmin; height: 7.6cqmin; }
 .now-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
 .now-text b, .now-text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .now-text b { font-size: 2.7cqmin; }
@@ -175,7 +176,7 @@ input { font: inherit; color: inherit; }
 .hm-btn.on { background: var(--fg); color: var(--on-fg); }
 .hm-btn:active { transform: scale(.94); }
 .svc-ring.swap .svc { animation: pop-in-2 .5s var(--spring) both; }
-@keyframes pop-in-2 { from { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(-20deg); } }
+@keyframes pop-in-2 { from { opacity: 0; transform: scale(.4) rotate(-20deg); } }
 .home[data-mode="media"] .svc .badge { width: 14cqmin; height: 14cqmin; }
 .home[data-mode="media"] .svc-name { font-size: 2.4cqmin; }
 .home[data-mode="home"] .svc .badge { width: 15cqmin; height: 15cqmin; }

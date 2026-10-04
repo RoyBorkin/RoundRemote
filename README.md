@@ -176,7 +176,7 @@ Tap **Games** on the home screen. The games sit on a ring: tap one (or drag arou
 | **Running Circle** | Your ball runs around a ring. Tap to hop to the other side of the line and dodge the obstacles. |
 | **Hit Circle** | Tap each circle as its ring closes in. Perfect timing scores most. |
 | **Minesweeper** | A round minefield in Easy, Medium or Hard. Hold to flag. Your best times are kept. |
-| **Dino Run** | Jump the cacti and duck the gliders. |
+| **Dino Run** | Flat 8-bit pixel art: our own little dino with orange back plates, pixel cacti and gliders, stepped mesas and a day → night palette change. Jump the cacti and duck the gliders. Hold to jump higher. Obstacles are always spaced so you can land and jump again — no impossible sequences — with mixed cactus groups and quick doubles as you speed up. |
 | **Bubble Shooter** | Shoot from the rim into a bubble cluster around a core. 3 of a colour pop; bubbles cut off from the core fall. |
 | **Jetpack Dash** | Hold to fly. Dodge zappers, missiles and lasers, and collect coins. |
 | **Temple Dash** | Run an ancient path. Swipe to turn at corners and to change lanes, swipe up to jump and down to slide. |

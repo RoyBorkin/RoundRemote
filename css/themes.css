@@ -9,9 +9,9 @@
 /* the decoration layer behind every screen (used by Liquid Glass and Bauhaus) */
 #app::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: 50%; }
 #app > .screen { z-index: 1; }
-/* screens whose own background gives way to the theme's backdrop */
-#app:is([data-theme="glass"], [data-theme="bauhaus"], [data-theme="soft"], [data-theme="slate"], [data-theme="vivid"])
-  :is(.home, .settings, .connect, .sh, .tv-screen, .games-hub) { background: transparent; }
+/* screens whose own background gives way to the theme's backdrop (themes other than Classic) */
+#app:not([data-theme="classic"]) { background: var(--theme-bg, var(--bg)); }
+#app:not([data-theme="classic"]) :is(.home, .settings, .connect, .sh, .tv-screen, .games-hub) { background: transparent; }
 
 /* ------------------------------------------------------------------ Classic (the original look) */
 #app[data-theme="classic"] .home[data-mode="music"] .home-glow {
@@ -132,7 +132,7 @@
 
 /* ------------------------------------------------------------------ Bauhaus (Swiss / flat bold) */
 #app[data-theme="bauhaus"] { background: var(--bg); }
-#app[data-theme="bauhaus"] :is(.home, .games-hub)::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 50%;
+#app[data-theme="bauhaus"] .games-hub::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 50%;
   background: radial-gradient(circle at 79% 79%, var(--c1) 0 12%, transparent 12.2%), radial-gradient(circle at 21% 20%, var(--c2) 0 5%, transparent 5.2%); }
 #app[data-theme="bauhaus"] *, #app[data-theme="bauhaus"] *::after { text-shadow: none !important; }
 #app[data-theme="bauhaus"] :is(.ibtn, .pill, .chip, .device-pill, .now-mini, .toast, .home-mode, .badge, .panel, .g-btn, .g-chip, .gh-item, .tog, .g-np, .field-input, .switch, .m-tabs, .row-art) {
@@ -157,8 +157,109 @@
 #app[data-theme="bauhaus"] .section { background: var(--c2); color: #111; padding: .4cqmin 1.6cqmin; display: inline-block; letter-spacing: .2em; }
 #app[data-theme="bauhaus"] .device-pill .dot { box-shadow: none; }
 
+/* ------------------------------------------------------------------ XMB (inspired by the PSP menu) */
+#app[data-theme="xmb"] :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs) {
+  background: rgb(var(--ink) / .07); border: 1px solid rgb(var(--ink) / .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: none;
+}
+#app[data-theme="xmb"] .ibtn .ic { filter: drop-shadow(0 0 .8cqmin rgb(var(--ink) / .55)); }
+#app[data-theme="xmb"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on) { background: rgb(var(--ink) / .2); color: rgb(var(--ink)); border-color: rgb(var(--ink) / .6);
+  box-shadow: 0 0 2.4cqmin rgb(var(--ink) / .35), inset 0 0 1.2cqmin rgb(var(--ink) / .2); text-shadow: 0 0 1cqmin rgb(var(--ink) / .6); }
+#app[data-theme="xmb"] :is(.pill.primary, .g-btn.primary, .gh-play) { background: rgb(var(--ink) / .92); color: var(--c1); border: 0; box-shadow: 0 0 3cqmin rgb(var(--ink) / .45); }
+#app[data-theme="xmb"] .ibtn.ctl.play { background: rgb(var(--ink) / .14); border: 1px solid rgb(var(--ink) / .7); box-shadow: 0 0 3cqmin rgb(var(--ink) / .4); color: rgb(var(--ink)); }
+#app[data-theme="xmb"] .badge { background: transparent; border: 0; box-shadow: none; }
+#app[data-theme="xmb"] .badge :is(.badge-ic, .badge-glyph, .badge-mono) { color: rgb(var(--ink)); filter: drop-shadow(0 0 1.2cqmin rgb(var(--ink) / .7)); }
+#app[data-theme="xmb"] .svc:active .badge, #app[data-theme="xmb"] .svc.last .badge { background: rgb(var(--ink) / .1); box-shadow: 0 0 3cqmin rgb(var(--ink) / .35); }
+#app[data-theme="xmb"] :is(.clock, .g-big, .m-title, .info-title, .gh-name, .g-title) { font-weight: 300; letter-spacing: -.02em; text-shadow: 0 0 2cqmin rgb(var(--ink) / .35); }
+#app[data-theme="xmb"] :is(.svc-name, .opt-label, .row-title) { font-weight: 400; }
+#app[data-theme="xmb"] .section { color: rgb(var(--ink)); font-weight: 400; text-shadow: 0 0 1.4cqmin rgb(var(--ink) / .6); }
+#app[data-theme="xmb"] .ring-track { stroke: rgb(var(--ink) / .2); stroke-width: .8; }
+#app[data-theme="xmb"] .ring-fill { stroke: rgb(var(--ink)); filter: drop-shadow(0 0 1px rgb(var(--ink))); }
+#app[data-theme="xmb"] .home-glow { display: none; }
+#app[data-theme="xmb"] .panel { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+
+/* ------------------------------------------------------------------ Console 5 (inspired by the PS5 home) */
+#app[data-theme="ps5"] :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) {
+  background: rgb(var(--ink) / .09); border: 0; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: none;
+}
+#app[data-theme="ps5"] :is(.ibtn, .chip, .pill, .g-btn, .g-chip, .svc .badge):active,
+#app[data-theme="ps5"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on, .svc.last .badge) {
+  box-shadow: 0 0 0 .45cqmin rgb(var(--ink)), 0 0 3cqmin color-mix(in srgb, var(--c2) 55%, transparent);
+}
+#app[data-theme="ps5"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on) { background: rgb(var(--ink) / .16); color: rgb(var(--ink)); }
+#app[data-theme="ps5"] :is(.pill.primary, .g-btn.primary, .gh-play, .ibtn.ctl.play) { background: rgb(var(--ink)); color: rgb(var(--paper)); box-shadow: 0 0 3cqmin color-mix(in srgb, var(--c2) 35%, transparent); }
+#app[data-theme="ps5"] .badge { border-radius: 24%; border: 0; background: color-mix(in srgb, var(--c) 22%, var(--surface)); box-shadow: 0 1cqmin 3cqmin rgb(var(--shade) / .4); }
+#app[data-theme="ps5"] .badge .badge-ic { filter: none; }
+#app[data-theme="ps5"] .gh-item { border-radius: 26%; }
+#app[data-theme="ps5"] .row-art { border-radius: 22%; }
+#app[data-theme="ps5"] :is(.clock, .g-big) { font-weight: 300; letter-spacing: -.03em; }
+#app[data-theme="ps5"] :is(.m-title, .info-title, .gh-name, .g-title) { font-weight: 600; }
+#app[data-theme="ps5"] .section { color: rgb(var(--ink) / .7); letter-spacing: .18em; font-weight: 600; }
+#app[data-theme="ps5"] .ring-fill { stroke: rgb(var(--ink)); filter: drop-shadow(0 0 1.2px var(--c2)); }
+#app[data-theme="ps5"] .ring-knob { fill: var(--c2); stroke: none; }
+#app[data-theme="ps5"] .home-glow { display: none; }
+
+/* ------------------------------------------------------------------ Music Red (inspired by Apple Music) */
+#app[data-theme="amusic"] :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) {
+  background: rgb(var(--ink) / .07); border: 0; backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); box-shadow: none;
+}
+#app[data-theme="amusic"] :is(.ibtn, .pill, .chip):not(.on):not(.primary):not(.play) { color: var(--c1); }
+#app[data-theme="amusic"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on, .pill.primary, .g-btn.primary, .gh-play, .ibtn.ctl.play, .switch.on) { background: var(--c1); color: #fff; border-color: transparent; }
+#app[data-theme="amusic"] .toast { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 0; box-shadow: 0 1cqmin 4cqmin rgb(var(--shade) / .18); }
+#app[data-theme="amusic"] .badge { border: 0; border-radius: 26%; background: var(--surface); box-shadow: 0 .8cqmin 2.4cqmin rgb(var(--shade) / .16); }
+#app[data-theme="amusic"] .badge .badge-ic { filter: none; }
+#app[data-theme="amusic"] .row-art { border-radius: 18%; }
+#app[data-theme="amusic"] :is(.clock, .g-big, .m-title, .info-title, .gh-name, .g-title, .settings-title, .panel-title) { font-weight: 800; letter-spacing: -.035em; }
+#app[data-theme="amusic"] .section { color: rgb(var(--ink)); text-transform: none; letter-spacing: -.01em; font-size: 3.4cqmin; font-weight: 800; }
+#app[data-theme="amusic"] .opt-label { text-transform: none; letter-spacing: 0; font-weight: 700; color: var(--muted); }
+#app[data-theme="amusic"] .ring-track { stroke: rgb(var(--ink) / .12); stroke-width: 1.3; }
+#app[data-theme="amusic"] .ring-fill { stroke: var(--c1); stroke-width: 1.3; filter: none; }
+#app[data-theme="amusic"] .ring-knob { fill: #fff; stroke: var(--c1); }
+#app[data-theme="amusic"] .home-glow { display: none; }
+
+/* ------------------------------------------------------------------ Music Green (inspired by Spotify) */
+#app[data-theme="spot"] :is(.ibtn) { background: transparent; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; color: rgb(var(--ink) / .72); }
+#app[data-theme="spot"] .ibtn:active { color: rgb(var(--ink)); }
+#app[data-theme="spot"] :is(.chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) {
+  background: rgb(var(--ink) / .1); border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; font-weight: 700;
+}
+#app[data-theme="spot"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on, .switch.on) { background: var(--c1); color: #000; }
+#app[data-theme="spot"] :is(.pill.primary, .g-btn.primary, .gh-play) { background: var(--c1); color: #000; font-weight: 800; }
+#app[data-theme="spot"] .ibtn.ctl.play { background: var(--c1); color: #000; }
+#app[data-theme="spot"] .ibtn.ctl.play:active { scale: 1.04; }
+#app[data-theme="spot"] .badge { border: 0; background: var(--surface); box-shadow: 0 1cqmin 3cqmin rgb(var(--shade) / .5); }
+#app[data-theme="spot"] .badge .badge-ic { filter: none; }
+#app[data-theme="spot"] .row-art { border-radius: 12%; }
+#app[data-theme="spot"] :is(.clock, .g-big, .m-title, .info-title, .gh-name, .g-title, .settings-title) { font-weight: 800; letter-spacing: -.04em; }
+#app[data-theme="spot"] .section { color: rgb(var(--ink)); text-transform: none; letter-spacing: -.01em; font-size: 3.4cqmin; font-weight: 800; }
+#app[data-theme="spot"] .ring-track { stroke: rgb(var(--ink) / .22); stroke-width: 1; }
+#app[data-theme="spot"] .ring-fill { stroke: rgb(var(--ink)); stroke-width: 1; filter: none; }
+#app[data-theme="spot"] .ring-knob { fill: rgb(var(--ink)); stroke: none; }
+#app[data-theme="spot"] .home-glow { display: none; }
+
+/* ------------------------------------------------------------------ Click Wheel (inspired by the iPod classic) */
+#app[data-theme="ipod"] { --wheel: linear-gradient(180deg, #ffffff, #dcdde2); --wheel-b: #c3c6cd; --sel: linear-gradient(180deg, color-mix(in srgb, var(--c1) 65%, #fff), var(--c1)); }
+#app[data-theme="ipod"]:is([data-mode="dark"], [data-mode="oled"]) { --wheel: linear-gradient(180deg, #3a3c41, #1f2023); --wheel-b: #4a4d53; }
+#app[data-theme="ipod"] :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) {
+  background: var(--wheel); border: 1px solid var(--wheel-b); backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), 0 .5cqmin 1.4cqmin rgb(var(--shade) / .25); color: rgb(var(--ink) / .7);
+}
+#app[data-theme="ipod"]:is([data-mode="dark"], [data-mode="oled"]) :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) { box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), 0 .5cqmin 1.4cqmin rgb(0 0 0 / .5); }
+#app[data-theme="ipod"] :is(.chip.on, .hm-btn.on, .g-chip.on, .tog.on, .m-tab.on, .pill.primary, .g-btn.primary, .gh-play, .switch.on) {
+  background: var(--sel); color: #fff; border-color: color-mix(in srgb, var(--c1) 70%, #000); text-shadow: 0 -1px 0 rgb(0 0 0 / .25);
+}
+#app[data-theme="ipod"] .ibtn.ctl.play { background: var(--wheel); border: .5cqmin solid var(--wheel-b); color: rgb(var(--ink) / .75); }
+#app[data-theme="ipod"] .badge { border: 1px solid var(--wheel-b); background: var(--wheel); box-shadow: inset 0 1px 0 rgb(255 255 255 / .5), 0 .6cqmin 1.6cqmin rgb(var(--shade) / .22); }
+#app[data-theme="ipod"] .badge .badge-ic { filter: none; }
+#app[data-theme="ipod"] .ring-track { stroke: rgb(var(--ink) / .1); stroke-width: 3; }
+#app[data-theme="ipod"] .ring-fill { stroke: var(--c1); stroke-width: 3; filter: none; }
+#app[data-theme="ipod"] .ring-knob { fill: #fff; stroke: rgb(var(--ink) / .3); }
+#app[data-theme="ipod"] .row.active, #app[data-theme="ipod"] .row:active { background: var(--sel); color: #fff; }
+#app[data-theme="ipod"] .section { color: var(--c1); }
+#app[data-theme="ipod"] .home-glow { display: none; }
+#app[data-theme="ipod"] .panel { background: color-mix(in srgb, var(--bg) 96%, transparent); }
+
 /* ------------------------------------------------------------------ Settings → Theme picker */
-.th-cards { display: grid; grid-template-columns: repeat(3, auto); gap: 2cqmin 3cqmin; justify-content: center; }
+.th-cards { display: grid; grid-template-columns: repeat(4, auto); gap: 2cqmin 3cqmin; justify-content: center; }
 .th-card { display: flex; flex-direction: column; align-items: center; gap: 1cqmin; font-size: 2.2cqmin; font-weight: 700; color: var(--muted); }
 .th-card.on { color: var(--fg); }
 .th-prev { position: relative; width: 12cqmin; height: 12cqmin; border-radius: 50%; overflow: hidden; display: block; background: #15161a;
@@ -200,3 +301,46 @@
 #app[data-theme] .th-card, #app[data-theme] .th-sw { box-shadow: none; }
 #app[data-theme] .th-sw { box-shadow: 0 0 0 .25cqmin var(--line); }
 #app[data-theme] .th-sw.on { box-shadow: 0 0 0 .45cqmin var(--bg), 0 0 0 .8cqmin rgb(var(--ink)); }
+
+.th-prev[data-theme="xmb"] { background: linear-gradient(180deg, #1d3b78, #0b1834); }
+.th-prev[data-theme="xmb"][data-mode="light"] { background: linear-gradient(180deg, #f3f7fd, #c9daf3); }
+.th-prev[data-theme="xmb"] i { left: -10%; top: 46%; width: 120%; height: 30%; border-radius: 50%; background: transparent; border-top: .4cqmin solid rgb(255 255 255 / .8); box-shadow: 0 -1cqmin 2cqmin rgb(255 255 255 / .35); }
+.th-prev[data-theme="xmb"] b { display: none; }
+.th-prev[data-theme="ps5"] { background: radial-gradient(circle at 50% 30%, #13254f, #05081a 70%); }
+.th-prev[data-theme="ps5"][data-mode="light"] { background: #edf0f7; }
+.th-prev[data-theme="ps5"] i { left: 28%; top: 28%; width: 44%; height: 44%; border-radius: 24%; background: color-mix(in srgb, var(--p1) 45%, #111a35); box-shadow: 0 0 0 .35cqmin #fff, 0 0 1.6cqmin var(--p2); }
+.th-prev[data-theme="ps5"] b { display: none; }
+.th-prev[data-theme="amusic"] { background: #fff; }
+.th-prev[data-theme="amusic"]:is([data-mode="dark"], [data-mode="oled"]) { background: #121214; }
+.th-prev[data-theme="amusic"] i { left: 24%; top: 24%; width: 52%; height: 52%; border-radius: 26%; background: linear-gradient(135deg, var(--p1), var(--p2)); }
+.th-prev[data-theme="amusic"] b { display: none; }
+.th-prev[data-theme="spot"] { background: linear-gradient(180deg, color-mix(in srgb, var(--p2) 45%, #121212), #121212 70%); }
+.th-prev[data-theme="spot"][data-mode="light"] { background: #f6f6f6; }
+.th-prev[data-theme="spot"] i { left: 30%; top: 30%; width: 40%; height: 40%; background: var(--p1); }
+.th-prev[data-theme="spot"] i::after { content: ''; position: absolute; left: 40%; top: 31%; border-left: 1.6cqmin solid #000; border-top: 1cqmin solid transparent; border-bottom: 1cqmin solid transparent; }
+.th-prev[data-theme="spot"] b { display: none; }
+.th-prev[data-theme="ipod"] { background: linear-gradient(180deg, #f7f7f9, #d9dadf); }
+.th-prev[data-theme="ipod"]:is([data-mode="dark"], [data-mode="oled"]) { background: linear-gradient(180deg, #3a3c41, #1b1c1f); }
+.th-prev[data-theme="ipod"] i { left: 18%; top: 18%; width: 64%; height: 64%; background: linear-gradient(180deg, #fff, #dcdde2); box-shadow: 0 0 0 1px #c3c6cd; }
+.th-prev[data-theme="ipod"] i::after { content: ''; position: absolute; inset: 33%; border-radius: 50%; background: linear-gradient(180deg, #e9eaee, #fff); box-shadow: 0 0 0 1px #c3c6cd; }
+.th-prev[data-theme="ipod"] b { left: 38%; top: 5%; right: auto; bottom: auto; width: 24%; height: 9%; border-radius: 1cqmin; background: var(--p1); }
+
+/* ------------------------------------------------------------------ Settings: group headers, jump chips, Home background */
+.set-jump { display: flex; flex-wrap: wrap; justify-content: center; gap: 1cqmin; max-width: 96%; }
+.set-group { display: flex; align-items: center; gap: 1.4cqmin; margin-top: 5cqmin; padding: 1.2cqmin 3.4cqmin 1.2cqmin 1.6cqmin; border-radius: 99px;
+  font-family: var(--display); font-size: 4cqmin; font-weight: 800; letter-spacing: -.01em; color: var(--fg); background: var(--glass); border: 1px solid var(--line); scroll-margin-top: 12cqmin; }
+.set-group-ic { display: grid; place-items: center; width: 5.6cqmin; height: 5.6cqmin; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 3cqmin; }
+.set-group-ic .ic { width: 3cqmin; height: 3cqmin; }
+.section.sub { margin-top: 2cqmin; }
+.bd-grid { display: grid; grid-template-columns: repeat(4, auto); gap: 1.6cqmin 2.2cqmin; justify-content: center; }
+.bd-card { display: flex; flex-direction: column; align-items: center; gap: .8cqmin; width: 11cqmin; font-size: 1.8cqmin; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.15; }
+.bd-card.on { color: var(--fg); }
+.bd-prev { width: 10cqmin; height: 10cqmin; border-radius: 50%; display: block; box-shadow: 0 0 0 .3cqmin var(--line); transition: transform .2s var(--spring); }
+.bd-card.on .bd-prev { box-shadow: 0 0 0 .55cqmin var(--accent); transform: scale(1.06); }
+#app[data-theme] .bd-prev { box-shadow: 0 0 0 .3cqmin var(--line); }
+#app[data-theme] .bd-card.on .bd-prev { box-shadow: 0 0 0 .55cqmin var(--accent); }
+
+/* pale brand colours (e.g. Demo) on light surfaces */
+#app[data-mode="light"] :is(.badge, .gh-item).pale { --c: rgb(var(--ink) / .78) !important; }
+#app[data-theme="bauhaus"][data-mode="light"] .badge.pale { --c: rgb(var(--ink)) !important; }
+#app[data-mode="light"] .gh-item.pale.on { color: rgb(var(--paper)); }

@@ -1,9 +1,10 @@
 // Settings: everything persists in this browser (localStorage). On the Pi you can also
 // pre-fill keys via bridge/config.json so nothing has to be typed on the round screen.
 import { h, iconBtn, onCircle, badge, clear } from '../ui/dom.js';
+import { icon } from '../ui/icons.js';
 import { field } from '../ui/keyboard.js';
 import { curve, toast } from '../ui/overlay.js';
-import { chips, stepper, toggle, vinylArtSlider, infoArtChips, armToggle, VINYL_SPEEDS } from './panels.js';
+import { chips, stepper, toggle, vinylArtSlider, infoArtChips, armToggle, VINYL_SPEEDS, vinylDesignChips, vinylColorSwatches, armDesignChips } from './panels.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { clamp } from '../core/util.js';
@@ -18,7 +19,8 @@ import { SUB_LANGS, preferredSubLangs } from '../core/languages.js';
 import { buildProfile, applyProfile, isProfile, downloadProfile, pickProfileFile, listBridgeProfiles, loadBridgeProfile, saveBridgeProfile, deleteBridgeProfile } from '../core/profiles.js';
 import { SERVICES, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
-import { THEMES, MODES, SWATCHES, themeConfig, setThemeConfig, resetThemeConfig, themeById } from '../core/theme.js';
+import { THEMES, MODES, SWATCHES, themeConfig, setThemeConfig, resetThemeConfig, themeById, backdropSpec } from '../core/theme.js';
+import { BACKDROPS, drawBackdropPreview } from '../ui/backdrops.js';
 
 export const VERSION = '2.0.0';
 
@@ -29,25 +31,42 @@ export function SettingsScreen() {
 
   const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
   const section = (t) => h('div.section', t);
+  // the big headers (Theme, General, Music…), with a row of chips at the top to jump to them
+  const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
+    ['home', 'Home', 'house'], ['games', 'Games', 'gamepad'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
+  const groupEls = {};
+  const group = (id) => {
+    const [, title, ic] = GROUPS.find((g) => g[0] === id);
+    return (groupEls[id] = h('div.set-group', { dataset: { group: id } }, h('span.set-group-ic', { html: icon(ic) }), h('span', title)));
+  };
+  const jump = h('div.set-jump', GROUPS.map(([id, title]) => h('button.chip.sm', {
+    type: 'button', onclick: (e) => { e.stopPropagation(); groupEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  }, title)));
 
   list.append(
-    section('Theme'),
+    jump,
+
+    group('theme'),
     ...themeSection(),
 
+    group('general'),
     section('Display'),
     toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
     toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
-    opt('Control size', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
-    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
-    toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
-    devicePillToggle(),
+    opt('Control size (Home, players, games)', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
     toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
+    section('Keyboard'),
     opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
     opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
 
-    h('div.opt-hint', 'Music player — show these controls (or hold the middle of the player)'),
+    group('music'),
+    section('Player'),
+    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
+    toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
+    devicePillToggle(),
+    h('div.opt-hint', 'Show these controls (or hold the middle of the player)'),
     ...partToggles('playerHide', PLAYER_PARTS),
 
     section('Classic'),
@@ -56,6 +75,9 @@ export function SettingsScreen() {
     infoAutoHideToggle(),
 
     section('Vinyl'),
+    vinylDesignChips(),
+    vinylColorSwatches(),
+    armDesignChips(),
     vinylArtSlider(),
     armToggle(),
     vinylTitleToggle(),
@@ -89,6 +111,7 @@ export function SettingsScreen() {
     section('Fun Facts'),
     factChips(),
 
+    group('media'),
     section('Movies & TV'),
     opt('Background', chips(MEDIA_BGS, store.get('mediaBg'), (v) => store.set('mediaBg', v))),
     stepper('Slideshow: seconds per picture', () => store.get('mediaSlideSec'), (v) => store.set('mediaSlideSec', clamp(v, 4, 60)), { step: 2, fmt: (v) => `${v}s` }),
@@ -119,6 +142,27 @@ export function SettingsScreen() {
     toggle('Hide what I’ve watched', () => store.get('mediaHideWatched'), (v) => store.set('mediaHideWatched', v)),
     toggle('No spoilers (blur unwatched episodes)', () => store.get('mediaNoSpoilers'), (v) => store.set('mediaNoSpoilers', v)),
 
+    group('home'),
+    section('Smart home'),
+    ...['homeassistant', 'googlehome'].map((id) => SERVICES.find((x) => x.id === id)).filter(Boolean).map((s) => h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
+      badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', provider(s.id).isAuthed?.() ? 'Set up — tap to change' : 'Tap to set up')))),
+
+    group('games'),
+    section('Games'),
+    toggle('Game sound', () => store.get('gameSound') !== false, (v) => store.set('gameSound', v)),
+    field({ label: 'Your name for the top 5', value: store.get('gamePlayer') || '', placeholder: 'asked after a new high score', onChange: (v) => store.set('gamePlayer', v.trim().slice(0, 16)) }),
+    (() => {
+      let armed = false;
+      const b = h('button.pill.small.danger', { type: 'button' }, 'Clear all game scores');
+      b.onclick = (e) => {
+        e.stopPropagation();
+        if (!armed) { armed = true; b.textContent = 'Tap again to clear'; setTimeout(() => { armed = false; b.textContent = 'Clear all game scores'; }, 3000); return; }
+        store.set('gameScores', {}); toast('Game scores cleared'); b.textContent = 'Clear all game scores'; armed = false;
+      };
+      return h('div.center', b);
+    })(),
+
+    group('connect'),
     section('Connection'),
     field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
     opt('Refresh rate', chips([{ id: 1000, name: '1s' }, { id: 2000, name: '2s' }, { id: 4000, name: '4s' }], store.get('pollMs'), (v) => store.set('pollMs', v))),
@@ -138,6 +182,7 @@ export function SettingsScreen() {
         badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', p.isAuthed() ? 'Signed in' : 'Not signed in')));
     }),
 
+    group('profiles'),
     section('Profiles'),
     ...profilesSection(),
 
@@ -213,6 +258,36 @@ function profilesSection() {
 }
 
 // ---------------------------------------------------------------- Theme: pick a theme, its mode and colours
+/** Theme → Home background: a round preview of every background, animated or still, and its colours. */
+function homeBackground(id, cfg, set, swatches, opt) {
+  const bg = cfg.bg;
+  const setBg = (patch) => set({ bg: { ...bg, ...patch } });
+  const grid = h('div.bd-grid');
+  const canvases = [];
+  for (const b of BACKDROPS) {
+    const cv = h('canvas.bd-prev', { width: 120, height: 120 });
+    canvases.push([cv, { ...backdropSpec(id), kind: b.id, animated: false }]);
+    grid.append(h(`button.bd-card${bg.kind === b.id ? '.on' : ''}`, { type: 'button', 'aria-label': b.name, onclick: (e) => { e.stopPropagation(); setBg({ kind: b.id }); } },
+      cv, h('span.bd-name', b.id === 'theme' ? `${themeById(id).name} theme` : b.name)));
+  }
+  // previews draw once the canvases are on the page (they size themselves from it)
+  const draw = (tries = 0) => {
+    if (!grid.isConnected) { if (tries < 40) requestAnimationFrame(() => draw(tries + 1)); return; }
+    for (const [cv, spec] of canvases) { try { drawBackdropPreview(cv, spec); } catch {} }
+  };
+  requestAnimationFrame(() => draw());
+  const out = [
+    h('div.section.sub', 'Home background'),
+    grid,
+    toggle('Animated', () => !!themeConfig(id).bg.animated, (v) => setBg({ animated: v })),
+  ];
+  if (bg.kind === 'solid') out.push(opt('Background colour', swatches(bg.color, (v) => setBg({ color: v }))));
+  if (bg.kind === 'gradient') out.push(opt('From', swatches(bg.color, (v) => setBg({ color: v }))), opt('To', swatches(bg.color2, (v) => setBg({ color2: v }))));
+  if (['ps3', 'psp-wave', 'psp-classic'].includes(bg.kind)) out.push(toggle('Colour of the month (like the console menus)', () => themeConfig(id).bg.monthColour !== false, (v) => setBg({ monthColour: v })));
+  if (['theme', 'splashes', 'ps4', 'ps2', 'ps5'].includes(bg.kind)) out.push(h('div.opt-hint', 'Uses the theme’s main and secondary colours.'));
+  return out;
+}
+
 // (separate items rather than one box, so the settings list can curve and fade each of them)
 function themeSection() {
   let nodes = [];
@@ -223,7 +298,7 @@ function themeSection() {
     const t = themeById(id);
     const cfg = themeConfig(id);
     const set = (patch) => { setThemeConfig(id, patch); render(); };
-    // the six themes, each shown as a little round preview in its own colours
+    // the themes, each shown as a little round preview in its own colours
     const cards = h('div.th-cards', THEMES.map((x) => {
       const c = themeConfig(x.id);
       return h(`button.th-card${x.id === id ? '.on' : ''}`, {
@@ -250,6 +325,7 @@ function themeSection() {
       opt('Secondary colour', swatches(cfg.c2, (v) => set({ c2: v }))),
       toggle('Colours follow the music (service & artwork)', () => themeConfig(id).follow, (v) => set({ follow: v })),
       toggle('Colours from artwork (when following the music)', () => store.get('artAccent'), (v) => store.set('artAccent', v)),
+      ...homeBackground(id, cfg, set, swatches, opt),
       h('div.center', h('button.pill.small', { type: 'button', onclick: (e) => { e.stopPropagation(); resetThemeConfig(id); render(); toast(`${t.name} reset`); } }, `Reset ${t.name}`)),
     );
     const first = nodes[0];

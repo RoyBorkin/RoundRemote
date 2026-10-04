@@ -17,6 +17,9 @@ export const DEFAULTS = Object.freeze({
   lyricsOffsetMs: 0,
   vinylSecondsPerTurn: 1.8,    // record speed = spin + scratch: seconds of music per turn (1.8 = real 33⅓ rpm)
   vinylLabelSize: 46,          // centre artwork size, % of the record (0 = none, 100 = full screen)
+  vinylDesign: 'classic',      // record look: classic | clear | flat (js/views/vinyl-styles.js)
+  vinylColor: '#111111',       // record colour (#111111 = the classic black record)
+  armDesign: 'classic',        // tone arm: classic | s-arm | minimal
   infoFullArt: 'clear',        // Classic view when controls hide: clear | milky (artwork) | card-black | card-blur (song info)
   uiSize: 'L',                 // control size: XS | S | M | L | XL
   autoHideChrome: true,

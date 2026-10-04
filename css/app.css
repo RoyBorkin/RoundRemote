@@ -137,6 +137,12 @@ input { font: inherit; color: inherit; }
 @keyframes pop-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } }
 .svc:active .badge { transform: scale(.9); }
 .svc .badge { transition: transform .2s var(--spring); }
+/* the control size (XS…XL) scales Home too */
+.svc { scale: var(--ui, 1); }
+.home-center { scale: min(var(--ui, 1), 1.04); }
+.home.has-backdrop { background: transparent; }
+.home.has-backdrop .home-glow { display: none; }
+.home > .backdrop { z-index: 0; }
 .svc-name { font-size: 2.15cqmin; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .svc-dot { position: absolute; top: .4cqmin; right: 2.9cqmin; width: 2.3cqmin; height: 2.3cqmin; border-radius: 50%; background: var(--ok); border: .45cqmin solid var(--bg); transform: scale(0); transition: transform .3s var(--spring); }
 .svc.ready .svc-dot { transform: scale(1); }

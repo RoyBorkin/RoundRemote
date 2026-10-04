@@ -12,6 +12,7 @@ import { TONE_VARIANTS } from '../views/tone-visuals.js';
 import { sound } from '../core/sound.js';
 import { VIDEO_KINDS } from '../core/youtube.js';
 import { videoKinds } from '../views/video.js';
+import { VINYL_DESIGNS, ARM_DESIGNS, VINYL_COLORS, vinylDesign, armDesign, vinylColor, luminance } from '../views/vinyl-styles.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 
@@ -273,6 +274,39 @@ export const vinylArtFmt = (v) => (v <= 0 ? 'No artwork' : v >= 100 ? 'Full scre
 export const vinylArtSlider = () => slider('Centre artwork', () => store.get('vinylLabelSize'), (v) => store.set('vinylLabelSize', v),
   { min: 0, max: 100, step: 1, fmt: vinylArtFmt, ends: ['None', 'Full'] });
 export const armToggle = () => toggle('Hide the arm with the controls', () => store.get('vinylArmHide') !== false, (v) => store.set('vinylArmHide', v));
+// Vinyl looks: record design, record colour (swatches + any colour), tone-arm design
+export const vinylDesignChips = () => h('div.opt', h('div.opt-label', 'Record'),
+  chips(VINYL_DESIGNS, vinylDesign(store.get('vinylDesign')), (v) => store.set('vinylDesign', v)));
+export const armDesignChips = () => h('div.opt', h('div.opt-label', 'Tone arm'),
+  chips(ARM_DESIGNS, armDesign(store.get('armDesign')), (v) => store.set('armDesign', v)));
+export function vinylColorSwatches() {
+  const row = h('div.vc-swatches');
+  const picker = h('input', { type: 'color', 'aria-label': 'Any colour' });
+  const any = h('label.vc-sw.any', { title: 'Any colour', onclick: (e) => e.stopPropagation() }, '+', picker);
+  const paint = () => {
+    const cur = vinylColor(store.get('vinylColor'));
+    let known = false;
+    for (const b of row.querySelectorAll('button.vc-sw')) {
+      const on = b.dataset.c === cur; known ||= on;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    }
+    any.classList.toggle('on', !known); any.classList.toggle('set', !known);
+    if (known) any.style.removeProperty('--c'); else any.style.setProperty('--c', cur);
+    any.style.setProperty('--sw-ink', luminance(cur) > 0.36 ? '#000' : '#fff');
+    picker.value = cur;
+  };
+  const pick = (c) => { store.set('vinylColor', vinylColor(c)); paint(); };
+  for (const c of VINYL_COLORS) {
+    row.append(h('button.vc-sw', { type: 'button', title: c.name, 'aria-label': c.name, dataset: { c: c.id }, '--c': c.id,
+      onclick: (e) => { e.stopPropagation(); pick(c.id); } }));
+  }
+  const live = throttle(pick, 120);
+  picker.addEventListener('input', () => live(picker.value));
+  picker.addEventListener('change', () => pick(picker.value));
+  row.append(any);
+  paint();
+  return h('div.opt', h('div.opt-label', 'Record colour'), row);
+}
 export const INFO_HIDDEN = [
   { id: 'clear', name: 'Artwork · clear' }, { id: 'milky', name: 'Artwork · milky blur' },
   { id: 'card-black', name: 'Song info · black' }, { id: 'card-blur', name: 'Song info · blurred art' },
@@ -309,7 +343,7 @@ export function openMore(view = 'info') {
     title: view === 'vinyl' ? 'Vinyl' : view === 'info' ? 'Classic' : view === 'video' ? 'Video' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
-      if (view === 'vinyl') body.append(vinylArtSlider(), armToggle(), vinylTitleToggle());
+      if (view === 'vinyl') body.append(vinylDesignChips(), vinylColorSwatches(), armDesignChips(), vinylArtSlider(), armToggle(), vinylTitleToggle());
       if (view === 'info') body.append(infoArtChips(), infoArtToggle(), infoAutoHideToggle());
       if (view === 'video') body.append(...videoOpts());
       const toggles = h('div.toggles');

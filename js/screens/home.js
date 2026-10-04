@@ -8,6 +8,8 @@ import { openService } from '../core/nav.js';
 import { player } from '../core/player.js';
 import { go } from '../core/router.js';
 import { store } from '../core/store.js';
+import { backdropSpec, themeEvents } from '../core/theme.js';
+import { mountBackdrop } from '../ui/backdrops.js';
 
 export function HomeScreen() {
   const ring = h('div.svc-ring');
@@ -42,10 +44,13 @@ export function HomeScreen() {
       hint.textContent = 'No services signed in yet — Settings → “Show only signed-in services”';
     }
     items.forEach((it) => { it.btn.hidden = !shown.includes(it); });
+    // the control size (Settings → Control size) scales the tiles too: keep them on the screen
+    const ui = parseFloat(document.getElementById('app')?.style.getPropertyValue('--ui')) || 1;
+    const rad = ui > 1 ? 37.5 + (ui - 1) * 9 : 37.5 - (ui - 1) * 10;   // bigger tiles sit a little further out
     shown.forEach((it, i) => {
       const a = (i / shown.length) * Math.PI * 2;
-      it.btn.style.left = `${50 + 37.5 * Math.sin(a)}%`;
-      it.btn.style.top = `${50 - 37.5 * Math.cos(a)}%`;
+      it.btn.style.left = `${50 + rad * Math.sin(a)}%`;
+      it.btn.style.top = `${50 - rad * Math.cos(a)}%`;
     });
   }
 
@@ -61,6 +66,12 @@ export function HomeScreen() {
   const modeSwitch = h('div.home-mode', modeBtns);
   const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now);
   const el = h('div.home', h('div.home-glow'), ring, center, hint);
+  // the Home background chosen for the theme (Settings → Theme → Home background)
+  const backdrop = mountBackdrop(el, backdropSpec());
+  el.classList.add('has-backdrop');
+  const offTheme = themeEvents.on('change', () => backdrop.set(backdropSpec()));
+  const offLite = store.on('change:liteMode', () => backdrop.set(backdropSpec()));
+  const offUi = store.on('change:uiSize', () => setTimeout(layout, 0));
 
   function tickClock() {
     const d = new Date();
@@ -119,5 +130,5 @@ export function HomeScreen() {
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) setMode(MODES[(MODES.indexOf(mode()) + (dx < 0 ? 1 : MODES.length - 1)) % MODES.length]);
   });
 
-  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); offMode(); } };
+  return { el, destroy() { clearInterval(clockT); offNow(); offFilter(); offDemo(); offMode(); offTheme(); offLite(); offUi(); backdrop.destroy(); } };
 }

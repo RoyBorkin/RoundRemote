@@ -115,6 +115,9 @@ function loadIconPath(slug) {
 /** Service badge: the platform's logo in its brand colour (initials until/unless it loads). */
 export function badge(svc, size = '') {
   const el = h(`div.badge${size ? '.' + size : ''}`, { '--c': svc.color, 'aria-hidden': 'true' }, h('span.badge-mono', svc.mono));
+  // a near-white brand colour vanishes on light themes — mark it so the CSS can swap in the ink colour
+  const m = /^#?([0-9a-f]{6})$/i.exec(svc.color || '');
+  if (m) { const n = parseInt(m[1], 16), l = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; if (l > 0.88) el.classList.add('pale'); }
   if (svc.glyph) { el.classList.add('has-icon'); el.append(h('i.badge-glyph', { html: icon(svc.glyph) })); }
   else if (svc.icon) {
     const put = (d) => {

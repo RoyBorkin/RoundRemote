@@ -28,6 +28,10 @@ export function GamesHubScreen() {
       onclick: (e) => { e.stopPropagation(); if (sel === i) play(); else select(i); },
       html: iconSvg(gm.icon),
     });
+    { // a near-white colour vanishes on light themes — mark it so the CSS swaps in the ink colour
+      const n = parseInt(String(gm.color).replace('#', ''), 16);
+      if ((0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 > 0.88) b.classList.add('pale');
+    }
     ring.append(b);
     return b;
   });

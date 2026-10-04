@@ -608,7 +608,7 @@ In the picture views, *Recently added* and *Collections* become chips at the top
 
 ### Themes (Settings → Theme)
 
-Six themes change the whole app: Music, Movies & TV, Home, Games and Settings.
+Eleven themes change the whole app: Music, Movies & TV, Home, Games and Settings.
 
 | Theme | Look |
 |---|---|
@@ -618,6 +618,13 @@ Six themes change the whole app: Music, Movies & TV, Home, Games and Settings.
 | **Slate** | Calm and minimal: slate tones, thin rings, light type, quiet cards. |
 | **Vivid** | Modern minimal cards with bold gradients from your main colour to your secondary colour. |
 | **Bauhaus** | Swiss style: flat bold colour, big grotesk type, black circles and no effects. |
+| **XMB** | Inspired by the PSP menu: a flowing colour wave, light white type and glowing icons. |
+| **Console 5** | Inspired by the PS5 home screen: deep navy, crisp rounded cards and white focus rings. |
+| **Music Red** | Inspired by Apple Music: big bold titles, soft blur and a red accent. |
+| **Music Green** | Inspired by Spotify: near-black, bold type and a round green play button. |
+| **Click Wheel** | Inspired by the iPod classic: brushed metal, click-wheel buttons and blue highlights. |
+
+The last five are original designs *inspired by* those looks; they don't use any logos or artwork from Sony, Apple or Spotify.
 
 For each theme you choose:
 - **Mode:** *Dark*, *OLED* (true black, good for OLED screens) or *Light*.
@@ -627,16 +634,20 @@ Each theme remembers its own choices.
 - *Colours follow the music*: when on, the accent changes with the service and the album art (the Classic way). When off, the theme's main colour is used everywhere.
 - *Reset* puts a theme back to its defaults.
 
+**Home background** (under the theme, also remembered per theme): the theme's own background, a **solid colour**, a **gradient** (two colours), **colour splashes** (soft, shifting blobs), or a console-inspired backdrop: **PS2**, **PS3**, **PS4**, **PS5**, **PSP · wave** and **PSP · classic**. Each one can be still or **Animated**. The PS3 and PSP styles can take the *colour of the month*, like the originals; turn that off to use your theme colours. Animations are capped at 30 fps (15 fps with *Reduce effects*) to stay light on a Raspberry Pi.
+
 The games follow the theme too. In Light mode the immersive player views (Vinyl, Lyrics, Video, Tone Visual, Fun Facts) stay dark so the artwork and lyrics stand out. Themes are saved with the other settings, so a settings profile copies them to another display.
 
 ### Settings
+
+Settings is split into groups with headers: **Theme, General, Music, Movies & TV, Home, Games, Connection** and **Profiles & about**. The chips at the top jump straight to a group.
 
 | Setting | What it does |
 |---|---|
 | Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
 | Show the Demo service | Hide the Demo tile from Home |
-| Theme | Classic, Liquid Glass, Soft, Slate, Vivid or Bauhaus, each in Dark, OLED or Light mode with your own main and secondary colours (see *Themes* above) |
-| Control size | XS, S, M, **L** (default), XL |
+| Theme | Classic, Liquid Glass, Soft, Slate, Vivid, Bauhaus, XMB, Console 5, Music Red, Music Green or Click Wheel, each in Dark, OLED or Light mode with your own main and secondary colours, plus the Home background (see *Themes* above) |
+| Control size | XS, S, M, **L** (default), XL — scales the players, the games and the Home screen (tiles, clock and category buttons) |
 | Start in view | Info, Vinyl, Lyrics, Video, Tone Visual or Fun Facts |
 | Show the service & device line | The *Spotify · Living Room* line near the top |
 | Auto-hide controls | Hide the controls after a few seconds |
@@ -653,6 +664,7 @@ The games follow the theme too. In Light mode the immersive player views (Vinyl,
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
 | Random includes | Which Kinetic Type variants the Random variant picks from (tap to include or leave out; at least one stays on; *Include all* resets) |
 | Tone Visual style / Sound | See the Tone Visual view (Simulated or Microphone) |
+| Vinyl: record / record colour / tone arm | Record design *Classic* (grooves), *Clear* (see-through, swirled) or *Flat*; any record colour (swatches or **+**); tone arm *Classic*, *S-arm* or *Minimal*. Also in the Vinyl view under ⋯ |
 | Centre artwork / Hide the arm with the controls / Show the title / Record speed | See the Vinyl view |
 | Movies & TV: background / slideshow speed | Poster, Photo, Blurred, Black or Slideshow; seconds per picture |
 | Movies & TV: skip back / skip forward | 5–30 s back, 10–60 s forward |
@@ -668,6 +680,7 @@ The games follow the theme too. In Light mode the immersive player views (Vinyl,
 | Bridge address / Refresh rate | Where the bridge is, and how often remote services are polled |
 | Service keys | Spotify Client ID, Play Spotify on this display, Apple developer token, Jellyfin server, YouTube API key, Google Client ID |
 | Accounts | Sign in or out of each service |
+| Games: sound / player name / clear scores | Game sound effects, the name suggested for new top-5 scores, and clearing every game's top 5 |
 | Reset everything | Clears all settings and sign-ins in this browser |
 
 Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics database, or from your Jellyfin server.

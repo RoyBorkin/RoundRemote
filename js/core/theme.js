@@ -27,6 +27,17 @@ export const THEMES = [
     font: "'Plus Jakarta Sans', 'Rubik', system-ui, sans-serif", display: "'Plus Jakarta Sans', 'Rubik', system-ui, sans-serif" },
   { id: 'bauhaus', name: 'Bauhaus', blurb: 'Swiss style: flat bold colour, big grotesk type, no effects.', c1: '#ff4b2b', c2: '#ffc400', mode: 'light', follow: false,
     font: "'Archivo', 'Rubik', system-ui, sans-serif", display: "'Archivo', 'Rubik', system-ui, sans-serif" },
+  // inspired by well-known music & console interfaces (our own take — no logos)
+  { id: 'xmb', name: 'XMB', blurb: 'Inspired by the PSP menu: a flowing colour wave, light white type and glowing icons.', c1: '#2f6fe0', c2: '#9ad0ff', mode: 'dark', follow: false,
+    font: "'Inter', 'Rubik', system-ui, sans-serif", display: "'Inter', 'Rubik', system-ui, sans-serif" },
+  { id: 'ps5', name: 'Console 5', blurb: 'Inspired by the PS5 home screen: deep navy, crisp cards and white focus rings.', c1: '#3d7bff', c2: '#00d4ff', mode: 'dark', follow: false,
+    font: "'Inter', 'Rubik', system-ui, sans-serif", display: "'Inter', 'Rubik', system-ui, sans-serif" },
+  { id: 'amusic', name: 'Music Red', blurb: 'Inspired by Apple Music: big bold titles, soft blur and a red accent.', c1: '#fa2d48', c2: '#ff9f0a', mode: 'light', follow: false,
+    font: "'Inter', 'Rubik', system-ui, sans-serif", display: "'Inter', 'Rubik', system-ui, sans-serif" },
+  { id: 'spot', name: 'Music Green', blurb: 'Inspired by Spotify: near-black, bold type and a round green play button.', c1: '#1ed760', c2: '#509bf5', mode: 'dark', follow: false,
+    font: "'Figtree', 'Rubik', system-ui, sans-serif", display: "'Figtree', 'Rubik', system-ui, sans-serif" },
+  { id: 'ipod', name: 'Click Wheel', blurb: 'Inspired by the iPod classic: brushed metal, click-wheel buttons and blue highlights.', c1: '#2f7cf6', c2: '#9aa4b2', mode: 'light', follow: false,
+    font: "'Inter', 'Rubik', system-ui, sans-serif", display: "'Inter', 'Rubik', system-ui, sans-serif" },
 ];
 export const MODES = [{ id: 'dark', name: 'Dark' }, { id: 'oled', name: 'OLED' }, { id: 'light', name: 'Light' }];
 /** Colour presets offered in Settings (any colour can be picked too). */
@@ -66,6 +77,31 @@ const SURFACES = {
     oled: { bg: '#000000', bg2: '#000000', surface: '#0d0d0d', ink: '242 237 228', paper: '0 0 0', shade: '0 0 0' },
     light: { bg: '#ebe5d9', bg2: '#f3eee4', surface: '#f6f2ea', ink: '17 17 17', paper: '235 229 217', shade: '17 17 17' },
   },
+  xmb: {
+    dark: { bg: '#0b1834', bg2: '#1d3b78', surface: '#152a55', ink: '255 255 255', paper: '6 14 34', shade: '0 0 0' },
+    oled: { bg: '#000000', bg2: '#04091a', surface: '#0a1428', ink: '255 255 255', paper: '0 0 0', shade: '0 0 0' },
+    light: { bg: '#dce7f6', bg2: '#f3f7fd', surface: '#ffffff', ink: '18 32 60', paper: '255 255 255', shade: '30 50 90' },
+  },
+  ps5: {
+    dark: { bg: '#05081a', bg2: '#0d1838', surface: '#111a35', ink: '255 255 255', paper: '4 6 16', shade: '0 0 0' },
+    oled: { bg: '#000000', bg2: '#03050d', surface: '#0b1022', ink: '255 255 255', paper: '0 0 0', shade: '0 0 0' },
+    light: { bg: '#edf0f7', bg2: '#ffffff', surface: '#ffffff', ink: '14 20 40', paper: '255 255 255', shade: '30 40 80' },
+  },
+  amusic: {
+    dark: { bg: '#121214', bg2: '#1c1c1e', surface: '#1c1c1e', ink: '245 245 247', paper: '18 18 20', shade: '0 0 0' },
+    oled: { bg: '#000000', bg2: '#0a0a0b', surface: '#111113', ink: '245 245 247', paper: '0 0 0', shade: '0 0 0' },
+    light: { bg: '#ffffff', bg2: '#f5f5f7', surface: '#f2f2f7', ink: '28 28 30', paper: '255 255 255', shade: '0 0 0' },
+  },
+  spot: {
+    dark: { bg: '#121212', bg2: '#1f1f1f', surface: '#181818', ink: '255 255 255', paper: '0 0 0', shade: '0 0 0' },
+    oled: { bg: '#000000', bg2: '#0a0a0a', surface: '#0f0f0f', ink: '255 255 255', paper: '0 0 0', shade: '0 0 0' },
+    light: { bg: '#f6f6f6', bg2: '#ffffff', surface: '#ffffff', ink: '18 18 18', paper: '255 255 255', shade: '0 0 0' },
+  },
+  ipod: {
+    dark: { bg: '#1b1c1f', bg2: '#2a2c30', surface: '#26272b', ink: '236 237 240', paper: '20 21 24', shade: '0 0 0' },
+    oled: { bg: '#000000', bg2: '#0c0c0e', surface: '#141416', ink: '236 237 240', paper: '0 0 0', shade: '0 0 0' },
+    light: { bg: '#e6e7eb', bg2: '#f7f7f9', surface: '#ffffff', ink: '22 24 28', paper: '255 255 255', shade: '60 64 80' },
+  },
 };
 
 export const themeById = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
@@ -74,7 +110,11 @@ export const themeById = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
 export function themeConfig(id = store.get('theme')) {
   const t = themeById(id);
   const saved = (store.get('themeCfg') || {})[t.id] || {};
-  return { mode: MODES.some((m) => m.id === saved.mode) ? saved.mode : t.mode, c1: saved.c1 || t.c1, c2: saved.c2 || t.c2, follow: saved.follow ?? t.follow };
+  return {
+    mode: MODES.some((m) => m.id === saved.mode) ? saved.mode : t.mode, c1: saved.c1 || t.c1, c2: saved.c2 || t.c2, follow: saved.follow ?? t.follow,
+    // the Home screen background (see js/ui/backdrops.js): kind + animated + colours for solid / gradient
+    bg: { kind: 'theme', animated: false, color: '#203a8f', color2: '#c43a7a', monthColour: true, ...(saved.bg || {}) },
+  };
 }
 export function setThemeConfig(id, patch) {
   const all = { ...(store.get('themeCfg') || {}) };
@@ -116,9 +156,15 @@ function computeTheme() {
     bg: s.bg, bg2: s.bg2, surface: s.surface, inkRgb: rgb(s.ink), paperRgb: rgb(s.paper), shadeRgb: rgb(s.shade),
     hi: s.hi || null, lo: s.lo || null, font: t.font, display: t.display,
     // effects a canvas game should use: glow (neon shadows), flat (no gradients)
-    glow: t.id === 'classic' || t.id === 'glass' || t.id === 'vivid',
+    glow: ['classic', 'glass', 'vivid', 'xmb', 'ps5'].includes(t.id),
     flat: t.id === 'bauhaus' || t.id === 'soft',
   };
+}
+
+/** What the Home screen background should draw (spec for js/ui/backdrops.js). */
+export function backdropSpec(id = store.get('theme')) {
+  const t = themeById(id), cfg = themeConfig(t.id);
+  return { ...cfg.bg, theme: t.id, mode: cfg.mode, c1: cfg.c1, c2: cfg.c2, lite: !!store.get('liteMode') };
 }
 
 /** Apply the saved theme to the app (call at start and after any change). */
@@ -135,6 +181,7 @@ export function applyTheme(app = document.getElementById('app')) {
     '--font': T.font, '--display': T.display,
   };
   for (const [k, v] of Object.entries(vars)) app.style.setProperty(k, v);
+  app.style.setProperty('--theme-bg', (s.bg2 && T.mode !== 'oled') ? `radial-gradient(circle at 50% 50%, ${s.bg2}, ${s.bg} 70%)` : s.bg);
   // the main colour is the starting accent; services / album art may change it when "follow" is on
   app.style.setProperty('--accent', T.c1);
   app.style.setProperty('--brand', T.c1);

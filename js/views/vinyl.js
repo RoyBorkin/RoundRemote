@@ -3,6 +3,7 @@
 import { h } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, angleDelta, distFromCenter, clamp, throttle } from '../core/util.js';
+import { VINYL_DESIGNS, ARM_DESIGNS, DEFAULT_VINYL_COLOR, vinylDesign, vinylColor, armDesign, luminance, armMarkup, swirlTexture } from './vinyl-styles.js';
 
 // One setting drives both the spin and the scratch: the record turns once per
 // `vinylSecondsPerTurn` seconds of music (1.8 s = a real 33⅓ rpm record), so dragging it
@@ -24,28 +25,43 @@ export function createVinylView({ player, onPreview }) {
   labelText.classList.add('vinyl-label-text');
   labelText.innerHTML = `<defs><path id="lblArc" d="M 50,50 m -40,0 a 40,40 0 1,1 80,0 a 40,40 0 1,1 -80,0"/></defs>
     <text><textPath href="#lblArc" startOffset="0"></textPath></text>`;
-  const disc = h('div.vinyl-disc', h('div.vinyl-grooves'), h('div.vinyl-bands'), label, labelText, h('div.vinyl-hole'));
+  const swirl = h('div.vinyl-swirl');
+  const disc = h('div.vinyl-disc', h('div.vinyl-grooves'), swirl, h('div.vinyl-bands'), label, labelText, h('div.vinyl-hole'));
+  const under = h('div.vinyl-under'); // static layer seen through the Clear record
   const sheen = h('div.vinyl-sheen');
   const arm = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   arm.setAttribute('viewBox', '0 0 100 100');
   arm.classList.add('tonearm');
-  arm.innerHTML = `
-    <defs>
-      <linearGradient id="armMetal" x1="0" x2="1"><stop offset="0" stop-color="#8d8f94"/><stop offset=".5" stop-color="#f4f5f7"/><stop offset="1" stop-color="#6c6e73"/></linearGradient>
-      <radialGradient id="armBase" cx=".35" cy=".35"><stop offset="0" stop-color="#9a9ca1"/><stop offset="1" stop-color="#2b2c30"/></radialGradient>
-    </defs>
-    <circle cx="${PIVOT.x}" cy="${PIVOT.y}" r="6.2" fill="url(#armBase)" stroke="#111" stroke-width=".6"/>
-    <g class="arm-rot" style="transform-origin:${PIVOT.x}px ${PIVOT.y}px">
-      <rect x="${PIVOT.x - 2.2}" y="${PIVOT.y - 10}" width="4.4" height="6" rx="1" fill="#34363b"/>
-      <rect x="${PIVOT.x - 0.75}" y="${PIVOT.y - 4}" width="1.5" height="${ARM_LEN - 3}" rx=".75" fill="url(#armMetal)"/>
-      <g transform="translate(${PIVOT.x} ${PIVOT.y + ARM_LEN - 3}) rotate(-16)">
-        <rect x="-1.9" y="-0.6" width="3.8" height="6.2" rx=".7" fill="#1d1e22" stroke="#555" stroke-width=".25"/>
-        <rect x="-0.5" y="4.6" width="1" height="1.4" fill="var(--accent)"/>
-      </g>
-      <circle cx="${PIVOT.x}" cy="${PIVOT.y}" r="2.2" fill="#d9dade" stroke="#222" stroke-width=".4"/>
-    </g>`;
-  const armRot = arm.querySelector('.arm-rot');
-  const el = h('div.view.view-vinyl', disc, sheen, arm);
+  let armRot = null;
+  const el = h('div.view.view-vinyl', under, disc, sheen, arm);
+
+  // Looks (css/vinyl.css): record design + colour as classes / variables, the arm redrawn as SVG.
+  let curArm = null;
+  function applyLook() {
+    const design = vinylDesign(store.get('vinylDesign'));
+    const color = vinylColor(store.get('vinylColor'));
+    for (const d of VINYL_DESIGNS) el.classList.toggle(`vd-${d.id}`, d.id === design);
+    el.classList.toggle('vc-custom', color !== DEFAULT_VINYL_COLOR);
+    el.style.setProperty('--vc', color);
+    const lum = luminance(color);
+    el.style.setProperty('--vc-ink', lum > 0.36 ? '#000' : '#fff');
+    el.classList.toggle('vc-light', lum > 0.36);
+    el.classList.toggle('vc-pale', lum > 0.7);
+    swirl.style.backgroundImage = design === 'clear' && swirlTexture() ? `url("${swirlTexture()}")` : '';
+    const ad = armDesign(store.get('armDesign'));
+    if (ad !== curArm) {
+      const prev = armRot?.style.transform || '';
+      arm.innerHTML = armMarkup(ad, PIVOT, ARM_LEN);
+      armRot = arm.querySelector('.arm-rot');
+      armRot.style.transform = prev;
+      for (const a of ARM_DESIGNS) arm.classList.toggle(`arm-${a.id}`, a.id === ad);
+      curArm = ad;
+    }
+  }
+  applyLook();
+  const offLook = ['vinylDesign', 'vinylColor', 'armDesign'].map((k) => store.on(`change:${k}`, () => applyLook()));
+  const onAny = (k) => { if (k === '*') { applyLook(); applyLabel(); } };
+  store.on('change', onAny);
 
   // Centre artwork size: 0 = no artwork … 100 = artwork fills the whole record.
   let armInner = armDegForRadius(25.5);
@@ -144,6 +160,6 @@ export function createVinylView({ player, onPreview }) {
       armRot.style.transform = `rotate(${armDeg.toFixed(2)}deg)`;
       arm.classList.toggle('lifted', !s.isPlaying || dragging);
     },
-    destroy() { onPreview?.(null); offLabel(); },
+    destroy() { onPreview?.(null); offLabel(); offLook.forEach((f) => f()); store.off('change', onAny); },
   };
 }

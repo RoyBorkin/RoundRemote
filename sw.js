@@ -2,7 +2,7 @@
 // Round Remote service worker — makes the app installable and load offline.
 // Strategy: network-first for the app's own files (so updates show up immediately when
 // online), falling back to the cache when offline. Music-service APIs are never cached.
-const VERSION = 'rr-5.2.0';
+const VERSION = 'rr-5.3.0';
 const SHELL = [
     "apps/apps.css",
     "apps/bg-alias-words.js",
@@ -119,6 +119,7 @@ const SHELL = [
     "css/app.css",
     "css/themes.css",
     "js/core/color.js",
+    "js/core/companion.js",
     "js/core/nav.js",
     "js/core/player.js",
     "js/core/router.js",
@@ -294,6 +295,8 @@ const SHELL = [
     "js/screens/home-services.js",
     "css/settings.css",
     "js/screens/settings-startup.js",
+    "js/screens/settings-diagnostics.js",
+    "js/screens/settings-server.js",
     "css/device.css",
     "sounds/alert-chime.wav",
     "js/ui/dom.js",
@@ -348,6 +351,9 @@ self.addEventListener('fetch', (e) => {
     try {
       const res = await Promise.race([fetch(req), timeout(4000)]);
       if (res.ok) c.put(req.mode === 'navigate' ? './' : req, res.clone());
+      // a companion Pi whose server is offline answers 502 + X-RR-Offline: the app's files come from the cache then
+      // (pages get the companion's own "Server offline" page)
+      if (!res.ok && req.mode !== 'navigate' && res.headers.get('x-rr-offline')) return (await c.match(req, { ignoreSearch: true })) || res;
       return res;
     } catch {
       const hit = await c.match(req, { ignoreSearch: true }) || (req.mode === 'navigate' ? await c.match('./') : null);

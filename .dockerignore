@@ -1,0 +1,28 @@
+# Keep the image small and free of anyone's sign-ins: only the app + bridge code go in.
+.git
+.github
+.gitignore
+.gitattributes
+**/.DS_Store
+**/node_modules
+**/*.log
+**/__pycache__
+screenshots/
+pi/
+data/
+docker-compose*.yml
+compose*.yaml
+start-bridge.*
+*.md
+!LICENSE
+
+# the bridge's own state (it lives in the /data volume in a container)
+bridge/*.json
+!bridge/package.json
+!bridge/config.example.json
+bridge/*.p8
+bridge/*.tmp
+bridge/*.bad
+bridge/profiles/
+bridge/cache/
+bridge/package-lock.json

@@ -7,10 +7,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_FILE = path.join(__dirname, '..', 'roon-state.json');
+const STATE_FILE = dataPath('roon-state.json');
 
 export function create({ hub, setStatus }) {
   let RoonApi, RoonApiTransport, RoonApiStatus, RoonApiImage, RoonApiBrowse;

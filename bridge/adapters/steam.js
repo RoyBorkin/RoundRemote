@@ -18,6 +18,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PERSONA = ['offline', 'online', 'busy', 'away', 'snooze', 'trade', 'play'];
@@ -41,9 +42,10 @@ export function create({ cfg = {}, setStatus }) {
     storeBase: 'https://store.steampowered.com', country: 'US',
     fetchHosts: ['itunes.apple.com', 'store.steampowered.com', 'openlibrary.org'],
     language: 'english', control: true, opener: '', apiKey: '', steamId: '', owned: true,
-    stateFile: path.join(__dirname, '..', 'steam.json'),
+    stateFile: 'steam.json',
     ...(cfg.steam || {}),
   };
+  c.stateFile = dataPath(c.stateFile);   // relative names live in the data folder (RR_DATA_DIR)
   const load = () => { try { return JSON.parse(fs.readFileSync(c.stateFile, 'utf8')); } catch { return {}; } };
   const save = () => { try { fs.writeFileSync(c.stateFile, JSON.stringify(st, null, 2)); } catch (e) { log('steam', `could not save ${c.stateFile}: ${e.message}`); } };
   let st = load();

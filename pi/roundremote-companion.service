@@ -1,0 +1,29 @@
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
+# Round Remote LIGHT COMPANION (pi/install.sh --mode=companion): the round display of a Round Remote server.
+# Instead of the full bridge it runs bridge/companion.js on :8765 — this Pi's own system API (Wi-Fi, Bluetooth,
+# sound, screen, updates), the "Server offline" page, and a proxy that passes everything else on to the server.
+# Small and quick to start (no media adapters, no npm packages) — made for a Pi Zero 2 W.
+# Installed by pi/install.sh (__USER__ / __APP_DIR__ / __UID__ are filled in there).
+[Unit]
+Description=Round Remote light companion (proxy to a Round Remote server + Pi system API)
+After=network.target NetworkManager.service bluetooth.service
+Wants=network-online.target
+Conflicts=roundremote-bridge.service
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__/bridge
+# no waiting for the network: the round screen shows "Connecting…" / "Server offline" (with Wi-Fi settings) itself
+# a small V8 heap: the companion itself needs ~10 MB of it (see README → Pi Zero 2 W)
+ExecStart=/usr/bin/env node --max-old-space-size=48 --max-semi-space-size=2 companion.js
+Restart=always
+RestartSec=2
+Environment=NODE_ENV=production
+Environment=RR_ROLE=companion
+Environment=RR_SERVICE=roundremote-companion.service
+# PipeWire (wpctl) and the kiosk's Wayland session (wlr-randr) of this user
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+
+[Install]
+WantedBy=multi-user.target

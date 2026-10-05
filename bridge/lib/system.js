@@ -42,6 +42,8 @@ import { createBluetooth } from './system-bt.js';
 import { createAudio } from './system-audio.js';
 import { createBattery } from './system-battery.js';
 import { WIFI_PAGE, captiveRedirect } from './system-page.js';
+import { APP_ROOT, DATA_DIR, ROLE, IN_CONTAINER, bridgeVersion, appVersion, diskSpace } from './paths.js';
+import { dockerUpdate } from './server-role.js';
 
 const GOVERNORS = ['ondemand', 'powersave', 'performance', 'schedutil', 'conservative'];
 const NO_CAPS = Object.freeze({ wifi: false, bluetooth: false, audio: false, battery: false, imu: false, power: false, update: false, display: false });
@@ -50,7 +52,7 @@ let S = null;
 function init(cfg, dir) {
   if (S && S.cfg === cfg) return S;
   const sys = cfg.system || {};
-  const appRoot = path.resolve(dir, '..');
+  const appRoot = APP_ROOT;   // the code (pi/ scripts, .git); state goes to DATA_DIR
   const root = process.env.RR_SYS_ROOT || sys.root || '';
   const useSudo = sys.sudo !== false;
   const helperPath = sys.helper || '/usr/local/sbin/roundremote-helper';
@@ -58,7 +60,7 @@ function init(cfg, dir) {
   S = {
     cfg, sys, dir, appRoot, root, useSudo, helper,
     cache: memo(),
-    stateFile: path.resolve(dir, sys.stateFile || 'system-state.json'),
+    stateFile: path.resolve(DATA_DIR, sys.stateFile || 'system-state.json'),
     state: { saver: false, screenOffMinutes: 0 },
     screen: { on: true, output: '', at: 0, by: '', waiter: null },
     imu: { proc: null, clients: new Set(), stopT: 0, restarts: 0, last: null },
@@ -80,7 +82,8 @@ function init(cfg, dir) {
 function saveState() { try { fs.writeFileSync(S.stateFile, JSON.stringify(S.state, null, 2)); } catch (e) { log('system', `state: ${e.message}`); } }
 
 const model = () => readFile(S.root, '/proc/device-tree/model').replace(/\0/g, '').trim();
-const isPi = () => S.sys.enabled !== false && (S.sys.force === true || /Raspberry Pi/i.test(model()));
+// a server (Docker on a NAS) never runs the Pi tools (nmcli, bluetoothctl …), even when the NAS is itself a Pi
+const isPi = () => S.sys.enabled !== false && (S.sys.force === true || (ROLE !== 'server' && !IN_CONTAINER && /Raspberry Pi/i.test(model())));
 
 // ---------------------------------------------------------------- who may change things
 const bare = (a) => String(a || '').replace(/^::ffff:/, '');
@@ -183,12 +186,15 @@ async function caps() {
 }
 
 async function info(req) {
+  if (ROLE === 'server' && !isPi()) return { pi: false, role: ROLE, caps: { ...NO_CAPS }, server: serverInfo() };
   if (!isPi()) return { pi: false, caps: { ...NO_CAPS } };
   const [c, thr] = await Promise.all([caps(), throttled()]);
   return {
     pi: true, model: model() || 'Raspberry Pi', os: osName(), hostname: os.hostname(), ip: lanIps(),
     uptime: Math.round(os.uptime()), temp: temp(), throttled: thr, cpuGovernor: governor(),
     memory: { totalMb: Math.round(os.totalmem() / 1048576), freeMb: Math.round(os.freemem() / 1048576) },
+    // a Pi Zero 2 W / Pi 3A+ (under 1 GB): the app turns Reduce effects on by default (js/core/companion.js)
+    lowPower: S.sys.lowPower ?? os.totalmem() < 1000 * 1048576,
     caps: c,
     writable: !!req && (isLoopback(req) || S.sys.allowRemote === true),
   };
@@ -322,6 +328,8 @@ async function powerAction(what) {
 async function git(args, timeout = 8000) { return run('git', ['-C', S.appRoot, ...args], { timeout }); }
 async function updateStatus({ fetch = true } = {}) {
   if (!exists('', path.join(S.appRoot, '.git')) || !which('git')) return { available: false, current: version(), version: version() };
+  // pi/install.sh makes pi/*.sh executable; when GitHub stores them without the x bit that showed as "local changes"
+  if (!S.fileModeOff) { S.fileModeOff = true; const fm = await git(['config', '--get', 'core.fileMode']); if (fm.stdout.trim() !== 'false') await git(['config', 'core.fileMode', 'false']); }
   const [head, branch, dirty] = await Promise.all([git(['rev-parse', '--short', 'HEAD']), git(['rev-parse', '--abbrev-ref', 'HEAD']), git(['status', '--porcelain', '--untracked-files=no'])]);
   const commit = head.stdout.trim();
   const out = { available: true, version: version(), commit, branch: branch.stdout.trim(), current: `${version()}+${commit}`, dirty: !!dirty.stdout.trim(), running: !!S.updating };
@@ -338,7 +346,14 @@ async function updateStatus({ fetch = true } = {}) {
   else if (remote?.latest) Object.assign(out, { latest: `${remote.latestVersion || version()}+${remote.latest}`, behind: remote.behind, checkedAt: remote.at });
   return out;
 }
-function version() { try { return JSON.parse(fs.readFileSync(path.join(S.dir, 'package.json'), 'utf8')).version || ''; } catch { return ''; } }
+const version = () => bridgeVersion();
+/** What a server (Docker container) tells about itself instead of the Pi's hardware. */
+function serverInfo() {
+  const d = diskSpace(DATA_DIR);
+  return { container: IN_CONTAINER, hostname: os.hostname(), uptime: Math.round(os.uptime()), processUptime: Math.round(process.uptime()),
+    version: version(), app: appVersion(), node: process.version, arch: process.arch, dataDir: DATA_DIR,
+    dataFreeMb: d ? Math.round(d.freeBytes / 1048576) : null, dataTotalMb: d ? Math.round(d.totalBytes / 1048576) : null };
+}
 async function doUpdate(b = {}) {
   if (S.updating) return { ok: false, status: 409, error: 'An update is already running' };
   const script = path.join(S.appRoot, 'pi', 'update.sh');
@@ -350,6 +365,8 @@ async function doUpdate(b = {}) {
     S.cache.clear('git-remote');
     const res = (r.stdout.match(/^RESULT (.*)$/m) || [])[1] || '';
     const kv = Object.fromEntries(res.split(/\s+/).filter(Boolean).map((p) => p.split('=')));
+    S.state.lastUpdate = { at: new Date().toISOString(), ok: !r.code, updated: kv.updated === '1', from: kv.from || '', to: kv.to || '', error: r.code ? (kv.error || r.stderr.trim().split('\n').pop() || 'failed').slice(0, 200) : '' };
+    saveState();
     if (r.code) { log('system', `update failed: ${r.stderr.trim().split('\n').pop()}`); return { ok: false, error: kv.error?.replace(/_/g, ' ') || r.stderr.trim().split('\n').pop() || 'Update failed' }; }
     const updated = kv.updated === '1';
     log('system', updated ? `update: ${kv.from} → ${kv.to}` : 'update: already up to date');
@@ -358,7 +375,7 @@ async function doUpdate(b = {}) {
       restarting = true;
       setTimeout(async () => {
         if (b.reloadKiosk) await run('systemctl', ['--no-block', 'restart', 'roundremote-kiosk.service'], { sudo: S.useSudo });
-        const x = await run('systemctl', ['--no-block', 'restart', 'roundremote-bridge.service'], { sudo: S.useSudo });
+        const x = await run('systemctl', ['--no-block', 'restart', process.env.RR_SERVICE || 'roundremote-bridge.service'], { sudo: S.useSudo });   // the light companion: roundremote-companion.service
         if (x.code) log('system', `restart failed: ${x.stderr.trim()}`);
       }, 800);
     }
@@ -469,6 +486,11 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
   const sub = p.slice('/api/system'.length).replace(/^\//, '');
   try {
     if (sub === 'info' || sub === '') return json(res, 200, await info(req));
+    // a server in Docker: updates come as a new image — GET says whether one is out (POST explains how)
+    if (sub === 'update' && !isPi() && (ROLE === 'server' || IN_CONTAINER)) {
+      const u = await dockerUpdate(cfg, { fetch: url.searchParams.get('fetch') !== '0' });
+      return json(res, req.method === 'GET' ? 200 : 409, req.method === 'GET' ? u : { ok: false, ...u, error: u.howTo });
+    }
     if (!isPi()) return json(res, 404, { error: 'Not a Raspberry Pi (set system.force in the bridge config to use this machine anyway)' });
 
     const local = isLoopback(req) || S.sys.allowRemote === true;
@@ -540,4 +562,47 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
     if (!res.headersSent) return json(res, 500, { error: e.message });
     res.end();
   }
+}
+
+// ---------------------------------------------------------------- diagnostics (lib/diag.js → /api/diag)
+/** The Pi's side of the diagnostics report: never secrets (no Wi-Fi passwords, no hotspot password). */
+export async function systemDiag(cfg) {
+  init(cfg, DATA_DIR);
+  if (!isPi()) return { pi: false, role: ROLE, container: IN_CONTAINER, model: model() || null };
+  const t = (p, ms = 5000) => Promise.race([Promise.resolve(p).catch((e) => ({ error: e.message })), new Promise((r) => setTimeout(() => r({ error: 'timeout' }), ms))]);
+  const lines = (txt) => txt.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const configTxt = readFile(S.root, '/boot/firmware/config.txt') || readFile(S.root, '/boot/config.txt');
+  const plymouthConf = readFile(S.root, '/etc/plymouth/plymouthd.conf');
+  const kioskEnv = lines(readFile(S.root, '/etc/roundremote/kiosk.env')).filter((l) => !/pass|secret|token|key/i.test(l));
+  const [c, wifi, bt, audio, battery, upd, gitStatus, plymouth, services] = await Promise.all([
+    t(caps()),
+    t(which('nmcli') ? S.wifi.status({ withPassword: false, port: cfg.port }) : null),
+    t(which('bluetoothctl') ? S.bt.status() : null),
+    t(which('wpctl') ? S.audio.status() : null),
+    t(S.battery.status()),
+    t(updateStatus({ fetch: false })),
+    t(exists('', path.join(S.appRoot, '.git')) && which('git') ? git(['status', '--porcelain']) : null),
+    t(which('plymouth-set-default-theme') ? run('plymouth-set-default-theme', [], { timeout: 3000 }) : null),
+    t(which('systemctl') ? Promise.all(['roundremote-bridge', 'roundremote-kiosk', 'roundremote-netcheck', 'NetworkManager', 'bluetooth'].map(async (u) => [u, (await run('systemctl', ['is-active', `${u}.service`], { timeout: 3000 })).stdout.trim() || 'unknown'])) : null),
+  ]);
+  return {
+    pi: true, model: model(), os: osName(), caps: c,
+    temp: temp(), governor: governor(),
+    wifi: wifi && !wifi.error ? { enabled: wifi.enabled, ssid: wifi.current?.ssid || '', signal: wifi.current?.signal ?? null, ip: wifi.current?.ip || '', saved: (wifi.saved || []).length, hotspot: !!wifi.hotspot?.on } : wifi,
+    bluetooth: bt && !bt.error ? { powered: bt.powered, devices: (bt.devices || []).length, connected: (bt.devices || []).filter((d) => d.connected).map((d) => d.name || d.mac) } : bt,
+    audio: audio && !audio.error ? { sinks: (audio.sinks || []).length, sources: (audio.sources || []).length, defaultSink: (audio.sinks || []).find((s) => s.default)?.name || '' } : audio,
+    battery,
+    display: {
+      cmdline: readFile(S.root, '/proc/cmdline').trim().split(/\s+/).filter((a) => /^(video=|vc4\.|splash|quiet|plymouth|logo\.|vt\.|fbcon|consoleblank|loglevel)/.test(a)),
+      configTxt: lines(configTxt).filter((l) => /^(\[|dtoverlay|dtparam|hdmi|display|disable_|framebuffer|max_framebuffer|gpu_mem|config_hdmi|over_voltage|arm_|camera_auto|auto_initramfs|disable_fw_kms)/i.test(l)).slice(0, 60),
+      screen: { on: S.screen.on, output: S.screen.output || S.sys.output || '' },
+    },
+    plymouth: { theme: plymouth?.stdout?.trim() || (plymouthConf.match(/^Theme=(.*)$/m) || [])[1] || null },
+    kiosk: { env: kioskEnv, cursor: (kioskEnv.find((l) => l.startsWith('ROUNDREMOTE_CURSOR=')) || '').split('=')[1] || 'auto' },
+    services: Array.isArray(services) ? Object.fromEntries(services) : services,
+    install: { args: readFile(S.root, '/etc/roundremote/install-args').trim() || null },
+    git: { ...(upd || {}), dirtyFiles: gitStatus?.stdout ? gitStatus.stdout.split('\n').filter(Boolean).slice(0, 40) : [] },
+    lastUpdate: S.state.lastUpdate || null,
+    saver: !!S.state.saver, screenOffMinutes: S.state.screenOffMinutes || 0,
+  };
 }

@@ -25,9 +25,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
 import { scan, checkHost, isIPv4 } from './androidtv-discover.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE = path.join(__dirname, '..', 'androidtv.json');
+const STATE = dataPath('androidtv.json');
 
 // Android KeyEvent codes (the Remote protocol uses the same numbers) — fallbacks if the library's enum differs
 const KEYS = {
@@ -64,7 +65,7 @@ function saveState(s) { try { fs.writeFileSync(stateFile, JSON.stringify(s, null
 export function create({ hub, cfg = {}, setStatus }) {
   const c = { module: 'androidtv-remote', ...(cfg.androidtv || {}) }; // module: override for tests
   let lib = null;
-  if (c.file) stateFile = path.resolve(path.join(__dirname, '..'), c.file);
+  if (c.file) stateFile = dataPath(c.file);
   const state = loadState();
   const tvs = new Map(); // host → { host, name, remote, powered, volume:{level,maximum,muted}, app, ready }
   const pairing = new Map(); // host → { remote, secretSeen, done: Promise }

@@ -18,9 +18,10 @@ import http2 from 'node:http2';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE = path.join(__dirname, '..', 'googlehome.json');
+const STATE = dataPath('googlehome.json');
 const SCOPE = 'https://www.googleapis.com/auth/assistant-sdk-prototype';
 
 // ---------------------------------------------------------------- tiny protobuf

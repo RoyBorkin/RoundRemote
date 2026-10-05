@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { Hub } from './lib/hub.js';
 import { isPrivateHost, log } from './lib/util.js';
 import { createAudio } from './lib/audio.js';
+import { DATA_DIR, CONFIG_FILE, ROLE, PUBLIC_URL, dataPath, ensureDataDir } from './lib/paths.js';   // RR_DATA_DIR / RR_CONFIG / RR_ROLE / RR_PUBLIC_URL
+import { createCompanion } from './lib/companion.js';   // Settings → Connection → Server: this Pi as a companion of a Round Remote server
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(__dirname, '..');
@@ -33,8 +35,9 @@ const DEFAULTS = {
   winmedia: { powershell: 'powershell.exe' },
   app: {},  // defaults pushed into the app: spotifyClientId, jellyfinServer, appleDeveloperToken, ...
 };
+const dataDir = ensureDataDir({ log });   // state lives in DATA_DIR (default: this folder; Docker: /data)
 function loadConfig() {
-  const file = process.env.RR_CONFIG || path.join(__dirname, 'config.json');
+  const file = CONFIG_FILE;
   let user = {};
   if (fs.existsSync(file)) {
     try { user = JSON.parse(fs.readFileSync(file, 'utf8')); log('bridge', `config: ${file}`); }
@@ -44,6 +47,10 @@ function loadConfig() {
   for (const k of ['adapters', 'airplay', 'upnp', 'apple', 'cider', 'mpris', 'winmedia', 'androidtv', 'appletv', 'googlehome', 'app']) cfg[k] = { ...DEFAULTS[k], ...(user[k] || {}) };
   if (process.env.PORT) cfg.port = +process.env.PORT;
   if (process.env.RR_MOCK) cfg.adapters.mock = true;
+  // RR_PUBLIC_URL: the address phones open (QR codes) for every phone page that has no publicUrl of its own
+  if (PUBLIC_URL) for (const k of ['tasks', 'collection', 'party', 'setup']) cfg[k] = { ...(cfg[k] || {}), publicUrl: cfg[k]?.publicUrl || PUBLIC_URL };
+  // pages opened from other machines on the LAN (a NAS server, Pi companions, phones) are accepted unless "lanOrigins": false
+  if (cfg.lanOrigins === undefined) cfg.lanOrigins = true;
   return cfg;
 }
 const cfg = loadConfig();
@@ -68,19 +75,38 @@ const ADAPTERS = {
   mock: () => import('./adapters/mock.js'),
 };
 const adapterState = {};
-for (const [id, load] of Object.entries(ADAPTERS)) {
-  adapterState[id] = { id, enabled: false, status: cfg.adapters[id] ? 'starting' : 'disabled in config' };
-  if (!cfg.adapters[id]) continue;
-  load().then(async (mod) => {
-    const a = mod.create({ hub, cfg, setStatus: (s, enabled = true) => { adapterState[id] = { id, enabled, status: s }; } });
-    hub.addAdapter(a);
-    await a.start();
-    if (adapterState[id].status === 'starting') adapterState[id] = { id, enabled: true, status: 'running' };
-    log(id, adapterState[id].status);
-  }).catch((e) => {
-    adapterState[id] = { id, enabled: false, status: e.code === 'ERR_MODULE_NOT_FOUND' || /Cannot find/.test(e.message) ? 'not installed (see README)' : `error: ${e.message}` };
-    log(id, adapterState[id].status);
-  });
+// A Pi switched to "Round Remote server" (lib/companion.js) passes everything on to the server, so its own adapters
+// don't start (switched at runtime, the running ones are left alone until the next restart — proxy mode takes
+// precedence); "Use this Pi's own bridge" starts them then, without a restart.
+const companion = createCompanion({ cfg, mode: 'full', version: VERSION, log, onSwitch: (on) => { if (!on) startAdapters(); advertiseSelf(); } });
+let adaptersStarted = false;
+function startAdapters() {
+  if (adaptersStarted) return;
+  adaptersStarted = true;
+  for (const [id, load] of Object.entries(ADAPTERS)) {
+    adapterState[id] = { id, enabled: false, status: cfg.adapters[id] ? 'starting' : 'disabled in config' };
+    if (!cfg.adapters[id]) continue;
+    load().then(async (mod) => {
+      const a = mod.create({ hub, cfg, setStatus: (s, enabled = true) => { adapterState[id] = { id, enabled, status: s }; } });
+      hub.addAdapter(a);
+      await a.start();
+      if (adapterState[id].status === 'starting') adapterState[id] = { id, enabled: true, status: 'running' };
+      log(id, adapterState[id].status);
+    }).catch((e) => {
+      adapterState[id] = { id, enabled: false, status: e.code === 'ERR_MODULE_NOT_FOUND' || /Cannot find/.test(e.message) ? 'not installed (see README)' : `error: ${e.message}` };
+      log(id, adapterState[id].status);
+    });
+  }
+}
+if (companion.proxying()) { for (const id of Object.keys(ADAPTERS)) adapterState[id] = { id, enabled: false, status: 'off (this Pi uses a Round Remote server)' }; }
+else startAdapters();
+// "Find servers" on companions: announce this bridge over mDNS (_roundremote._tcp) unless it's a companion itself
+let mdnsAd = null;
+function advertiseSelf() {
+  const want = cfg.mdns !== false && !companion.proxying() && !process.env.RR_NO_MDNS;
+  if (!want) { mdnsAd?.stop(); mdnsAd = null; return; }
+  if (mdnsAd) return;
+  import('./lib/discovery.js').then((m) => { if (!mdnsAd) mdnsAd = m.advertise({ name: cfg.name || (ROLE === 'server' ? 'Round Remote server' : undefined), port: cfg.port, txt: { role: ROLE, version: VERSION }, log }); }).catch(() => {});
 }
 
 const audio = createAudio({ cfg });
@@ -95,7 +121,7 @@ function appleDeveloperToken() {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const exp = now + 60 * 60 * 24 * 150; // Apple allows up to ~6 months
   const unsigned = `${b64({ alg: 'ES256', kid: keyId })}.${b64({ iss: teamId, iat: now, exp })}`;
-  const key = fs.readFileSync(path.resolve(__dirname, privateKeyPath), 'utf8');
+  const key = fs.readFileSync(path.resolve(DATA_DIR, privateKeyPath), 'utf8');
   const sig = crypto.sign('sha256', Buffer.from(unsigned), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
   appleToken = { token: `${unsigned}.${sig}`, exp };
   return appleToken.token;
@@ -114,7 +140,7 @@ function originAllowed(req) {
   try {
     const u = new URL(origin);
     if (u.host === req.headers.host) return true;
-    if (isPrivateHost(u.hostname)) return true;
+    if (cfg.lanOrigins !== false && isPrivateHost(u.hostname)) return true;
     return cfg.allowedOrigins.some((o) => o === '*' || o.replace(/\/$/, '') === origin);
   } catch { return false; }
 }
@@ -146,7 +172,7 @@ function serveStatic(req, res, pathname) {
   const file = path.resolve(APP_ROOT, '.' + rel);
   const relToRoot = path.relative(APP_ROOT, file);
   // Never serve the bridge itself (config.json, keys) or dotfiles.
-  if (relToRoot.startsWith('..') || relToRoot.split(path.sep).some((p) => p.startsWith('.')) || relToRoot.startsWith('bridge') || relToRoot.startsWith('pi')) {
+  if (relToRoot.startsWith('..') || relToRoot.split(path.sep).some((p) => p.startsWith('.')) || relToRoot.startsWith('bridge') || relToRoot.startsWith('pi') || /^(docker|Dockerfile|docker-compose)/.test(relToRoot)) {
     res.writeHead(404); return res.end('Not found');
   }
   fs.stat(file, (err, st) => {
@@ -169,7 +195,7 @@ async function api(req, res, url) {
   const m = p.match(/^\/api\/zones\/([^/]+)(?:\/(\w+))?$/);
 
   if (p === '/api/info') {
-    return json(res, 200, { app: 'roundremote-bridge', version: VERSION, adapters: adapterState, zones: hub.zones.size, config: cfg.app });
+    return json(res, 200, { app: 'roundremote-bridge', version: VERSION, role: ROLE, adapters: adapterState, zones: hub.zones.size, config: cfg.app });
   }
   if (p === '/api/zones') return json(res, 200, hub.list());
   if (p === '/api/events') {
@@ -247,8 +273,8 @@ async function api(req, res, url) {
 }
 
 // Settings profiles: save a device's settings here and load them on another round display.
-// Stored as bridge/profiles/<name>.json. GET /api/profiles (list) · GET|PUT|DELETE /api/profiles/<name>
-const PROFILES = path.join(__dirname, 'profiles');
+// Stored as <data dir>/profiles/<name>.json. GET /api/profiles (list) · GET|PUT|DELETE /api/profiles/<name>
+const PROFILES = dataPath('profiles');
 const profileFile = (name) => path.join(PROFILES, `${String(name).trim().replace(/[^\p{L}\p{N} _.-]/gu, '_').slice(0, 60) || 'profile'}.json`);
 async function profiles(req, res, name) {
   try {
@@ -299,8 +325,9 @@ async function proxy(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  { const m = url.pathname.match(/^\/(?:api\/)?(collection|dj|trivia|movienight|petakiot|codewords|blanks|system|setup)(?:\/|$)/); if (m) return (await import(`./lib/${m[1]}.js`)).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname }); }  // phone pages + APIs: Collection, Party DJ, Trivia, Movie Night, the Notes / Code Words / Fill the Blank games, and the Pi system API (lib/<name>.js)
-  if (/^\/(api\/)?tasks(\/|$)/.test(url.pathname)) return (await import('./lib/tasks.js')).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname });  // Tasks app: phone page + /api/tasks (lib/tasks.js)
+  if (await companion.handle(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: DATA_DIR, hub, adapterState, version: VERSION })) return;   // companion mode: all but /api/system, /system → the server (lib/companion.js)
+  { const m = url.pathname.match(/^\/(?:api\/)?(collection|dj|trivia|movienight|petakiot|codewords|blanks|system|setup|diag)(?:\/|$)/); if (m) return (await import(`./lib/${m[1]}.js`)).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: DATA_DIR, hub, adapterState, version: VERSION }); }  // phone pages + APIs: Collection, Party DJ, Trivia, Movie Night, the Notes / Code Words / Fill the Blank games, the Pi system API, diagnostics (lib/<name>.js; state in DATA_DIR)
+  if (/^\/(api\/)?tasks(\/|$)/.test(url.pathname)) return (await import('./lib/tasks.js')).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: DATA_DIR });  // Tasks app: phone page + /api/tasks (lib/tasks.js)
   if (url.pathname.startsWith('/api/')) {
     cors(req, res);
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
@@ -314,8 +341,10 @@ const server = http.createServer(async (req, res) => {
 });
 const p = (u) => u.pathname;
 
+server.on('upgrade', (req, socket, head) => { if (!companion.upgrade(req, socket, head)) socket.destroy(); });   // WebSockets: only passed on to a server
 server.listen(cfg.port, cfg.host, () => {
-  log('bridge', `Round Remote bridge ${VERSION} on http://${cfg.host === '0.0.0.0' ? 'localhost' : cfg.host}:${cfg.port}/`);
+  advertiseSelf();
+  log('bridge', `Round Remote bridge ${VERSION} (${ROLE}) on http://${cfg.host === '0.0.0.0' ? 'localhost' : cfg.host}:${cfg.port}/ · data: ${DATA_DIR}${dataDir.writable ? '' : ' (read-only!)'}`);
 });
 
 const shutdown = () => { try { audio.stop(); } catch {} for (const a of hub.adapters.values()) try { a.stop?.(); } catch {} process.exit(0); };

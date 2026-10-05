@@ -19,6 +19,7 @@ import { backdropSpec, themeEvents } from '../core/theme.js';
 import { mountBackdrop } from '../ui/backdrops.js';
 import { topPanel, openPanel } from '../ui/overlay.js';
 import { power, batteryState } from '../core/power.js';
+import { serverDot } from '../core/companion.js';   // online / offline dot when this Pi goes through a Round Remote server
 import { homeServices, isHomeHidden, setHomeHidden } from './home-services.js';
 import { openSettings } from './settings.js';
 import { tileUserBadge } from './users.js';
@@ -200,7 +201,7 @@ export function HomeScreen() {
     next.focus();
   };
   window.addEventListener('keydown', onKey);
-  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE'), clock, date, modeSwitch, now, hint);
+  const center = h('div.home-center', h('div.brand', 'ROUND REMOTE', serverDot()), clock, date, modeSwitch, now, hint);
   const el = h('div.home', h('div.home-glow'), ring, center, undo);
   // the Home background chosen for the theme (Settings → Theme → Home background)
   const backdrop = mountBackdrop(el, backdropSpec());

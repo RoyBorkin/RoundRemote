@@ -5,6 +5,7 @@
 Description=Round Remote bridge (app server, media adapters, Pi system API)
 After=network.target NetworkManager.service bluetooth.service shairport-sync.service
 Wants=network-online.target
+Conflicts=roundremote-companion.service
 
 [Service]
 Type=simple

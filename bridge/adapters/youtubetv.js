@@ -14,16 +14,17 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { log, sleep } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_FILE = path.join(__dirname, '..', 'youtube-tv.json');
+const STATE_FILE = dataPath('youtube-tv.json');
 const BASE = 'https://www.youtube.com/api/lounge';
 const DEVICE_NAME = 'Round Remote';
 const FORM = { 'Content-Type': 'application/x-www-form-urlencoded' };
 const qs = (o) => new URLSearchParams(Object.entries(o).filter(([, v]) => v !== undefined && v !== null)).toString();
 
 function loadState() { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; } }
-function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
+function saveState(s) { try { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); } catch (e) { log('youtubetv', `could not save ${STATE_FILE}: ${e.message}`); } }
 
 // Title/channel for a video id without an API key (YouTube oEmbed), cached.
 const meta = new Map();

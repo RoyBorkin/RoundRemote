@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isPrivateHost, log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TIMEOUT = 6000;
@@ -30,7 +31,8 @@ const TIMEOUT = 6000;
 let state = null;            // { host, cfg, stateFile, setStatus, ping() }
 function init(cfg = {}) {
   if (state) return state;
-  const c = { host: '', stateFile: path.join(__dirname, '..', 'streamsdk.json'), pingSec: 60, ...(cfg.streamsdk || {}) };
+  const c = { host: '', stateFile: 'streamsdk.json', pingSec: 60, ...(cfg.streamsdk || {}) };
+  c.stateFile = dataPath(c.stateFile);   // relative names live in the data folder (RR_DATA_DIR)
   let saved = {};
   try { saved = JSON.parse(fs.readFileSync(c.stateFile, 'utf8')); } catch {}
   state = { cfg: c, host: normHost(c.host) || normHost(saved.host) || '', setStatus: () => {}, last: null };

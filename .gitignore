@@ -13,8 +13,11 @@ bridge/tasks.json
 bridge/collection.json
 bridge/blanks.json
 bridge/system-state.json
+bridge/companion.json
 bridge/profiles/
 bridge/node_modules/
 bridge/package-lock.json
 node_modules/
 .DS_Store
+# Docker: the server's data folder when docker-compose.yml runs from this folder
+/data/

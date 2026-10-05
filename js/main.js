@@ -85,6 +85,8 @@ applyLite();
 // screen rotation (Pi motion sensor / this device's sensor / manual) and Battery saver + screen-off (Settings → Device)
 import('./core/orientation.js').then((m) => m.startOrientation(app)).catch((e) => console.warn('orientation', e));
 import('./core/power.js').then((m) => m.startPower(app)).catch((e) => console.warn('power', e));
+// a companion Pi (its bridge passes everything on to a Round Remote server): "Server offline" overlay, Home dot
+import('./core/companion.js').then((m) => m.startCompanion()).catch((e) => console.warn('companion', e));
 
 // ---------- idle dimming ----------
 let lastInput = Date.now();

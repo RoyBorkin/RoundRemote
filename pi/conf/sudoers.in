@@ -2,7 +2,7 @@
 # restart / shut down, restart its own services, NetworkManager (fallback when polkit says no), and the root helper
 # (which checks every argument itself; it is a root-owned copy in /usr/local/sbin, not the file in your home).
 Cmnd_Alias RR_POWER  = __SYSTEMCTL__ reboot, __SYSTEMCTL__ poweroff
-Cmnd_Alias RR_SVC    = __SYSTEMCTL__ --no-block restart roundremote-bridge.service, __SYSTEMCTL__ --no-block restart roundremote-kiosk.service
+Cmnd_Alias RR_SVC    = __SYSTEMCTL__ --no-block restart roundremote-bridge.service, __SYSTEMCTL__ --no-block restart roundremote-companion.service, __SYSTEMCTL__ --no-block restart roundremote-kiosk.service
 Cmnd_Alias RR_HELPER = /usr/local/sbin/roundremote-helper
 Cmnd_Alias RR_NET    = __NMCLI__
 __USER__ ALL=(root) NOPASSWD: RR_POWER, RR_SVC, RR_HELPER, RR_NET

@@ -60,6 +60,27 @@ export function isPrivateHost(host) {
   return false;
 }
 
+/** Hide tokens, keys and passwords in a line of text (for the diagnostics report and its log excerpt). */
+export function maskSecrets(s) {
+  return String(s ?? '')
+    .replace(/([?&](?:X-Plex-Token|api_key|access_token|token|key|code)=)[^&\s"']+/gi, '$1***')
+    .replace(/\b(Bearer|Basic|MediaBrowser)\s+[A-Za-z0-9._~+/=-]{8,}/g, '$1 ***')
+    .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}/g, '***jwt***')
+    .replace(/-----BEGIN [A-Z ]+-----[\s\S]*?-----END [A-Z ]+-----/g, '***pem***')
+    .replace(/((?:token|apikey|api_key|key|secret|password|passwd|pwd|npsso|auth|authorization|bearer|sig|signature|code)["']?\s*[:=]\s*["']?)(?!\*\*\*)([^\s"'&,;}]{4,})/gi, '$1***')
+    .replace(/\b[A-Za-z0-9_-]{32,}\b/g, (m) => (/^[a-f0-9-]+$/i.test(m) && m.length <= 40 ? m.slice(0, 6) + '…' : '***'));
+}
+
+/** The last log lines (secrets masked) — shown by /api/diag. */
+const RING = [], RING_MAX = 50;
+export const recentLog = () => RING.slice();
+
 export function log(scope, ...args) {
-  console.log(new Date().toISOString().slice(11, 19), `[${scope}]`, ...args);
+  const ts = new Date().toISOString().slice(11, 19);
+  console.log(ts, `[${scope}]`, ...args);
+  try {
+    const text = args.map((a) => (a instanceof Error ? a.message : typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })())).join(' ');
+    RING.push(`${new Date().toISOString().slice(0, 19)}Z [${scope}] ${maskSecrets(text).slice(0, 400)}`);
+    if (RING.length > RING_MAX) RING.splice(0, RING.length - RING_MAX);
+  } catch {}
 }

@@ -18,6 +18,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,9 +52,10 @@ export function create({ cfg = {}, setStatus }) {
     authBase: 'https://ca.account.sony.com/api/authz/v3/oauth',
     apiBase: 'https://m.np.playstation.com/api',
     language: 'en-US', npsso: '', playactor: {},
-    stateFile: path.join(__dirname, '..', 'psn.json'),
+    stateFile: 'psn.json',
     ...(cfg.psn || {}),
   };
+  c.stateFile = dataPath(c.stateFile);   // relative names live in the data folder (RR_DATA_DIR)
   const pa = c.playactor === false ? null : { bin: 'playactor', ip: '', hostId: '', ps4: false, args: [], ...(c.playactor || {}) };
   const load = () => { try { return JSON.parse(fs.readFileSync(c.stateFile, 'utf8')); } catch { return {}; } };
   const save = () => { try { fs.writeFileSync(c.stateFile, JSON.stringify(st, null, 2)); } catch (e) { log('psn', `could not save ${c.stateFile}: ${e.message}`); } };

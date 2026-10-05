@@ -35,17 +35,18 @@
 6. [Rhythm (music games)](#rhythm-music-games)
 7. [Apps](#apps): [Board Games companions](#board-games-companions) · [Collection](#collection) · [Decide](#decide-games-with-an-app-here-and-draw-lists)
 8. [Settings & themes](#settings--themes): [Themes](#themes-settings--theme) · [Settings and Settings → Device](#settings)
-9. [Setup](#setup): [GitHub Pages](#put-it-on-github-pages) · [Raspberry Pi kiosk](#raspberry-pi-kiosk) ([what you need](#what-you-need), [install](#3-install-one-command), [Wi-Fi](#5-getting-on-wi-fi-and-bluetooth), [display troubleshooting](#display-modes-rotation-and-a-black-screen), [uninstall](#uninstall)) · [The bridge](#the-bridge) · [Bridge config](#bridge-config)
-10. [Connecting your services](#connecting-your-services)
-11. [Smart-home alerts](#smart-home-alerts)
-12. [Phone pages](#phone-pages)
-13. [Controls: touch, keyboard and knob](#controls-touch-keyboard-and-knob)
-14. [Troubleshooting](#troubleshooting)
-15. [Honest limits](#honest-limits)
-16. [Project structure](#project-structure)
-17. [Privacy & security](#privacy--security)
-18. [Credits & third-party notes](#credits--third-party-notes)
-19. [Copyright & license](#copyright--license)
+9. [Setup](#setup): [GitHub Pages](#put-it-on-github-pages) · [Raspberry Pi kiosk](#raspberry-pi-kiosk) ([what you need](#what-you-need), [install](#3-install-one-command), [companion of a server](#pi-as-a-companion-of-a-round-remote-server), [Wi-Fi](#5-getting-on-wi-fi-and-bluetooth), [display troubleshooting](#display-modes-rotation-and-a-black-screen), [uninstall](#uninstall)) · [The bridge](#the-bridge) · [Bridge config](#bridge-config)
+10. [Run it on a server (Docker)](#run-it-on-a-server-docker): [what runs where](#what-runs-where) · [TerraMaster](#option-a-terramaster-docker-manager--container-manager-projects) · [Portainer](#option-b-portainer-stack) · [updating](#updating) · [troubleshooting](#troubleshooting-the-server)
+11. [Connecting your services](#connecting-your-services)
+12. [Smart-home alerts](#smart-home-alerts)
+13. [Phone pages](#phone-pages)
+14. [Controls: touch, keyboard and knob](#controls-touch-keyboard-and-knob)
+15. [Troubleshooting](#troubleshooting)
+16. [Honest limits](#honest-limits)
+17. [Project structure](#project-structure)
+18. [Privacy & security](#privacy--security)
+19. [Credits & third-party notes](#credits--third-party-notes)
+20. [Copyright & license](#copyright--license)
 
 ---
 
@@ -81,23 +82,23 @@ Music, Media and Home each show their own services around the ring: tap one, or 
 
 ### Where it works
 
-Round Remote runs in three ways: as a **Raspberry Pi appliance** (the round screen; the Pi also runs the bridge), as a **web app** on GitHub Pages in any browser, and with the **bridge on a computer** next to the web app (`start-bridge.bat` / `.sh`), which reaches what a browser can't.
+Round Remote runs in four ways: as a **Raspberry Pi appliance** (the round screen; the Pi also runs the bridge), as a **web app** on GitHub Pages in any browser, with the **bridge on a computer** next to the web app (`start-bridge.bat` / `.sh`), which reaches what a browser can't, and as a **Docker server** on a NAS or home server ([Run it on a server](#run-it-on-a-server-docker)) that round displays (Raspberry Pi companions), phones and computers connect to.
 
-| Feature | Pi appliance | Web app alone (GitHub Pages) | Web app + bridge on a computer |
-|---|---|---|---|
-| Spotify, Apple Music (MusicKit), YouTube / YouTube Music on this display, Plex, Jellyfin, Home Assistant, Demo | ✅ | ✅ (http servers: allow *local network access* in Chrome / Edge, or use https) | ✅ |
-| Roon, UPnP / DLNA, Google Cast, Tidal, Qobuz, the Computer tile, YouTube on your TV, Google TV remote, Apple TV, Netflix / Disney+ tiles, Google Home, PlayStation, Steam, Fosi S3 streamer | ✅ | — | ✅ |
-| AirPlay receiver (the display as a speaker) | ✅ | — | Linux only |
-| Games, Rhythm games, Apps on one device | ✅ | ✅ | ✅ |
-| Phone pages: Tasks, Collection upload & barcode, Party DJ, Movie Night, Trivia Night, Notes Game, Code Words, Fill the Blank | ✅ | — (each app has a one-device / pass-the-remote mode) | ✅ |
-| Static key pages (Code Words in one-device mode, the Codenames companion) | ✅ | ✅ | ✅ |
-| Collection connections (BoardGameGeek, PriceCharting, RAWG, Discogs, TMDB…), Wish Lists' Steam / PlayStation import, rhythm chart library, tempo look-ups | ✅ | — | ✅ |
-| Rhythm: learn from the sound of the bridge's computer | ✅ (music the Pi itself plays) | — | ✅ |
-| Rhythm: learn from a microphone | ✅ (USB mic) | ✅ | ✅ |
-| Settings profiles saved on the bridge | ✅ | file export / import only | ✅ |
-| *Settings → Device*: Wi-Fi, Bluetooth, sound, battery & power, screen off, motion-sensor rotation, updates, restart / shut down | ✅ | — | — |
-| Screen rotation (manual or the device's motion sensor) and Battery saver | ✅ (*Settings → Device*) | ✅ (*Settings → General*) | ✅ |
-| Smart-home alerts (Home Assistant) | ✅ | ✅ | ✅ (plus Google Home broadcasts) |
+| Feature | Pi appliance | Web app alone (GitHub Pages) | Web app + bridge on a computer | Docker server (+ Pi companions) |
+|---|---|---|---|---|
+| Spotify, Apple Music (MusicKit), YouTube / YouTube Music on this display, Plex, Jellyfin, Home Assistant, Demo | ✅ | ✅ (http servers: allow *local network access* in Chrome / Edge, or use https) | ✅ | ✅ |
+| Roon, UPnP / DLNA, Google Cast, Tidal, Qobuz, the Computer tile, YouTube on your TV, Google TV remote, Apple TV, Netflix / Disney+ tiles, Google Home, PlayStation, Steam, Fosi S3 streamer | ✅ | — | ✅ | ✅ except the Computer tile (host networking; Apple TV needs the `WITH_PYATV=1` image) |
+| AirPlay receiver (the display as a speaker) | ✅ | — | Linux only | — |
+| Games, Rhythm games, Apps on one device | ✅ | ✅ | ✅ | ✅ |
+| Phone pages: Tasks, Collection upload & barcode, Party DJ, Movie Night, Trivia Night, Notes Game, Code Words, Fill the Blank | ✅ | — (each app has a one-device / pass-the-remote mode) | ✅ | ✅ (QR codes point to the server) |
+| Static key pages (Code Words in one-device mode, the Codenames companion) | ✅ | ✅ | ✅ | ✅ |
+| Collection connections (BoardGameGeek, PriceCharting, RAWG, Discogs, TMDB…), Wish Lists' Steam / PlayStation import, rhythm chart library, tempo look-ups | ✅ | — | ✅ | ✅ |
+| Rhythm: learn from the sound of the bridge's computer | ✅ (music the Pi itself plays) | — | ✅ | — |
+| Rhythm: learn from a microphone | ✅ (USB mic) | ✅ | ✅ | ✅ |
+| Settings profiles saved on the bridge | ✅ | file export / import only | ✅ | ✅ (on the server, shared by all displays) |
+| *Settings → Device*: Wi-Fi, Bluetooth, sound, battery & power, screen off, motion-sensor rotation, updates, restart / shut down | ✅ | — | — | ✅ on each Pi companion (its own device); the server updates as a new image |
+| Screen rotation (manual or the device's motion sensor) and Battery saver | ✅ (*Settings → Device*) | ✅ (*Settings → General*) | ✅ | ✅ |
+| Smart-home alerts (Home Assistant) | ✅ | ✅ | ✅ (plus Google Home broadcasts) | ✅ (plus Google Home broadcasts) |
 
 ---
 
@@ -868,7 +869,7 @@ Turn a Raspberry Pi and the round screen into an appliance. It starts straight i
 
 | | Recommended | Notes |
 |---|---|---|
-| Computer | **Raspberry Pi 4 Model B** (2 GB or more; 4 GB is best) | A **Pi Zero 2 W** works only as a slow "lite" option (see [Pi 4 or Pi Zero 2 W?](#pi-4-or-pi-zero-2-w)). |
+| Computer | **Raspberry Pi 4 Model B** (2 GB or more; 4 GB is best) | A **Pi Zero 2 W** works as a *light companion* of a Round Remote server (see [Pi 4 or Pi Zero 2 W?](#pi-4-or-pi-zero-2-w)). |
 | Screen | **Waveshare 4inch HDMI round LCD, 720×720** (HDMI picture, USB touch) | The **DSI** version (4inch DSI LCD (C)) works too: install with `--display=waveshare-4-dsi`. |
 | Cables | micro-HDMI → HDMI (Pi 4) or mini-HDMI → HDMI (Zero 2 W), and a USB cable for the touch | On the Pi 4 use **HDMI0**, the micro-HDMI port next to the USB-C power socket. |
 | Power | the official 5.1 V / 3 A USB-C supply for the Pi, plus a 5 V USB-C supply (or a free USB port) for the panel's own power socket | A weak supply shows up as "under-voltage" in *Settings → Device → Updates*. |
@@ -877,12 +878,12 @@ Turn a Raspberry Pi and the round screen into an appliance. It starts straight i
 
 #### Pi 4 or Pi Zero 2 W?
 
-**Get the Pi 4 Model B.** The Zero 2 W can drive the same HDMI panel through its mini-HDMI port, but with 512 MB of memory, Chromium and the bridge together are slow. Treat it as a "lite" option for a small battery build.
+**Get the Pi 4 Model B** for a stand-alone display. The Zero 2 W can drive the same HDMI panel through its mini-HDMI port, but with 512 MB of memory it fits best as a **light companion** of a Round Remote server (the Docker container on your NAS, or a Pi 4): then the bridge's work happens on the server and the Zero only runs the browser and a small proxy — see [Pi as a companion of a Round Remote server](#pi-as-a-companion-of-a-round-remote-server).
 
 | | Raspberry Pi 4 Model B (recommended) | Raspberry Pi Zero 2 W ("lite") |
 |---|---|---|
 | Smoothness | Smooth, with all effects | Slow: screens take a while to open and animations stutter. Turn on *Settings → General → Reduce effects* (or Battery saver). |
-| Memory | 2–8 GB | **512 MB**. Chromium and the bridge only just fit; the installer limits Chromium to two renderer processes, and heavy screens (Tone Visual, the rhythm games, big libraries) are slow. |
+| Memory | 2–8 GB | **512 MB**. As a light companion the Pi's own service is small (see below), but Chromium still draws the whole app on the Zero, so heavy screens (Tone Visual, the rhythm games, big libraries) stay slow. The installer adds zram swap and lighter Chromium settings, and the app starts with *Reduce effects* on. |
 | Screen | micro-HDMI → the panel's HDMI | mini-HDMI → the panel's HDMI. Touch needs a micro-USB OTG adapter or hub, because the Zero has only one USB data port. |
 | Power | 5.1 V / 3 A USB-C | 5 V / 2.5 A micro-USB. It draws much less, which suits a battery. |
 | Battery boards | PiSugar 3 Plus, UPS HAT (B) | PiSugar 3, UPS HAT (C) |
@@ -947,6 +948,8 @@ Options (add them after `bash -s --` when you use the one-liner, for example `cu
 | `--no-kiosk`, `--compositor=labwc` | Installs without the screen service, or uses labwc instead of cage. |
 | `--no-splash` | Leaves the boot screen as Raspberry Pi OS has it (no boot splash). On a Pi that has the splash, it removes it again. |
 | `--verbose-boot` | Shows the boot messages instead of the splash, to see what goes wrong at boot. Run the installer again without it to hide them. |
+| `--mode=full\|companion` | `full` (the default): the whole Round Remote on this Pi. `companion`: a light companion of a Round Remote server, for a Pi Zero 2 W (see [Pi as a companion](#pi-as-a-companion-of-a-round-remote-server)). Run the installer again with the other mode to switch; without `--mode` it keeps the installed kind. |
+| `--server=URL` | The Round Remote server, e.g. `http://192.168.50.108:8765` (or `192.168.50.108`; port 8765 is the default). With `--mode=full` the Pi starts connected to it (*Settings → Connection → Server* switches back). |
 | `--same-options` | Starts from the options of the last run; options you add after it win (e.g. `--same-options --verbose-boot`). |
 | `--interactive` | Asks about the main choices. |
 | `--dry-run` | Prints every action, including file diffs, and changes nothing. |
@@ -954,6 +957,27 @@ Options (add them after `bash -s --` when you use the one-liner, for example `cu
 | `--readonly` | Makes the card read-only (overlay file system). Everything you change after that is lost at each reboot, so use it only for a finished appliance. |
 
 `pi/setup.sh` from older instructions still works: it now runs `pi/install.sh`. On a Pi OS **desktop** image, the kiosk starts from the desktop's autostart, as before.
+
+#### Pi as a companion of a Round Remote server
+
+When Round Remote runs on a server — the [Docker container on your NAS](#run-it-on-a-server-docker), or another Pi or PC with the bridge — a round display only has to *show* it. The Pi then becomes a **companion**: the kiosk still opens `http://127.0.0.1:8765/` (so Spotify's sign-in and the app's saved settings work exactly as before), and the Pi passes everything that isn't its own business on to the server — the app's files, the APIs, the phone pages, live updates (SSE) and WebSockets, streamed both ways. What stays on the Pi: its own **Wi-Fi, Bluetooth, sound, battery, screen and motion sensor** (*Settings → Device*), its updates, and the setup hotspot. Phones scan the QR codes and talk to the server directly.
+
+There are two ways to be a companion:
+
+1. **Light companion** — for a **Pi Zero 2 W** (or any Pi that only shows the app):
+
+   ```bash
+   bash ~/RoundRemote/pi/install.sh --mode=companion --server=http://192.168.50.108:8765
+   ```
+
+   (or with the one-liner: `curl -fsSL …/install.sh | bash -s -- --mode=companion --server=http://192.168.50.108:8765`). It installs the kiosk, the boot splash, the setup hotspot and the small `roundremote-companion` service (`bridge/companion.js`) instead of the bridge: no media adapters, no npm packages, no AirPlay. It starts in about 0.15 s. Without `--server` the round screen asks for the address at the first start.
+2. **Full install + "Connect to a server"** — on a Pi 4 with the normal install, open ***Settings → Connection → Server***: *Round Remote comes from* **This Pi's own bridge** (the default) or **Round Remote server**. Type the address (or **Find servers**: servers and bridges announce themselves on the LAN as `_roundremote._tcp`; a Docker server is found only with host networking), **Test**, **Connect**. The switch happens at once, without a restart. The Pi's own media adapters don't start while it's connected (after a switch at runtime they keep running in the background until the next restart, unused). Pick *This Pi's own bridge* → **Use this Pi's own bridge** to switch back instantly; the address is kept for next time. (`install.sh --mode=full --server=URL` starts a new install connected.)
+
+**When the server is offline**, the round screen shows a round **"Server offline"** page served by the Pi itself: the RB logo in a ring that counts down to the next automatic retry (every 5 s), the server's address, how long ago it last answered, and **Retry**, **Wi-Fi** (a small Wi-Fi picker with an on-screen keyboard, in case the Pi lost the network), **Server** (change the address, Find servers, Test) and, on a full install, **Use this Pi's own bridge**. If the app was open, the same page appears over it (with *Continue offline* for the clock, timers and other things that need no server). As soon as the server answers again, the app comes back by itself. A home-screen dot next to *Round Remote* shows the connection: green online, orange offline. *Settings → Device → Updates* shows the companion's version and the server's.
+
+**Updates:** a companion updates its own files exactly as before (*Settings → Device → Updates* or `pi/update.sh`); the server is updated on the NAS (see [Updating](#updating)). **Good to know:** the server sees the companion's address, not each phone's; the rhythm games' *learned songs* are saved in the browser of each display (not on the server), so a song learned on the PC browser isn't known on the Pi.
+
+**Pi Zero 2 W: what to expect.** The light companion takes the bridge's work off the Zero, but not the browser's: **all rendering and the app's JavaScript still run in Chromium on the Zero**. Measured on the test machine (x86-64, Node 22): the companion service uses about **20 MB of its own memory** (≈ 70 MB RSS including the shared Node runtime; capped with `--max-old-space-size=48`) and starts in ~0.15 s, against the full bridge's media adapters, discovery and npm packages. The app's own JavaScript heap stays small (≈ 4–5 MB after visiting Home, Apps, Games, Settings and the player); Chromium's processes are what fill the 512 MB. So the installer, on a Pi with less than 1 GB: turns on **zram swap** (`zram-tools`, zstd, half the RAM — unless Raspberry Pi OS already has it, as Trixie does with `rpi-swap`), and sets lighter Chromium flags in `/etc/roundremote/kiosk.env`: one renderer process, *low-end device mode*, a 192 MB JavaScript heap limit, a 32 MB disk cache and no back-forward cache; the app turns on *Reduce effects* the first time it starts on such a Pi (you can turn it off again). Expect Home, the player, Settings and the remotes to work fine but not snappy; Tone Visual, the canvas games and Rhythm are slow, and **learning a song for Rhythm** (which analyses the audio in the browser) is too heavy for a Zero.
 
 #### 4. First boot
 
@@ -992,7 +1016,7 @@ There are four ways to connect the Pi to Wi-Fi:
      bash ~/RoundRemote/pi/update.sh
      ```
 
-   Either way, it pulls from GitHub (fast-forward only), runs `npm install` when the bridge's packages changed, and restarts the bridge; the screen then reloads by itself. Your `bridge/config.json` and other saved files aren't in git and stay untouched. If you edited tracked files on the Pi, it stops and says so; `bash ~/RoundRemote/pi/update.sh --force` puts your edits aside first (`git stash`).
+   Either way, it pulls from GitHub (fast-forward only), runs `npm install` when the bridge's packages changed, and restarts the bridge (or the light companion); the screen then reloads by itself. Your `bridge/config.json`, `companion.json` and other saved files aren't in git and stay untouched. If tracked files were changed on the Pi, the update puts those changes aside first — on a branch `local-changes/<date>` and in `git stash list` — so nothing is lost and the update never gets stuck. Changed file permissions (the installer makes `pi/*.sh` executable) don't count as changes (`git config core.fileMode false`; older installs showed "local changes" because of that).
 2. **System-level changes**: the installer itself, the services, the `sudo` rules and root helper, the boot splash theme (`pi/plymouth/`), `config.txt` / `cmdline.txt` settings. These only take effect when the installer runs again, which needs `sudo`, so it can't happen from the round screen. When an update contains such changes, *Settings → Device → Updates* and `update.sh` say so. Apply them over SSH with:
 
    ```bash
@@ -1100,7 +1124,7 @@ A motion sensor is optional: without one, the screen can still be turned by hand
 
 | Command | What it does |
 |---|---|
-| `systemctl status roundremote-bridge roundremote-kiosk roundremote-netcheck` | Shows whether the three services are running. |
+| `systemctl status roundremote-bridge roundremote-kiosk roundremote-netcheck` | Shows whether the three services are running (`roundremote-companion` instead of `roundremote-bridge` on a light companion). |
 | `journalctl -u roundremote-bridge -f` | Shows the bridge's log (`-u roundremote-kiosk` for the screen). |
 | `sudo systemctl restart roundremote-kiosk` | Restarts the screen. Use `roundremote-bridge` to restart the bridge. |
 | `sudo systemctl stop roundremote-kiosk` | Frees the screen for a text console (Ctrl+Alt+F2 also works while it runs). |
@@ -1147,7 +1171,7 @@ They show up on the **Computer** tile. Apple Music apps also appear under the **
 
 **Testing without devices:** `cd bridge && npm run mock` adds two fake zones.
 
-**Keep the bridge's secrets out of git.** The repository's `.gitignore` files already exclude the bridge's own settings, sign-ins and saved state: `bridge/config.json`, Apple `*.p8` keys, `psn.json`, `steam.json`, `googlehome.json`, `youtube-tv.json`, `androidtv.json`, `appletv.json`, `streamsdk.json`, `roon-state.json`, the Tasks and Collection data (`tasks.json`, `collection.json`), settings `profiles/`, the chart `cache/` and `node_modules/`. If you copy the bridge somewhere else, keep these files private.
+**Keep the bridge's secrets out of git.** The repository's `.gitignore` files already exclude the bridge's own settings, sign-ins and saved state: `bridge/config.json`, Apple `*.p8` keys, `psn.json`, `steam.json`, `googlehome.json`, `youtube-tv.json`, `androidtv.json`, `appletv.json`, `streamsdk.json`, `roon-state.json`, the Tasks and Collection data (`tasks.json`, `collection.json`), settings `profiles/`, the chart `cache/` and `node_modules/`. If you copy the bridge somewhere else, keep these files private. With `RR_DATA_DIR` (the Docker image: `/data`) they all live in that folder instead.
 
 ### Bridge config
 
@@ -1172,7 +1196,10 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it. The main 
 ```
 
 - **`port`**: the bridge's port (default 8765; the `PORT` environment variable overrides it). `RR_CONFIG` can point to another config file.
-- **`allowedOrigins`**: the bridge answers only pages on the same machine, your LAN, or the origins listed here.
+- **`allowedOrigins`**: the bridge answers only pages on the same machine, your LAN, or the origins listed here. **`lanOrigins`**: `false` stops accepting pages from other LAN addresses (default `true`: a server is opened from the Pi companions, phones and computers).
+- **`mdns`**: `false` stops the bridge announcing itself as `_roundremote._tcp` (for *Find servers* on companions); **`name`** is the name it announces. **`companion`** (a Pi as a companion): `checkEverySec` (how often the server is checked, default 5) and `name` (how the Pi introduces itself to the server, `X-RR-Companion`; default its hostname). The server address itself is in `companion.json` next to `config.json` (set by *Settings → Connection → Server* or `install.sh --server=`).
+- **`update`** (Docker server): `check` (`false` = never look online), `checkHours` (default 6) and `url` (where the newest `sw.js` is read; default GitHub `main`).
+- **Environment variables:** `RR_DATA_DIR` keeps all state (config, sign-ins, lists, profiles, cache, keys) in another folder; the default is the `bridge/` folder, and the Docker image uses `/data`. `RR_ROLE` is `standalone` (default), `server` (the Docker image) or `companion`. `RR_PUBLIC_URL` sets the address phones open from every QR code (instead of each app's `publicUrl`). In a fresh `RR_DATA_DIR`, `config.json` is created from `config.example.json`.
 - **`adapters`**: turn each part on or off. `mpris` only runs on Linux and `winmedia` only on Windows, so leaving both on is fine.
 - **`app`** pre-fills the app's settings on first run, so you never have to type keys on the round screen.
 - **`apple`** lets the bridge sign Apple Music developer tokens.
@@ -1188,6 +1215,160 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it. The main 
 - **`audio`**: recording the computer's sound for the Rhythm games (see [below](#rhythm-let-the-bridge-hear-your-music)).
 - **`charts`**: the Rhythm chart library (see [below](#rhythm-the-chart-library)).
 - **`system`** (Raspberry Pi only): `allowRemote` (let other devices change Wi-Fi, power… — default `false`), `battery` (`auto` / `pisugar` / `ups-hat` / `none`), `pisugar` (`host`, `port`), `upsHat` (`bus`, `address`, `capacityMah`, `curve`), `imu` (`enabled`, `bus`, `address`, `chip`, `hz`, `alpha`, `plane`, `offset`, `invert`, `swapXY`), `hotspot`, `output` (the screen's output name, default automatic) and `wakeOnInput`. See [Raspberry Pi kiosk](#raspberry-pi-kiosk).
+
+---
+
+## Run it on a server (Docker)
+
+Round Remote can also run as a **Docker container** on an always-on machine such as a NAS (for example a TerraMaster with TOS 6 or TOS 7). The container runs the bridge with all its adapters, serves the app and the phone pages, and keeps all data. Round displays connect to it as **Raspberry Pi companions**, and phones and computers just open it in a browser. GitHub Pages and the Raspberry Pi install keep working as before. This is a fourth way to run it.
+
+### What runs where
+
+| Where | What runs there | What it keeps |
+|---|---|---|
+| **NAS**: the `roundremote` container at `http://192.168.50.108:8765` | The bridge: Roon, UPnP / DLNA, Google Cast, Google TV, YouTube on your TV, Google Home, PlayStation, Steam, the music streamer, and Apple TV (in an image with pyatv). It also runs the app at `/`, the phone pages, phone setup (`/setup`) and diagnostics (`/diag`). | Everything in one data folder: `config.json`, sign-ins, Tasks, Collection, Fill the Blank packs, settings profiles and caches |
+| **Raspberry Pi** with the round screen | The kiosk (Chromium) plus the small companion. The Pi's own Wi-Fi, Bluetooth, sound, screen and battery stay on the Pi (*Settings → Device*). Everything else is passed on to the server. | Only its own device settings |
+| **Phones, tablets, computers** | A browser: the app, the phone pages from the QR codes, `/setup`, `/diag` | Nothing (browser storage only) |
+
+```text
+   phones / PCs ──browser──┐
+                           ▼
+ Pi (round screen) ──► NAS: Docker "roundremote" (host network, :8765) ──► TVs, speakers, Roon, Plex, PSN, Steam…
+   kiosk + companion        bridge + app + /data  (mDNS · SSDP · Cast · Roon discovery on your LAN)
+```
+
+### Before you start
+
+- **Docker on the NAS.** On TOS 6, install *Docker Engine* and *Docker Manager* from the App Center. On TOS 7 the app is called **Container Manager** (renamed from Docker Manager in v2.2.025) and works the same way. **Portainer** works too, if you use it.
+- **A fixed address for the NAS** (a DHCP reservation in your router), e.g. `192.168.50.108`. Phones and the Pi find the server there.
+- **A folder for the data**, e.g. `/Volume1/docker/roundremote/data` (create it in File Manager).
+- **Your user and group numbers** (optional): over SSH, `id <your TOS user>` shows `uid=… gid=…`. Use them as `PUID` / `PGID` so you can read and back up the data folder. If you don't set them, the defaults are `1000` / `1000`.
+- **Port 8765** must be free on the NAS. To use another port, set `PORT`.
+
+The compose file (`docker-compose.yml` in this repository):
+
+```yaml
+services:
+  roundremote:
+    image: ghcr.io/royborkin/roundremote:latest
+    container_name: roundremote
+    network_mode: host            # required, see below
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "Asia/Jerusalem"
+      RR_PUBLIC_URL: "http://192.168.50.108:8765"
+    volumes:
+      - /Volume1/docker/roundremote/data:/data
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
+```
+
+**Why host networking?** The bridge finds your devices with multicast and broadcast: mDNS for Google TV, Cast and Apple TV, SSDP for UPnP / DLNA players, and Roon's discovery. Cast and Google TV also connect back to it. In Docker's default *bridge* network none of that reaches your LAN, so devices would never be found. With `network_mode: host` the container uses the NAS's own address and port 8765, and no `ports:` mapping is needed. The image reports `role: "server"` in `/api/info`. In that role the Raspberry Pi system API stays off, and nothing like `nmcli` is ever run inside the container.
+
+### Option A: TerraMaster Docker Manager / Container Manager (Projects)
+
+1. **App Center** → install **Docker Engine** and **Docker Manager** (TOS 7: **Container Manager**).
+2. **File Manager** → create `docker/roundremote/data` on Volume 1.
+3. Open Docker Manager → **Projects** → **Add** (or **Add Now**).
+   - *Project name*: `roundremote`
+   - *Project path*: `/Volume1/docker/roundremote`
+   - *Configuration*: **Create a YAML file**. Paste the compose file above and set `PUID` / `PGID` / `TZ`.
+4. **Validate YAML** → **Apply**. The image is downloaded and the container starts. After about 30 s its health check shows *healthy*.
+5. Open **http://192.168.50.108:8765/** to get the app.
+
+Without Projects, you can set the container up by hand with the container wizard: **Images** → pull `ghcr.io/royborkin/roundremote:latest` → **Start**. Then:
+- *Network*: **host**
+- *Volume*: `/Volume1/docker/roundremote/data` → `/data`
+- *Environment*: `PUID`, `PGID`, `TZ`, `RR_PUBLIC_URL`
+- *Restart*: always / unless stopped
+
+If the image can't be pulled, the package on GitHub is still private. The owner makes it public once (see [Publishing the image](#publishing-the-image-once)). Otherwise, add `ghcr.io` under the registry settings (TOS 7: **Add Registry**) with your GitHub user name and a token that has `read:packages`.
+
+### Option B: Portainer stack
+
+1. Portainer → **Stacks** → **Add stack** → name `roundremote`.
+2. **Web editor**: paste the compose file and **Deploy the stack**. Use a **full path** for the volume (`/Volume1/docker/roundremote/data:/data`). A relative `./data` would end up inside Portainer's own folder.
+3. Or **Repository**: URL `https://github.com/RoyBorkin/RoundSpotify`, reference `refs/heads/main`, compose path `docker-compose.yml`. Turn on *GitOps updates* (polling) with **Re-pull image** if you like.
+   - The repository's compose file uses the GHCR image. Its `build:` lines (commented out) would build from the `Dockerfile` instead. Portainer CE only partly supports building in Git stacks, so the ready-made image is the safer choice.
+
+### First run
+
+1. Open `http://192.168.50.108:8765/`. *Settings → Profiles & about → **Diagnostics*** shows **Role: Server (Docker)**, the data folder and its free space, the adapters, and what mDNS and SSDP found.
+2. Put in your keys from a phone: open *Settings → General → Set up from phone or computer* and scan the QR code (or open `http://192.168.50.108:8765/setup`). Everything you enter is saved in the data folder on the NAS.
+3. **Round displays:** on each Pi, set it up as a companion of this server:
+   - either run `pi/install.sh --mode=companion --server=http://192.168.50.108:8765`,
+   - or, on an installed Pi, use *Settings → Connection → Server*.
+4. **The GitHub Pages app** (or any browser elsewhere): set *Settings → Connection → Bridge* to `http://192.168.50.108:8765`. Allow *local network access* when Chrome asks.
+5. **Roon:** enable *Round Remote* in Roon → Settings → Extensions.
+
+Moving over from a Pi or PC bridge? Stop the old bridge and copy its `bridge/config.json`, the `*.json` state files (`psn.json`, `steam.json`, `androidtv.json`, `tasks.json`, `collection.json`, …), `profiles/` and any `AuthKey_*.p8` into the data folder. Then restart the container.
+
+### Your data and backups
+
+The container keeps everything in `/data` (= `/Volume1/docker/roundremote/data`):
+
+- `config.json`: created from `config.example.json` on the first start
+- the sign-ins and lists: `psn.json`, `steam.json`, `googlehome.json`, `youtube-tv.json`, `androidtv.json`, `appletv.json`, `streamsdk.json`, `roon-state.json`, `tasks.json`, `collection.json`, `blanks.json`
+- `profiles/`, `cache/`, Apple `AuthKey_*.p8` keys
+- `home/` (pyatv's Apple TV pairings)
+
+Back up that one folder: include it in your NAS backup, or stop the container and copy it. To restore, put the folder back and start the container. The folder holds sign-in tokens, so keep it private. The image itself contains no data.
+
+### Updating
+
+The server checks every 6 hours whether GitHub has a newer version, by comparing `sw.js` on the `main` branch. When there is one, **Settings → Profiles & about → Diagnostics** says **"A new version is available — update the container"**. You can also see it in `GET /api/system/update` → `{ mode: "docker", current, latest, updateAvailable }`. The container never updates itself. Update it with whichever tool you set it up with:
+
+- **Portainer:** *Stacks → roundremote → Editor →* **Update the stack** with **Re-pull image and redeploy** on. For a Repository stack, use **Pull and redeploy**.
+- **TOS Docker Manager / Container Manager:** pull `ghcr.io/royborkin/roundremote:latest` again (*Images*). Then stop the `roundremote` project and start / rebuild it so it uses the new image. Button names differ a little between Docker Manager versions.
+- **Command line:** `docker compose pull && docker compose up -d`.
+- **Automatically** (optional), with Watchtower next to Round Remote in the same compose file. The original `containrrr/watchtower` was archived in December 2025, so this uses the maintained fork [nicholas-fedor/watchtower](https://github.com/nicholas-fedor/watchtower):
+
+```yaml
+  watchtower:
+    image: nickfedor/watchtower
+    restart: unless-stopped
+    volumes: [ "/var/run/docker.sock:/var/run/docker.sock" ]
+    command: --cleanup --schedule "0 0 4 * * *" roundremote   # every night at 4:00, only this container
+```
+
+Your data in `/data` stays untouched across updates. To stay on one version, use a release tag instead of `latest`. Each `vX.Y.Z` tag pushed to GitHub publishes e.g. `ghcr.io/royborkin/roundremote:5.3.0`, and every build is also tagged `sha-<commit>`.
+
+### Publishing the image (once)
+
+`.github/workflows/docker.yml` builds the image for `linux/amd64` and `linux/arm64` on every push to `main` and on `v*` tags. It pushes the image to `ghcr.io/<owner>/roundremote` (always lowercase) with the tags `latest`, `sha-…` and the version numbers. It signs in with the workflow's own `GITHUB_TOKEN`, so there are no secrets to add.
+
+After the first run, make the package public:
+
+**GitHub → your profile → Packages → roundremote → Package settings → Change visibility → Public.**
+
+Build options (`docker build --build-arg …`, or `args:` under `build:` in the compose file):
+
+| Option | What it does |
+|---|---|
+| `WITH_PYATV=1` | Adds Python and pyatv for the Apple TV remote (it isn't in the default image) |
+| `WITH_AVAHI=1` | Adds `avahi-browse`, an extra Google TV search. It needs `- /var/run/dbus:/var/run/dbus:ro`; the bridge's own mDNS search works without it |
+| `WITH_ROON=0` | Leaves out RoonLabs' extension packages |
+
+The image uses Node.js 24 LTS on Debian 13 (slim), with `tini` as PID 1. It drops root to `PUID:PGID` and checks its own health through `/api/info`.
+
+### Troubleshooting the server
+
+| Problem | Fix |
+|---|---|
+| Nothing is found (no TVs, Cast or UPnP) | The container must use **host networking** (`network_mode: host`; in the TOS wizard, *Network → host*). Check *Diagnostics → mDNS*: "listening · N heard". If it shows 0 heard, a firewall or the switch is dropping multicast. |
+| The TOS firewall is on | Allow TCP **8765** (the app and API), UDP **5353** (mDNS) and UDP **1900** (SSDP) from your LAN. |
+| mDNS on the NAS | TOS runs its own avahi on port 5353. The bridge shares the port and also asks devices directly, so both work side by side. |
+| Port 8765 already used | Set `PORT: "8766"` (and use that port everywhere). |
+| Log says "data folder /data is NOT writable" | Set `PUID` / `PGID` to the owner of the data folder, or give the folder to that user. A NAS share with ACLs may refuse `chown`. |
+| Phones open a wrong address from the QR code | Set `RR_PUBLIC_URL` to `http://<NAS address>:8765`. |
+| `denied` / `unauthorized` when pulling the image | The GHCR package is still private. Make it public, or log in to `ghcr.io` on the NAS. |
+| Apple TV says "pyatv not installed" | Use an image built with `WITH_PYATV=1`. |
+| The container is *unhealthy* or keeps restarting | Look at its log (Docker Manager → Containers → roundremote → Log, or Portainer → Logs). Then open **`http://192.168.50.108:8765/diag`**: it shows the whole report and has a **Copy** button. |
+
+Sources: TerraMaster [Docker Manager (TOS 6)](https://help.terra-master.com/docs/TOS6/application/docker-manager) and [Container Manager (TOS 7)](https://help.terra-master.com/docs/TOS7/application/container-manager) help, Portainer [Add a stack](https://docs.portainer.io/user/docker/stacks/add) and [Edit a stack](https://docs.portainer.io/user/docker/stacks/edit), GitHub [Publishing Docker images](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images), Docker [multi-platform builds](https://docs.docker.com/build/ci/github-actions/multi-platform/), [Node.js release dates](https://endoflife.date/nodejs), [Watchtower end of maintenance](https://linuxiac.com/docker-update-tool-watchtower-reaches-end-of-maintenance/).
 
 ---
 
@@ -1616,6 +1797,8 @@ In **Movies & TV**, <kbd>←</kbd>/<kbd>→</kbd> skip back / forward by your sk
 | A phone can't open the QR code page | Phone and display must be on the same network. If the address in the QR code is wrong (VPN, Docker), set `publicUrl` for that app in `bridge/config.json` (see [Phone pages](#phone-pages)). |
 | Rhythm: "Needs the bridge" / nothing to listen to | Start the bridge, or pick another way under **Learn from** (microphone, tempo / tap). For the bridge to hear the computer, see [Rhythm: let the bridge hear your music](#rhythm-let-the-bridge-hear-your-music). |
 | The site still shows an old version | Reload once or twice; the offline cache updates itself in the background. |
+| Something's wrong with the bridge, the network or a service | Open *Settings → Profiles & about → **Diagnostics***, or `http://<bridge>:8765/diag` on any browser. It reports the role, versions, data folder, every adapter, the network interfaces, what mDNS / SSDP found, whether your Plex / Jellyfin / Home Assistant answer and, on a Pi, Wi-Fi, Bluetooth, sound, display and update state. It never shows passwords or tokens. **Copy** gives the whole report (JSON: `GET /api/diag`). |
+| Docker server problems | See [Troubleshooting the server](#troubleshooting-the-server). |
 
 ---
 
@@ -1654,14 +1837,16 @@ index.html, css/app.css         round UI (everything sized in cqmin → scales t
 js/main.js                      boot, sign-in redirects, shortcuts, idle dimming
 js/core/                        settings/tokens (store), player controller, router, colours, theme, YouTube helper, sound (Tone Visual), songinfo (facts, photos, year),
                                 mediainfo (movie & show facts), profiles (settings profiles), languages (subtitle languages), alerts (smart-home alerts), tvapp, nav,
-                                device (the Pi system API client), orientation (screen rotation), power (Battery saver, screen off)
+                                device (the Pi system API client), orientation (screen rotation), power (Battery saver, screen off),
+                                companion (a Pi that goes through a Round Remote server: "Server offline" overlay, Home dot)
 js/providers/                   one file per service + the bridge client (common interface in base.js); plex-media.js / jellyfin-media.js add the Movies & TV library;
                                 streaming.js = Netflix / Disney+ / YouTube; homeassistant.js / googlehome.js / playstation.js / steam.js / streamer.js are the Home services
 js/views/                       info, vinyl (+ vinyl-styles.js; decks.js + deck-styles.js: the cassette and CD players), lyrics (+ lyrics-extra.js, lyrics-kinetic2.js,
                                 lyrics-kinetic3.js, lyrics-crt.js), video, tone (+ tone-visuals.js), facts, media-library + media-views (the 9 library views), ha-controls
 js/lyrics/                      lrc.js (LRC parser + LRCLIB lookup), bidi.js (right-to-left lines)
 js/screens/                     home, player, media (Movies & TV) + media-panels, smarthome (Home), consoles (PlayStation & Steam), streamer (the music streamer),
-                                panels, connect, setup-remote (set up from a phone / computer), settings + settings-alerts + settings-device (Settings → Device, Screen rotation, Battery saver)
+                                panels, connect, setup-remote (set up from a phone / computer), settings + settings-alerts + settings-device (Settings → Device, Screen rotation, Battery saver),
+                                settings-diagnostics (Profiles & about → Diagnostics), settings-server (Connection → Server: own bridge or a Round Remote server)
 js/ui/                          dom helpers, icons, overlay (panels, toasts), the round on-screen keyboard, Home backgrounds (backdrops*.js)
 games/                          the Games category: index.js (the list), hub.js (the Games ring), shell.js (start card, pause, game over, top 5), kit.js (sound + drawing
                                 helpers), scores.js, games.css, and one file per game (+ level / generator helpers); the party games petakiot.js (Notes Game),
@@ -1673,14 +1858,16 @@ apps/                           the Apps category: index.js (the list), hub.js (
                                 clock-ring.js (the shared ringing screen), and one file per app with its helpers and css; Board Games: bg-games.js (the 17 companions),
                                 bg-*.js (one per companion), bg-rules.js (the 45 rules) and phone/codekey.html (the Codenames key page)
 bridge/                         Node bridge: server.js + adapters/ (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, psn, steam, streamsdk, airplay, cider,
-                                mpris, winmedia, mock) + lib/ (tasks, collection, party, dj, movienight, trivia, petakiot, codewords, blanks, audio, charts, hub, util, system + system-* = the Pi system API, setup + setup-page = phone / computer setup) + tools/ + settings profiles
+                                mpris, winmedia, mock) + lib/ (tasks, collection, party, dj, movienight, trivia, petakiot, codewords, blanks, audio, charts, hub, util, system + system-* = the Pi system API, setup + setup-page = phone / computer setup, paths = where state lives (RR_DATA_DIR) and the role, diag + diag-page = /api/diag and /diag, server-role = the Docker update check, proxy + companion + companion-page = a Pi as a companion of a server (proxy, /api/companion, the "Server offline" page), discovery = _roundremote._tcp over mDNS) + companion.js (the light companion for a Pi Zero 2 W) + tools/ + settings profiles
 pi/                             the Pi appliance: install.sh (one-shot installer; setup.sh runs it), kiosk.sh (cage + Chromium), netcheck.sh (Wi-Fi
                                 setup hotspot), update.sh, roundremote-helper.sh (the root helper), imu.py (motion sensor), rr-tool.py (EDID, hidden cursor,
-                                touch wake), systemd units and conf/ (sudoers, polkit, PAM, WirePlumber, captive-portal DNS)
+                                touch wake), systemd units (roundremote-companion.service for --mode=companion) and conf/ (sudoers, polkit, PAM, WirePlumber, captive-portal DNS)
 sounds/, icons/                 the alert chime; app icons
 sw.js, manifest.webmanifest     offline support + installable app
 screenshots/                    images used in this README
 start-bridge.bat / .sh          run the bridge on a Windows / Mac / Linux computer
+Dockerfile, .dockerignore       the server image (bridge + app; state in the /data volume); docker/entrypoint.sh drops root to PUID:PGID
+docker-compose.yml              the server for a NAS / Portainer stack (host networking); .github/workflows/docker.yml publishes ghcr.io/royborkin/roundremote
 ```
 
 Plain ES modules with no build step and no front-end libraries: the folder is the app.

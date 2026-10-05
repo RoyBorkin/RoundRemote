@@ -15,7 +15,21 @@
 # the kiosk (cage + Chromium on tty1, no desktop), the boot splash (Plymouth, pi/plymouth/), the setup hotspot for
 # Wi-Fi, narrow sudo rules, and services.
 #
+# Two kinds of install (--mode):
+#   full       (default) the whole Round Remote on this Pi: the bridge with every adapter, phone pages, data, the kiosk.
+#              With --server=URL it starts as a companion of that Round Remote server right away (Settings →
+#              Connection → Server switches between the two at any time, no restart).
+#   companion  a LIGHT companion for a Pi Zero 2 W (or any Pi) whose round display uses a Round Remote server, e.g. the
+#              Docker container on the NAS:  bash pi/install.sh --mode=companion --server=http://192.168.50.108:8765
+#              Only the kiosk (cage + Chromium), the small bridge/companion.js (this Pi's Wi-Fi, Bluetooth, sound,
+#              screen, updates + a proxy to the server + the "Server offline" page), the setup hotspot and the boot
+#              splash — no media adapters, no npm packages, no AirPlay. On a Pi with under 1 GB of RAM it also sets
+#              up zram swap (unless Raspberry Pi OS already has it) and lighter Chromium settings.
+#   Running it again with the other --mode switches cleanly (the other service is stopped and disabled); without
+#   --mode it keeps the kind that is installed.
+#
 # Options:
+#   --mode=full|companion      see above                      --server=URL   the Round Remote server (http://host:8765)
 #   --display=auto|waveshare-4-hdmi|waveshare-4-dsi|none   the screen (default auto: DSI if its overlay is set, else HDMI)
 #   --display-mode=auto|edid|cvt|none   HDMI mode under KMS (see README → Troubleshooting the display):
 #        auto  video=HDMI-A-1:720x720e  — the panel's own EDID mode, forced on even if hot-plug isn't seen (default)
@@ -50,6 +64,7 @@ DRY=0; INTERACTIVE=0; UNINSTALL=0; REBOOT=0; READONLY=0
 DISPLAY_KIND=auto; DISPLAY_MODE=auto; ROTATE=""; HOSTNAME_WANT=""; WIFI_COUNTRY=""; AUDIO_HAT=""; HDMI_AUDIO=auto
 AIRPLAY=1; PYATV=1; ROON=0; KIOSK=1; KIOSK_KIND=""; COMPOSITOR=""; APP_DIR_OPT=""; USER_OPT=""; REPO_URL="$REPO_URL_DEFAULT"; BRANCH=main; GIT_UPDATE=1
 FROM_BOOTSTRAP=0; SPLASH_MODE=on
+MODE=""; SERVER_URL=""
 ORIG_ARGS=("$@")
 THEME_DIR=/usr/share/plymouth/themes/roundremote
 PLYMOUTH_DROPIN=/etc/systemd/system/plymouth-quit.service.d/roundremote.conf
@@ -67,6 +82,8 @@ parse_args() {
       --no-splash) SPLASH_MODE=off ;;
       --verbose-boot) SPLASH_MODE=verbose ;;
       --splash) SPLASH_MODE=on ;;
+      --mode=*) MODE="${a#*=}" ;;
+      --server=*) SERVER_URL="${a#*=}" ;;
       --display=*) DISPLAY_KIND="${a#*=}" ;;
       --display-mode=*) DISPLAY_MODE="${a#*=}" ;;
       --rotate=*) ROTATE="${a#*=}" ;;
@@ -91,6 +108,8 @@ parse_args() {
       *) die "unknown option: $a (see --help)" ;;
     esac
   done
+  case "$MODE" in ""|full|companion) ;; *) die "--mode must be full or companion" ;; esac
+  if [ -n "$SERVER_URL" ]; then SERVER_URL="$(server_url "$SERVER_URL")" || die "--server must look like http://192.168.50.108:8765 (or host:port)"; fi
   case "$DISPLAY_KIND" in auto|waveshare-4-hdmi|waveshare-4-dsi|none) ;; *) die "--display must be auto, waveshare-4-hdmi, waveshare-4-dsi or none" ;; esac
   case "$DISPLAY_MODE" in auto|edid|cvt|none) ;; *) die "--display-mode must be auto, edid, cvt or none" ;; esac
   case "$ROTATE" in ""|0|90|180|270) ;; *) die "--rotate must be 0, 90, 180 or 270" ;; esac
@@ -229,6 +248,33 @@ display_block() {   # display_block KIND HAS_KMS_OVERLAY AUDIO_HAT NEED_I2C → 
   return 0
 }
 
+# --server: "host", "host:port" or "http(s)://host[:port]" → http://host:port (port 8765 by default); fails otherwise
+server_url() {
+  local s="$1" proto=http hostport host port
+  case "$s" in http://*) s="${s#http://}" ;; https://*) s="${s#https://}"; proto=https ;; esac
+  s="${s%%/*}"
+  hostport="$s"
+  if [[ "$hostport" =~ ^\[([0-9a-fA-F:.]+)\](:([0-9]{1,5}))?$ ]]; then host="[${BASH_REMATCH[1]}]"; port="${BASH_REMATCH[3]}"
+  elif [[ "$hostport" =~ ^([A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)(:([0-9]{1,5}))?$ ]]; then host="${BASH_REMATCH[1]}"; port="${BASH_REMATCH[4]}"
+  else return 1; fi
+  [ -n "$port" ] || { [ "$proto" = https ] && port=443 || port=8765; }
+  [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || return 1
+  if [ "$proto" = https ] && [ "$port" = 443 ]; then echo "https://$host"; else echo "$proto://$host:$port"; fi
+}
+# the JSON the bridge / companion reads (bridge/companion.json): { "server": URL, "enabled": true }
+companion_json() { printf '{\n  "server": "%s",\n  "enabled": %s\n}\n' "$1" "${2:-true}"; }
+# Chromium flags for a Pi with little memory (Pi Zero 2 W: 512 MB) — see README → "Pi Zero 2 W"
+LOWMEM_FLAGS="--renderer-process-limit=1 --enable-low-end-device-mode --js-flags=--max-old-space-size=192 --disk-cache-size=33554432 --disable-features=TranslateUI,Translate,MediaRouter,OptimizationHints,BackForwardCache"
+# kiosk.env: set CHROMIUM_FLAGS for low memory unless the user wrote their own (ours, or the old default, get replaced)
+kiosk_env_lowmem() {   # kiosk_env_lowmem "<file content>" → new content
+  local c="$1" line="CHROMIUM_FLAGS=\"$LOWMEM_FLAGS\""
+  if grep -Eq '^CHROMIUM_FLAGS=' <<<"$c"; then
+    if grep -Eq '^CHROMIUM_FLAGS="(--renderer-process-limit=2|--renderer-process-limit=1 --enable-low-end-device-mode[^"]*)"$' <<<"$c"; then
+      printf '%s\n' "$c" | sed -E "s|^CHROMIUM_FLAGS=.*$|$line|"
+    else printf '%s\n' "$c"; fi
+  else printf '%s\n%s\n' "$c" "$line"; fi
+}
+
 # ------------------------------------------------------------------ detection
 detect() {
   [ "$(uname -s)" = Linux ] || die "this installer is for Raspberry Pi OS (Linux)"
@@ -237,6 +283,7 @@ detect() {
   MODEL=""; [ -r /proc/device-tree/model ] && MODEL="$(tr -d '\0' < /proc/device-tree/model)"
   IS_PI=0; [[ "$MODEL" == *"Raspberry Pi"* ]] && IS_PI=1
   RAM_MB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1024 ))
+  RAM_MB="${RR_TEST_RAM_MB:-$RAM_MB}"   # tests: pretend to be a Pi Zero 2 W (RR_TEST_RAM_MB=427)
   BOOT_DIR="${RR_BOOT_DIR:-/boot/firmware}"; [ -f "$BOOT_DIR/config.txt" ] || [ -n "${RR_BOOT_DIR:-}" ] || BOOT_DIR=/boot
   DESKTOP=0
   if systemctl is-enabled display-manager.service >/dev/null 2>&1 || [ -e /etc/systemd/system/display-manager.service ]; then DESKTOP=1; fi
@@ -255,6 +302,17 @@ detect() {
   elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/../bridge/server.js" ]; then APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
   else APP_DIR="$TARGET_HOME/RoundRemote"; fi
   if [ -z "$KIOSK_KIND" ]; then if [ "$DESKTOP" = 1 ]; then KIOSK_KIND=autostart; else KIOSK_KIND=service; fi; fi
+  # --mode: keep the kind that is installed when it isn't given
+  if [ -z "$MODE" ]; then
+    if systemctl is-enabled --quiet roundremote-companion.service 2>/dev/null; then MODE=companion; else MODE=full; fi
+  fi
+  SERVICE=roundremote-bridge.service; OTHER_SERVICE=roundremote-companion.service
+  if [ "$MODE" = companion ]; then
+    SERVICE=roundremote-companion.service; OTHER_SERVICE=roundremote-bridge.service
+    AIRPLAY=0; PYATV=0; ROON=0   # the server does media; this Pi only shows the app
+  fi
+  LOWMEM=0; [ "${RAM_MB:-0}" -gt 0 ] && [ "$RAM_MB" -lt 1024 ] && LOWMEM=1
+  return 0
 }
 
 # ------------------------------------------------------------------ steps
@@ -262,6 +320,7 @@ step_repo() {
   step "App files in $APP_DIR"
   local piped=0; [ -z "$SCRIPT_DIR" ] && [ "$FROM_BOOTSTRAP" = 0 ] && piped=1
   if [ -f "$APP_DIR/bridge/server.js" ]; then
+    git_quiet_modes
     if [ -d "$APP_DIR/.git" ] && [ "$GIT_UPDATE" = 1 ] && [ "$FROM_BOOTSTRAP" = 0 ]; then
       if [ -z "$(git -C "$APP_DIR" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
         asuser git -C "$APP_DIR" pull --ff-only --quiet </dev/null || warn "git pull failed — keeping the current version"
@@ -272,6 +331,7 @@ step_repo() {
     # piped from curl (or a fresh --dir): get git and clone
     pkg_installed git || { root apt-get update -y </dev/null; root env DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates </dev/null; }
     asuser git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_DIR" </dev/null
+    git_quiet_modes
     piped=1
   fi
   [ "$piped" = 1 ] || return 0
@@ -282,11 +342,21 @@ step_repo() {
   exec bash "$APP_DIR/pi/install.sh" "${ORIG_ARGS[@]}" --from-bootstrap --user="$TARGET_USER" < "$tty"
 }
 
+# The installer makes pi/*.sh and pi/*.py executable; a checkout whose files GitHub stores without the x bit then looked
+# "changed" (Settings → Updates: "local changes", and git pull refused). Executable bits aren't ours to track here.
+git_quiet_modes() {
+  [ -d "$APP_DIR/.git" ] || return 0
+  [ "$(git -C "$APP_DIR" config --get core.fileMode 2>/dev/null)" = false ] && return 0
+  asuser git -C "$APP_DIR" config core.fileMode false
+  info "git: ignoring file-mode changes in $APP_DIR (core.fileMode false)"
+}
+
 step_packages() {
   step "Packages"
   root apt-get update -y </dev/null || warn "apt-get update had errors"
   local want=(git curl ca-certificates python3 network-manager dnsmasq-base nftables iw rfkill avahi-daemon avahi-utils libnss-mdns
-    bluez pipewire pipewire-pulse wireplumber alsa-utils i2c-tools playerctl)
+    bluez pipewire pipewire-pulse wireplumber alsa-utils i2c-tools)
+  [ "$MODE" = full ] && want+=(playerctl)   # Linux media players (the bridge's MPRIS adapter)
   local p
   p="$(first_avail python3-smbus2 python3-smbus || true)"; [ -n "$p" ] && want+=("$p")
   for p in pipewire-alsa wlr-randr wlopm fonts-noto-core fonts-noto-color-emoji; do pkg_avail "$p" && want+=("$p"); done
@@ -319,9 +389,32 @@ step_packages() {
     else curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO -E bash - && root env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs </dev/null; fi
   fi
   [ "$DRY" = 1 ] || info "node $(node -v 2>/dev/null || echo '?'), $(chromium --version 2>/dev/null || chromium-browser --version 2>/dev/null || echo 'chromium ?')"
+  [ "$MODE" = companion ] && [ "$LOWMEM" = 1 ] && step_zram
+  return 0
+}
+
+# zram swap on a small Pi (Pi Zero 2 W: 512 MB) — compressed swap in RAM gives Chromium room without wearing the SD
+# card. Raspberry Pi OS Trixie already does this (rpi-swap: zram + a swap file); then nothing is changed here.
+step_zram() {
+  if pkg_installed rpi-swap || grep -q '^/dev/zram' /proc/swaps 2>/dev/null || [ -e /etc/systemd/zram-generator.conf ]; then
+    info "zram swap: already set up by the system"; return 0
+  fi
+  pkg_avail zram-tools || { warn "no zram-tools package — skipping zram swap"; return 0; }
+  pkg_installed zram-tools || root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zram-tools </dev/null
+  printf '%s\n' "# Round Remote (pi/install.sh --mode=companion): compressed swap in RAM for a Pi with little memory" "ALGO=zstd" "PERCENT=50" "PRIORITY=100" \
+    | write_file /etc/default/zramswap 0644 root:root
+  root systemctl enable --quiet --now zramswap.service || warn "zramswap didn't start"
+  info "zram swap: on (zstd, half the RAM)"
 }
 
 step_bridge() {
+  if [ "$MODE" = companion ]; then
+    step "Light companion"
+    info "bridge/companion.js needs no npm packages (no media adapters here — the server has them)"
+    run chmod +x "$APP_DIR/pi/kiosk.sh" "$APP_DIR/pi/netcheck.sh" "$APP_DIR/pi/update.sh" "$APP_DIR/pi/imu.py" "$APP_DIR/pi/rr-tool.py"
+    step_companion_conf
+    return 0
+  fi
   step "Bridge"
   asuser bash -c "cd $(q "$APP_DIR/bridge") && npm install --omit=dev --no-audit --no-fund" </dev/null || warn "npm install failed — try again later: cd $APP_DIR/bridge && npm install"
   [ "$ROON" = 1 ] && { asuser bash -c "cd $(q "$APP_DIR/bridge") && npm run roon" </dev/null || warn "Roon libraries failed"; }
@@ -332,6 +425,25 @@ step_bridge() {
       || asuser python3 -m pip install --user --quiet pyatv </dev/null || warn "pyatv not installed — Apple TV control stays off"
   fi
   run chmod +x "$APP_DIR/pi/kiosk.sh" "$APP_DIR/pi/netcheck.sh" "$APP_DIR/pi/update.sh" "$APP_DIR/pi/imu.py" "$APP_DIR/pi/rr-tool.py"
+  step_companion_conf
+}
+
+# --server=URL: bridge/companion.json (git-ignored; the bridge's own data folder) — the light companion's server, or
+# on a full install "connect to this server" from the first start (Settings → Connection → Server changes it later)
+step_companion_conf() {
+  local f="$APP_DIR/bridge/companion.json"
+  if [ -n "$SERVER_URL" ]; then
+    companion_json "$SERVER_URL" true | write_file "$f" 0644 "$TARGET_USER:$(id -gn "$TARGET_USER" 2>/dev/null || echo "$TARGET_USER")"
+    info "server: $SERVER_URL"
+  elif [ "$MODE" = companion ] && ! grep -qs '"server": *"http' "$f"; then
+    warn "no --server=URL given: the round screen asks for the server's address at the first start"
+  elif [ "$MODE" = full ] && [ -e /etc/systemd/system/roundremote-companion.service ] && grep -qs '"enabled": *true' "$f"; then
+    # light companion → full install: start with this Pi's own bridge (the address stays for Settings → Server)
+    local old; old="$(sed -n 's/.*"server": *"\([^"]*\)".*/\1/p' "$f" | head -1)"
+    companion_json "$old" false | write_file "$f" 0644 "$TARGET_USER:$(id -gn "$TARGET_USER" 2>/dev/null || echo "$TARGET_USER")"
+    info "full install: this Pi's own bridge (the server ${old:-?} stays under Settings → Connection → Server)"
+  fi
+  return 0
 }
 
 step_system() {
@@ -552,8 +664,10 @@ step_files() {
   if ! [ -f /etc/roundremote/kiosk.env ]; then
     { cat "$APP_DIR/pi/conf/kiosk.env.example"
       [ -n "$COMPOSITOR" ] && echo "ROUNDREMOTE_COMPOSITOR=$COMPOSITOR"
-      if [ "${RAM_MB:-0}" -gt 0 ] && [ "$RAM_MB" -lt 1024 ]; then echo 'CHROMIUM_FLAGS="--renderer-process-limit=2"'; fi
+      if [ "$LOWMEM" = 1 ]; then echo "CHROMIUM_FLAGS=\"$LOWMEM_FLAGS\""; fi
     } | write_file /etc/roundremote/kiosk.env 0644 root:root
+  elif [ "$LOWMEM" = 1 ]; then
+    kiosk_env_lowmem "$(cat /etc/roundremote/kiosk.env)" | write_file /etc/roundremote/kiosk.env 0644 root:root
   fi
   if [ -n "$ROTATE" ] && [ "$DRY" = 0 ]; then
     local t=normal; [ "$ROTATE" != 0 ] && t="$ROTATE"
@@ -563,14 +677,20 @@ step_files() {
   elif [ -n "$ROTATE" ]; then echo "    [dry-run] set ROUNDREMOTE_TRANSFORM=$ROTATE in /etc/roundremote/kiosk.env"; fi
 }
 
-render_unit() { sed -e "s#__USER__#$TARGET_USER#g" -e "s#__APP_DIR__#$APP_DIR#g" -e "s#__UID__#$TARGET_UID#g" "$APP_DIR/pi/$1"; }
+render_unit() { sed -e "s#__USER__#$TARGET_USER#g" -e "s#__APP_DIR__#$APP_DIR#g" -e "s#__UID__#$TARGET_UID#g" -e "s#__SERVICE__#$SERVICE#g" "$APP_DIR/pi/$1"; }
 step_services() {
-  step "Services"
-  render_unit roundremote-bridge.service | write_file /etc/systemd/system/roundremote-bridge.service 0644 root:root
+  step "Services ($MODE: $SERVICE)"
+  # switching kinds: the other one stops for good (both want port 8765)
+  if [ -e "/etc/systemd/system/$OTHER_SERVICE" ]; then
+    root systemctl disable --now --quiet "$OTHER_SERVICE" 2>/dev/null || true
+    root rm -f "/etc/systemd/system/$OTHER_SERVICE"
+    info "stopped and removed $OTHER_SERVICE"
+  fi
+  render_unit "$SERVICE" | write_file "/etc/systemd/system/$SERVICE" 0644 root:root
   render_unit roundremote-netcheck.service | write_file /etc/systemd/system/roundremote-netcheck.service 0644 root:root
   root systemctl daemon-reload
-  root systemctl enable --quiet roundremote-bridge.service roundremote-netcheck.service
-  root systemctl restart roundremote-bridge.service
+  root systemctl enable --quiet "$SERVICE" roundremote-netcheck.service
+  root systemctl restart "$SERVICE"
   root systemctl restart roundremote-netcheck.service || true
   if [ "$KIOSK" = 0 ]; then info "kiosk: off (--no-kiosk)"
   elif [ "$KIOSK_KIND" = service ]; then
@@ -585,7 +705,7 @@ step_services() {
   if [ "$DRY" = 0 ]; then
     for _ in $(seq 1 20); do curl -fsS -m 2 http://127.0.0.1:8765/api/info >/dev/null 2>&1 && break; sleep 1; done
     if curl -fsS -m 2 http://127.0.0.1:8765/api/info >/dev/null 2>&1; then info "${G}bridge is up on http://127.0.0.1:8765/${N}"
-    else warn "the bridge didn't answer yet: journalctl -u roundremote-bridge -e"; fi
+    else warn "the bridge didn't answer yet: journalctl -u ${SERVICE%.service} -e"; fi
   fi
 }
 
@@ -612,9 +732,9 @@ step_readonly() {
 
 do_uninstall() {
   step "Removing Round Remote's services and system files (the app folder and packages stay)"
-  root systemctl disable --now roundremote-kiosk.service roundremote-netcheck.service roundremote-bridge.service 2>/dev/null || true
+  root systemctl disable --now roundremote-kiosk.service roundremote-netcheck.service roundremote-bridge.service roundremote-companion.service 2>/dev/null || true
   local f
-  for f in /etc/systemd/system/roundremote-{bridge,kiosk,netcheck}.service /usr/local/sbin/roundremote-helper /etc/sudoers.d/roundremote \
+  for f in /etc/systemd/system/roundremote-{bridge,companion,kiosk,netcheck}.service /usr/local/sbin/roundremote-helper /etc/sudoers.d/roundremote \
            /etc/polkit-1/rules.d/50-roundremote.rules /etc/pam.d/roundremote-kiosk /etc/udev/rules.d/99-roundremote-backlight.rules \
            /etc/NetworkManager/dnsmasq-shared.d/roundremote-captive.conf /etc/modules-load.d/roundremote-i2c.conf \
            /etc/wireplumber/main.lua.d/51-roundremote-no-hdmi.lua /etc/wireplumber/wireplumber.conf.d/51-roundremote-no-hdmi.conf \
@@ -649,13 +769,21 @@ summary() {
   step "Done"
   local pw="" h; h="$(hostname)"
   pw="$($SUDO sed -n 's/^PASSWORD=//p' /etc/roundremote/hotspot.env 2>/dev/null || true)"
+  if [ "$MODE" = companion ]; then
+    info "Light companion of ${SERVER_URL:-$(sed -n 's/.*"server": *"\([^"]*\)".*/\1/p' "$APP_DIR/bridge/companion.json" 2>/dev/null || true)}"
+    info "The round screen shows Round Remote from the server; while it's offline, \"Server offline\" with Wi-Fi settings"
+  fi
   info "Round Remote: http://127.0.0.1:8765/ on the Pi · http://$h.local:8765/ from your network"
   info "No Wi-Fi at boot? After ~45 s the Pi opens the Wi-Fi network \"$HOTSPOT_SSID\"${pw:+ (password: $pw)}:"
   info "join it with a phone and the setup page opens (or go to http://10.42.0.1:8765/system/wifi)."
-  info "Keys (Spotify client ID, Jellyfin…): $APP_DIR/bridge/config.json → \"app\""
-  info "Logs: journalctl -u roundremote-bridge -f · journalctl -u roundremote-kiosk -f"
+  if [ "$MODE" = companion ]; then info "Keys and sign-ins (Spotify client ID, Jellyfin…) live on the server: its config.json → \"app\""
+  else info "Keys (Spotify client ID, Jellyfin…): $APP_DIR/bridge/config.json → \"app\""; fi
+  info "Logs: journalctl -u ${SERVICE%.service} -f · journalctl -u roundremote-kiosk -f"
   info "Update later: Settings → Device → Updates, or bash $APP_DIR/pi/update.sh"
-  [ "${RAM_MB:-0}" -gt 0 ] && [ "$RAM_MB" -lt 1024 ] && warn "only ${RAM_MB} MB of RAM (Pi Zero 2 W?): turn on Settings → Reduce effects"
+  if [ "$LOWMEM" = 1 ]; then
+    if [ "$MODE" = full ]; then warn "only ${RAM_MB} MB of RAM (Pi Zero 2 W?): the light companion fits better — bash $APP_DIR/pi/install.sh --mode=companion --server=http://<server>:8765"
+    else info "only ${RAM_MB} MB of RAM: lighter Chromium settings, and the app starts with Reduce effects on"; fi
+  fi
   if [ "${NEEDS_REBOOT:-0}" = 1 ]; then
     if [ "$REBOOT" = 1 ]; then info "rebooting…"; root systemctl reboot; else echo; echo "${B}Reboot to start the round screen:  sudo reboot${N}"; fi
   fi
@@ -682,7 +810,7 @@ main() {
   fi
   echo "${B}Round Remote installer${N} — $(date '+%F %T')$([ "$DRY" = 1 ] && echo ' (dry run: nothing is changed)')"
   info "system: $OS_PRETTY${MODEL:+ · $MODEL} · ${RAM_MB} MB RAM · boot files in $BOOT_DIR"
-  info "user: $TARGET_USER ($TARGET_HOME) · app: $APP_DIR · kiosk: $([ "$KIOSK" = 1 ] && echo "$KIOSK_KIND" || echo off)"
+  info "user: $TARGET_USER ($TARGET_HOME) · app: $APP_DIR · kiosk: $([ "$KIOSK" = 1 ] && echo "$KIOSK_KIND" || echo off) · mode: $MODE${SERVER_URL:+ · server: $SERVER_URL}"
   [ "$IS_PI" = 1 ] || warn "this doesn't look like a Raspberry Pi — continuing, but the display and I2C steps may not apply"
   case "$CODENAME" in bookworm|trixie) ;; *) warn "tested on Raspberry Pi OS Bookworm and Trixie; this is '${CODENAME:-unknown}'" ;; esac
   if [ "$UNINSTALL" = 1 ]; then do_uninstall; exit 0; fi

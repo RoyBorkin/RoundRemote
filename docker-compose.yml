@@ -1,0 +1,44 @@
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
+# Round Remote server (bridge + app + data) — e.g. on a NAS. README → "Run it on a server (Docker)".
+#
+#   TerraMaster TOS 6/7: Docker Manager / Container Manager → Projects → Add → paste this file.
+#   Portainer: Stacks → Add stack → Web editor (paste this) — or Repository (this repo, compose path docker-compose.yml).
+#   Command line: docker compose up -d
+#
+# Then open http://<NAS address>:8765/ (the app) and http://<NAS address>:8765/setup on your phone.
+services:
+  roundremote:
+    image: ghcr.io/royborkin/roundremote:latest
+    # Build it yourself instead of pulling (Portainer "Repository" stacks, or `docker compose up -d --build`):
+    # build:
+    #   context: .
+    #   args:
+    #     WITH_PYATV: "0"      # "1" adds Python + pyatv for the Apple TV remote
+    #     WITH_AVAHI: "0"      # "1" adds avahi-browse (also mount /var/run/dbus below)
+    container_name: roundremote
+    # HOST networking is required: the bridge finds your devices with multicast/broadcast — mDNS (Google TV, Cast,
+    # Apple TV), SSDP (UPnP/DLNA players), Roon's discovery, the Cast/Google TV connections back to the bridge.
+    # In Docker's default bridge network none of that reaches your LAN. With host networking the bridge listens on
+    # the NAS's own address, port 8765 (change it with PORT below) — `ports:` is not used.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      PUID: "1000"                 # owner of ./data on the NAS — over SSH, `id <your user>` shows uid/gid
+      PGID: "1000"                 # (TOS often: uid 1000/1001, gid 100 "users" or 1000 "admin")
+      TZ: "Asia/Jerusalem"         # your time zone (timers, alarms, logs)
+      RR_PUBLIC_URL: "http://192.168.50.108:8765"   # what phones open from the QR codes (this NAS's address)
+      # PORT: "8765"               # another port, if 8765 is taken on the NAS
+      # RR_UPDATE_URL: ""          # where "is there a new version?" looks (default: GitHub, main branch)
+    volumes:
+      # All settings, sign-ins and lists — back this folder up. "./data" is next to this file (TOS Projects, command
+      # line). In PORTAINER use a full path instead, e.g. /Volume1/docker/roundremote/data:/data (a relative path
+      # there ends up inside Portainer's own folder).
+      - ./data:/data
+      # Only with WITH_AVAHI=1: let avahi-browse talk to the NAS's own avahi-daemon
+      # - /var/run/dbus:/var/run/dbus:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    # The image has its own health check (GET /api/info every 30 s).

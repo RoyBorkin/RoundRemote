@@ -16,9 +16,10 @@ import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/util.js';
+import { dataPath } from '../lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE = path.join(__dirname, '..', 'appletv.json');
+const STATE = dataPath('appletv.json');
 // Round Remote key → pyatv remote-control command
 const KEYS = { up: 'up', down: 'down', left: 'left', right: 'right', ok: 'select', back: 'menu', home: 'home', menu: 'menu',
   playpause: 'play_pause', play: 'play', pause: 'pause', next: 'next', prev: 'previous', volup: 'volume_up', voldown: 'volume_down',

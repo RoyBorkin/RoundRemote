@@ -18,13 +18,14 @@ import { fileURLToPath } from 'node:url';
 import { log } from './util.js';
 import { extractSngNotes } from '../../rhythm/charts-sng.js';
 import { normalizeChart, cleanTitle } from '../../rhythm/charts-data.js';
+import { dataPath } from './paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULTS = {
   enabled: true,
   api: 'https://api.enchor.us',
   files: 'https://files.enchor.us',
-  cacheDir: path.join(__dirname, '..', 'cache', 'charts'),
+  cacheDir: dataPath('cache', 'charts'),
   maxNotesMB: 8,
   timeoutMs: 15000,
 };

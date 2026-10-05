@@ -15,6 +15,7 @@ import { bridgeFetch } from '../providers/bridge.js';
 import { systemInfo, cachedInfo, forcedDevice, sysGet, sysPost, errText, errCode, CODE_TEXT, REMOTE_TEXT, canWrite, appVersion, ensureCss } from '../core/device.js';
 import { orientation, orientState, rotateBy, calibrate, requestMotionPermission, ORIENT_MODES, ORIENT_SOURCES } from '../core/orientation.js';
 import { power, batteryState, batterySource, saverActions, refreshBattery, lastPowerError, screenOff } from '../core/power.js';
+import { viaServer, companionStatus } from '../core/companion.js';
 
 // ---------------------------------------------------------------- little helpers
 const svg = (d, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -627,7 +628,9 @@ function updatesSection() {
     const thr = sys?.throttled && typeof sys.throttled === 'object' ? sys.throttled : null;
     clear(info);
     info.append(line('App', v || '—', 'b.dv-mono'),
-      line('Bridge', String(upd?.version || upd?.current || '—').slice(0, 24), 'b.dv-mono'),
+      line(viaServer() ? (companionStatus()?.mode === 'light' ? 'Companion' : 'This Pi') : 'Bridge', String(upd?.version || upd?.current || '—').slice(0, 24), 'b.dv-mono'),
+      // a companion Pi: the server (NAS) has its own version and is updated there (docker compose pull)
+      viaServer() ? line('Server', `${companionStatus()?.serverVersion || '—'}${companionStatus()?.online ? '' : ' (offline)'}`, 'b.dv-mono') : '',
       upd?.commit ? line('Commit', `${upd.commit}${upd.branch && upd.branch !== 'main' ? ` (${upd.branch})` : ''}${upd.dirty ? ' · local changes' : ''}`, 'b.dv-mono') : '',
       sys?.model ? line('Device', sys.model) : '',
       sys?.os ? line('System', sys.os) : '',

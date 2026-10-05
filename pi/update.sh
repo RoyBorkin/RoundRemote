@@ -4,7 +4,12 @@
 # + restart the bridge. Settings → Device → Updates runs it through the bridge (POST /api/system/update), or run
 # it yourself:   bash ~/RoundRemote/pi/update.sh
 #   --no-restart   don't restart the bridge (the bridge restarts itself after answering)
-#   --force        stash local changes to tracked files first (your bridge/config.json is never touched: it's not tracked)
+#   --force        (kept for older bridges; local changes are always put aside now — see below)
+# Local changes to tracked files (an edit over SSH…) never stop an update and are never lost: they're saved as a commit
+# on a branch "local-changes/<date>" (git log local-changes/<date>; git stash list too), then the checkout is reset to
+# what was committed. Your settings are never touched: bridge/config.json, companion.json, system-state.json, sign-ins
+# and lists aren't tracked by git (.gitignore). Changed file modes (chmod +x by the installer) aren't changes at all.
+# Works for both kinds of install: the full bridge and the light companion (roundremote-companion.service).
 #   --apply-system when the update changed system-level files (the installer, services, sudo rules, the boot splash
 #                  theme in pi/plymouth/…), run pi/install.sh right away with the options of its last run
 #                  (--same-options, non-interactive; needs sudo — run it over SSH, not from Settings)
@@ -24,10 +29,16 @@ fail() { echo "update: $1" >&2; echo "RESULT updated=0 error=${1// /_}"; exit 1;
 
 command -v git >/dev/null || fail "git is not installed"
 [ -d .git ] || fail "not a git checkout (install with pi/install.sh to get updates)"
+: "$FORCE"
+# the installer's chmod +x isn't a local change (GitHub may store these files without the executable bit)
+[ "$(git config --get core.fileMode)" = false ] || git config core.fileMode false
+SERVICE=roundremote-bridge.service
+systemctl is-enabled --quiet roundremote-companion.service 2>/dev/null && SERVICE=roundremote-companion.service
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  [ "$FORCE" = 1 ] || fail "local changes to tracked files — run with --force to stash them"
-  git stash push -m "roundremote-update $(date +%F_%T)" >/dev/null || fail "git stash failed"
-  echo "update: stashed local changes (git stash list)"
+  backup="local-changes/$(date +%Y%m%d-%H%M%S)"
+  git -c user.name="Round Remote" -c user.email="update@roundremote.local" stash push -m "roundremote-update $backup" >/dev/null || fail "git stash failed"
+  git branch "$backup" 'stash@{0}' 2>/dev/null || true
+  echo "update: local changes saved on branch $backup (and in git stash list) — the files are back as committed"
 fi
 from="$(git rev-parse --short HEAD)"
 git fetch --quiet || fail "can't reach GitHub (git fetch failed)"
@@ -42,7 +53,8 @@ changed="$(git diff --name-only HEAD '@{u}')"
 git merge --ff-only --quiet '@{u}' || fail "can't fast-forward (local commits?)"
 to="$(git rev-parse --short HEAD)"
 echo "update: $from → $to"
-if grep -qx 'bridge/package.json' <<<"$changed" || [ ! -d bridge/node_modules ]; then
+if [ "$SERVICE" = roundremote-companion.service ]; then :   # the light companion needs no npm packages
+elif grep -qx 'bridge/package.json' <<<"$changed" || [ ! -d bridge/node_modules ]; then
   echo "update: npm install"
   (cd bridge && npm install --omit=dev --no-audit --no-fund) || fail "npm install failed"
 fi
@@ -53,7 +65,7 @@ if grep -Eq "$SYSTEM_RE" <<<"$changed"; then
   else echo "update: system files changed — apply them once with: bash ~/RoundRemote/pi/update.sh --apply-system (or bash ~/RoundRemote/pi/install.sh --same-options)"; fi
 fi
 if [ "$RESTART" = 1 ]; then
-  sudo -n systemctl --no-block restart roundremote-bridge.service 2>/dev/null || echo "update: restart the bridge yourself (sudo systemctl restart roundremote-bridge)"
+  sudo -n systemctl --no-block restart "$SERVICE" 2>/dev/null || echo "update: restart it yourself (sudo systemctl restart ${SERVICE%.service})"
   if grep -Eq '^pi/(kiosk\.sh|boot\.html|rr-tool\.py)$' <<<"$changed" && systemctl is-enabled --quiet roundremote-kiosk.service 2>/dev/null; then
     echo "update: the kiosk changed — restarting it"
     sudo -n systemctl --no-block restart roundremote-kiosk.service 2>/dev/null || echo "update: restart the kiosk yourself (sudo systemctl restart roundremote-kiosk)"

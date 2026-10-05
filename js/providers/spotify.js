@@ -7,7 +7,7 @@ import { http, HttpError, qs, randomString, sha256base64url, sleep } from '../co
 
 const AUTH = 'https://accounts.spotify.com';
 const API = 'https://api.spotify.com/v1/';
-const SCOPES = [
+export const SCOPES = [
   'user-read-playback-state', 'user-modify-playback-state', 'user-read-currently-playing',
   'playlist-read-private', 'playlist-read-collaborative', 'user-library-read',
   // Web Playback SDK — lets this display itself be a Spotify Connect speaker
@@ -47,37 +47,69 @@ export class SpotifyProvider extends Provider {
   isAuthed() { return !!store.auth('spotify')?.refresh; }
 
   // ---------- auth ----------
-  async connect() {
+  /** @param {{ addAccount?: boolean }} o  addAccount: let Spotify ask which account (another saved account, js/providers/spotify-accounts.js) */
+  async connect({ addAccount = false } = {}) {
     if (!this.clientId) throw new Error('Spotify Client ID missing (Settings → Spotify).');
     const verifier = randomString(96);
     store.temp('spotify_verifier', verifier);
     const challenge = await sha256base64url(verifier);
     location.href = `${AUTH}/authorize?${qs({
       response_type: 'code', client_id: this.clientId, scope: SCOPES, redirect_uri: redirectUri(),
-      code_challenge_method: 'S256', code_challenge: challenge, state: STATE,
+      code_challenge_method: 'S256', code_challenge: challenge, state: STATE, show_dialog: addAccount ? 'true' : undefined,
     })}`;
   }
   async handleRedirect(params) {
     if (params.get('state') !== STATE) return false;
     if (params.get('error')) throw new Error(`Spotify sign-in cancelled (${params.get('error')})`);
-    const code = params.get('code');
-    const verifier = store.temp('spotify_verifier');
-    const res = await http(`${AUTH}/api/token`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: this.clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri(), code_verifier: verifier }),
-    });
+    await this.exchangeCode(params.get('code'), store.temp('spotify_verifier'), redirectUri());
     store.temp('spotify_verifier', null);
-    this._saveToken(res);
     return true;
   }
-  _saveToken(res) {
-    const prev = store.auth('spotify') || {};
-    store.setAuth('spotify', {
+  /** Swap an authorization code (PKCE) for tokens and keep them. Also used when a phone signs in for this display
+   *  (js/core/remote-setup.js): the phone started the sign-in, so its verifier and redirect URI come along. */
+  async exchangeCode(code, verifier, redirect) {
+    const res = await http(`${AUTH}/api/token`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: this.clientId, grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier }),
+    });
+    this._saveToken(res, { fresh: true });
+    await this._identify().catch(() => {});
+  }
+  _saveToken(res, { fresh = false } = {}) {
+    const prev = fresh ? {} : store.auth('spotify') || {};
+    const a = {
       access: res.access_token,
       refresh: res.refresh_token || prev.refresh,
       expiresAt: Date.now() + (res.expires_in || 3600) * 1000,
       scope: res.scope || prev.scope || '',
-    });
+      id: prev.id, name: prev.name, image: prev.image, product: prev.product,   // who this is (saved accounts)
+    };
+    store.setAuth('spotify', a);
+    if (a.id) this._vault(a);
+  }
+  /** Saved accounts (js/providers/spotify-accounts.js): keep this account's latest tokens there too. */
+  _vault(a) {
+    const list = (store.auth('spotify.accounts') || []).filter((x) => x.id !== a.id);
+    store.setAuth('spotify.accounts', [...list, { ...a }]);
+  }
+  /** Who is signed in (name + picture), saved with the account so you can switch back to it later. */
+  async _identify() {
+    const me = await this.api('me');
+    if (!me?.id) return;
+    const a = { ...store.auth('spotify'), id: me.id, name: me.display_name || me.id, image: me.images?.[0]?.url || '', product: me.product || '' };
+    store.setAuth('spotify', a);
+    this._vault(a);
+  }
+  /** Another saved account became active: the web player belongs to the old one, so start over. */
+  _accountChanged() {
+    try { this.webPlayer?.disconnect(); } catch {}
+    this.webPlayer = null; this.localDeviceId = null;
+    this.emit('user');
+    if (this.timer) {
+      this.publish({ track: null, isPlaying: false, status: 'loading', message: '' });
+      this.refresh().catch(() => {});
+      this._startWebPlayer().catch((e) => console.info('spotify web player', e.message));
+    }
   }
   async _refresh() {
     if (this.refreshing) return this.refreshing;
@@ -127,6 +159,7 @@ export class SpotifyProvider extends Provider {
   // ---------- state ----------
   async start() {
     this.publish({ status: 'loading' });
+    if (!store.auth('spotify')?.id) this._identify().catch(() => {});   // signed in before accounts were saved
     this._startWebPlayer().catch((e) => console.info('spotify web player', e.message));
     await this.refresh().catch(() => {});
     const loop = async () => {
@@ -283,6 +316,8 @@ export class SpotifyProvider extends Provider {
   signOut() {
     try { this.webPlayer?.disconnect(); } catch {}
     this.webPlayer = null; this.localDeviceId = null;
+    const id = store.auth('spotify')?.id;
+    if (id) store.setAuth('spotify.accounts', (store.auth('spotify.accounts') || []).filter((x) => x.id !== id));   // signing out forgets this account
     store.setAuth('spotify', null);
   }
 }

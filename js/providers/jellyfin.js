@@ -22,6 +22,8 @@ export class JellyfinProvider extends Provider {
     this.sessions = [];
     this.timer = null;
     this.proxy = null;
+    // another Jellyfin user was picked (js/providers/jellyfin-users.js): forget the last user's player and cached pages
+    store.on('auth', (k) => { if (k === 'jellyfin') { this.session = null; this.cache?.clear(); this.emit('user'); if (this.timer) this.refresh().catch(() => {}); } });
   }
   get server() { return (store.get('jellyfinServer') || '').trim().replace(/\/$/, ''); }
   get auth() { return store.auth('jellyfin'); }
@@ -88,9 +90,19 @@ export class JellyfinProvider extends Provider {
     const a = await this.api('/Users/AuthenticateByName', { method: 'POST', json: { Username: username, Pw: password }, token: null });
     this._save(a);
   }
-  _save(a) { store.setAuth('jellyfin', { token: a.AccessToken, userId: a.User?.Id, user: a.User?.Name, server: this.server }); }
+  _save(a) {
+    const u = { token: a.AccessToken, userId: a.User?.Id, user: a.User?.Name, server: this.server, imageTag: a.User?.PrimaryImageTag || '', admin: !!a.User?.Policy?.IsAdministrator };
+    // every user signed in here is remembered, so switching between them is instant (js/providers/jellyfin-users.js)
+    const saved = (store.auth('jellyfin.users') || []).filter((x) => !(x.userId === u.userId && x.server === u.server));
+    if (u.userId && u.token) store.setAuth('jellyfin.users', [...saved, { userId: u.userId, name: u.user || '', token: u.token, server: u.server, imageTag: u.imageTag, admin: u.admin }]);
+    store.setAuth('jellyfin', u);
+  }
   async signOut() {
+    for (const u of (store.auth('jellyfin.users') || []).filter((x) => x.server === this.server)) {
+      try { await this.api('/Sessions/Logout', { method: 'POST', token: u.token }); } catch {}
+    }
     try { await this.api('/Sessions/Logout', { method: 'POST' }); } catch {}
+    store.setAuth('jellyfin.users', (store.auth('jellyfin.users') || []).filter((x) => x.server !== this.server));
     store.setAuth('jellyfin', null);
   }
 

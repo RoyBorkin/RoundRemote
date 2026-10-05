@@ -50,11 +50,14 @@ export function mount(el, ctx) {
       h('div.bg-gate-t', 'Adults only'),
       h('div.bg-gate-m', 'An adults-only party game full of crude, offensive humour. Everyone playing should be 18 or older.'),
       h('div.bg-gate-s', 'This page only keeps the score — no cards are shown.'),
+      h('button.bg-ca-play', { type: 'button', onclick: () => playOnScreen() }, 'No cards? Play Fill the Blank on the screen ›'),
       h('button.pill.primary.bg-gate-ok', { type: 'button', onclick: () => { app.save('cahAdult', true); app.sfx('pop'); gateEl.classList.add('out'); setTimeout(() => { gateEl?.remove(); gateEl = null; }, 300); } }, 'We’re all 18+'),
       h('button.pill.small.bg-gate-no', { type: 'button', onclick: () => ctx.pop() }, 'Not now'));
     el.append(gateEl);
   }
 
+  // no box at hand? Fill the Blank (games/blanks.js) plays the same way on the round screen
+  const playOnScreen = () => { app.sfx('tap'); app.go('game', { id: 'blanks' }); };
   const czar = () => S.players[S.czar % S.players.length];
   function render() {
     S.czar = S.czar % S.players.length;
@@ -113,6 +116,7 @@ export function mount(el, ctx) {
           e.currentTarget.classList.toggle('on', on(x.id)); notes.textContent = x.note; serious = 0; save(); render();
         } }, x.name)));
         body.append(
+          h('button.bg-ca-play.wide', { type: 'button', onclick: () => { panel.close(); playOnScreen(); } }, h('b', 'Play it on the screen'), h('small', 'Fill the Blank — our own cards, phones as hands, or your own cards added by QR')),
           h('div.bg-sect', 'House rules'), hs, notes,
           h('div.bg-sect', 'Game'),
           h('div.bg-mk-chips',

@@ -8,12 +8,15 @@
 //   POST   /api/blanks/packs  { pack } | { url }        import a JSON pack (a phone upload, or fetched from a public URL)
 //   DELETE /api/blanks/packs?id=<id>&key=<room key>     remove an imported pack (the display only)
 //   POST   /api/blanks/house  { kind: 'prompt'|'answer', text, lang, adult, by }   add a card to the house pack
-//   DELETE /api/blanks/house?id=<id>&key=<room key>     remove a house card (the display only)
+//   DELETE /api/blanks/house?id=<id>&key=<room key>     remove a house card (the display) — or &device=<id> (the phone that added it)
+//   GET    /api/blanks/export?id=house|all|<id>         a pack as a JSON file (importable again; "all" = house + imported packs)
+//   GET    /blanks/add                                  the "Add cards" phone page (lib/blanks-add.js) — no game or room needed
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { partyApp, phonePage, HttpErr, str } from './party.js';
 import { isPrivateHost, log } from './util.js';
+import { ADD_PAGE } from './blanks-add.js';
 
 const TYPES = new Set(['join', 'play', 'swap', 'next', 'pick', 'vote', 'go', 'leave', 'added']);
 const MAX_PACKS = 40, MAX_PROMPTS = 3000, MAX_ANSWERS = 10000, MAX_HOUSE = 5000, MAX_TEXT = 240;
@@ -593,7 +596,12 @@ function limited(req, max = 40) {
 export async function route(req, res, url, ctx) {
   const { cfg, cors, json, readJson, originAllowed, dir } = ctx;
   const p = url.pathname.replace(/\/+$/, '');
-  if (p !== '/api/blanks/packs' && p !== '/api/blanks/pack' && p !== '/api/blanks/house') return partyRoute(req, res, url, ctx);
+  if (p === '/blanks/add') {
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(ADD_PAGE);
+  }
+  if (!['/api/blanks/packs', '/api/blanks/pack', '/api/blanks/house', '/api/blanks/export'].includes(p)) return partyRoute(req, res, url, ctx);
   cors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   if (!originAllowed(req)) return json(res, 403, { error: `origin ${req.headers.origin} not allowed` });
@@ -601,15 +609,18 @@ export async function route(req, res, url, ctx) {
   const q = url.searchParams;
   try {
     if (p === '/api/blanks/packs' && req.method === 'GET') {
-      return json(res, 200, { house: { prompts: db.house.prompts.length, answers: db.house.answers.length }, packs: db.packs.map(summary) });
+      const H = db.house;
+      return json(res, 200, { house: { prompts: H.prompts.length, answers: H.answers.length, adultPrompts: H.prompts.filter((c) => c.adult).length, adultAnswers: H.answers.filter((c) => c.adult).length },
+        packs: db.packs.map(summary) });
     }
     if (p === '/api/blanks/pack' && req.method === 'GET') {
       const id = q.get('id') || '';
       if (id === 'house') {
-        const adult = q.get('adult') === '1';
+        const adult = q.get('adult') === '1', dev = str(q.get('device'), 64);
         const ok = (c) => adult || !c.adult;
-        return json(res, 200, { id: 'house', name: 'House pack', lang: 'mixed', prompts: db.house.prompts.filter(ok).map((c) => ({ id: c.id, text: c.text, pick: c.pick, lang: c.lang, adult: !!c.adult, by: c.by })),
-          answers: db.house.answers.filter(ok).map((c) => c.text), cards: db.house.answers.filter(ok).map((c) => ({ id: c.id, text: c.text, lang: c.lang, adult: !!c.adult, by: c.by })) });
+        const pub = (c) => ({ id: c.id, text: c.text, lang: c.lang, adult: !!c.adult, by: c.by, at: c.at, ...(c.pick ? { pick: c.pick } : {}), ...(dev && c.dev === dev ? { mine: true } : {}) });   // never the phones' ids
+        return json(res, 200, { id: 'house', name: 'House pack', lang: 'mixed', prompts: db.house.prompts.filter(ok).map(pub),
+          answers: db.house.answers.filter(ok).map((c) => c.text), cards: db.house.answers.filter(ok).map(pub) });
       }
       const pk = db.packs.find((x) => x.id === id);
       if (!pk) throw new HttpErr(404, 'No such pack');
@@ -640,18 +651,42 @@ export async function route(req, res, url, ctx) {
       if (list.some((c) => c.text.toLowerCase() === text.toLowerCase())) throw new HttpErr(409, 'That card is already in the house pack');
       const card = { id: newId('h'), text, lang: b.lang === 'he' || hasHe(text) ? 'he' : 'en', adult: !!b.adult, by: str(b.by, 40), at: Date.now() };
       if (kind === 'prompt') card.pick = Math.max(1, Math.min(3, blanks(text) || 1));
+      const dev = str(b.device, 64).replace(/[^\w-]/g, '');
+      if (dev) card.dev = dev;   // the phone that wrote it may delete it again (kept private)
       list.push(card); save();
-      return json(res, 200, { ok: true, card, house: { prompts: db.house.prompts.length, answers: db.house.answers.length } });
+      const { dev: _d, ...out } = card;
+      return json(res, 200, { ok: true, card: { ...out, mine: !!dev }, house: { prompts: db.house.prompts.length, answers: db.house.answers.length } });
     }
     if (p === '/api/blanks/house' && req.method === 'DELETE') {
-      if (!hostKeys.has(q.get('key') || '')) throw new HttpErr(403, 'Only the display can remove cards');
       const id = q.get('id');
+      const dev = str(q.get('device'), 64).replace(/[^\w-]/g, '');
+      if (!hostKeys.has(q.get('key') || '')) {
+        const c = dev && id !== 'all' && [...db.house.prompts, ...db.house.answers].find((x) => x.id === id);
+        if (!c || c.dev !== dev) throw new HttpErr(403, dev ? 'You can only delete cards you added' : 'Only the display can remove cards');
+      }
       const n = db.house.prompts.length + db.house.answers.length;
       if (id === 'all') db.house = { prompts: [], answers: [] };
       else { db.house.prompts = db.house.prompts.filter((c) => c.id !== id); db.house.answers = db.house.answers.filter((c) => c.id !== id); }
       const m = db.house.prompts.length + db.house.answers.length;
       if (m !== n) save();
       return json(res, 200, { ok: true, removed: n - m });
+    }
+    if (p === '/api/blanks/export' && req.method === 'GET') {
+      const id = q.get('id') || 'house';
+      const strip = (c) => ({ text: c.text, ...(c.pick ? { pick: c.pick } : {}), ...(c.adult ? { adult: true } : {}), ...(c.lang ? { lang: c.lang } : {}) });
+      let out;
+      if (id === 'house' || id === 'all') {
+        const P = db.house.prompts.map(strip), A = db.house.answers.map(strip);
+        if (id === 'all') for (const pk of db.packs) { P.push(...pk.prompts); A.push(...pk.answers.map((t) => ({ text: t }))); }
+        out = { name: id === 'all' ? 'Custom cards' : 'House pack', lang: 'mixed', format: 'roundremote-blanks-1', exported: new Date().toISOString(), prompts: P, answers: A };
+      } else {
+        const pk = db.packs.find((x) => x.id === id);
+        if (!pk) throw new HttpErr(404, 'No such pack');
+        out = { name: pk.name, lang: pk.lang, adult: !!pk.adult, format: 'roundremote-blanks-1', exported: new Date().toISOString(), prompts: pk.prompts, answers: pk.answers };
+      }
+      const fname = `${String(out.name).replace(/[^\w\u0590-\u05ff -]+/g, '').trim().replace(/\s+/g, '-') || 'cards'}.json`;
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="${fname.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(fname)}`, 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(out, null, 1));
     }
     return json(res, 404, { error: 'not found' });
   } catch (e) {

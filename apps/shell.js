@@ -27,7 +27,7 @@ export function AppScreen({ id }) {
   function back() {
     if (topPanel()) { topPanel().close(); return; }
     try { if (inst?.back?.()) return; } catch (e) { console.error(`[app ${id}] back`, e); }
-    go('apps');
+    go(meta.home || 'apps');   // apps on the Games ring (Drinking Games, Trivia Night) go back there
   }
   const app = {
     id, meta, el: body, store, player, go, toast, editText, openPanel, sfx, vibrate, h, icon, iconBtn,
@@ -51,7 +51,7 @@ export function AppScreen({ id }) {
     if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); back(); }
   };
   window.addEventListener('keydown', onKey);
-  store.set('lastApp', id);
+  store.set(meta.home === 'games' ? 'lastGame' : 'lastApp', id);
 
   // an app may ship its own stylesheet: apps/<id>.css (loaded once)
   loadApp(id).then(({ def }) => {

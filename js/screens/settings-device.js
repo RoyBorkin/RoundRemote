@@ -665,7 +665,7 @@ function updatesSection() {
       }
     }
     if (r && r.updated === false) { done('Already up to date'); installBtn.classList.add('dv-hide'); return; }
-    const note = r?.systemChanged ? ' — system files changed: run “bash pi/install.sh” once' : '';
+    const note = r?.systemChanged ? ' — system files changed: run “bash ~/RoundRemote/pi/update.sh --apply-system” once' : '';
     if (!r || r.restarting) {
       statusEl.textContent = 'Waiting for the bridge to restart…' + note;
       const t0 = Date.now();

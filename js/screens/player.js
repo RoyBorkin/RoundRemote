@@ -16,6 +16,7 @@ import { createLyricsView, LYRIC_STYLES } from '../views/lyrics.js';
 import { createVideoView } from '../views/video.js';
 import { createToneView } from '../views/tone.js';
 import { createFactsView } from '../views/facts.js';
+import { userChip } from './users.js';
 import { openLibrary, openSearch, openDevices, openVolume, openMore, openTvRemote, openCustomizeControls, openLyricStyles, openToneStyles, openFactsOptions } from './panels.js';
 
 const VIEWS = ['info', 'vinyl', 'lyrics', 'video', 'tone', 'facts'];
@@ -69,7 +70,8 @@ export function PlayerScreen() {
   const viewSwitch = h('div.view-switch', tCur, h('div.vbtns', viewBtns), tDur);
   const miniMeta = h('div.mini-meta');
   const cta = h('div.cta');
-  const chrome = h('div.chrome', btnHome, btnLib, btnSearch, btnDev, pill, miniMeta, btnVol, btnSide, cta, controls, viewSwitch);
+  const userBtn = userChip(prov?.id, { compact: true, className: 'pp-user' });   // who's listening (Plex Home, Jellyfin users, Spotify accounts)
+  const chrome = h('div.chrome', btnHome, btnLib, btnSearch, btnDev, pill, userBtn, miniMeta, btnVol, btnSide, cta, controls, viewSwitch);
 
   const bubble = h('div.scrub-bubble', h('div.sb-time'), h('div.sb-rem'));
   const stage = h('div.stage');
@@ -260,6 +262,7 @@ export function PlayerScreen() {
     store.on('change:vinylDeck', deckIcon),
     player.on('state', render),
     player.on('error', (m) => toast(m, { kind: 'error' })),
+    () => userBtn.destroy?.(),
   ];
 
   // ---------- animation loop ----------

@@ -8,6 +8,11 @@
       timings are Waveshare's for the 4inch 720x720 HDMI round LCD (its legacy hdmi_timings line).
   rr-tool.py decode-edid FILE          prints the mode stored in an EDID (to check one)
   rr-tool.py cursor-theme DIR          writes an invisible Xcursor theme (the kiosk hides the pointer with it)
+  rr-tool.py cursor-path DIR           a cursor search path for the kiosk: DIR/roundremote-hidden + DIR/default (the
+      same invisible theme under the name "default", which cage 0.1.x and Chromium load when no theme is named)
+  rr-tool.py has-mouse [--devices /proc/bus/input/devices]
+      exit 0 (and print its name) when a real mouse / trackpad is plugged in — not the extra "mouse" interface many
+      USB touch panels have — so the kiosk can leave the pointer visible for it
   rr-tool.py wait-input [--root /]     waits for any touch/key/mouse event on /dev/input/event*, prints the
       device and exits 0 (the bridge uses it to wake the screen while the HDMI output is off)
 """
@@ -114,6 +119,66 @@ def cursor_theme(d):
         f.write('[Icon Theme]\nName=RoundRemote hidden cursor\nComment=Invisible pointer for the touch kiosk\n')
 
 
+def cursor_path(d):
+    cursor_theme(os.path.join(d, 'roundremote-hidden'))
+    dflt = os.path.join(d, 'default')
+    os.makedirs(dflt, exist_ok=True)
+    link = os.path.join(dflt, 'cursors')
+    if os.path.lexists(link) and not os.path.islink(link):
+        import shutil
+        shutil.rmtree(link)
+    if not os.path.lexists(link):
+        os.symlink('../roundremote-hidden/cursors', link)
+    with open(os.path.join(dflt, 'index.theme'), 'w') as f:
+        f.write('[Icon Theme]\nName=default\nComment=Round Remote kiosk: invisible pointer\nInherits=roundremote-hidden\n')
+
+
+WORD_BITS = 64 if os.uname().machine in ('aarch64', 'arm64', 'x86_64', 'amd64', 'riscv64', 'ppc64le') else 32   # the kernel's long
+
+
+def _bits(v):
+    # a kernel bitmap as /proc/bus/input/devices prints it: longs in hex, most significant first, not zero-padded
+    words = v.split()
+    size = WORD_BITS
+    n = 0
+    for w in words:
+        n = (n << size) | int(w, 16)
+    return n
+
+
+def input_devices(text):
+    devs, cur = [], {}
+    for line in text.splitlines() + ['']:
+        line = line.strip()
+        if not line:
+            if cur:
+                devs.append(cur)
+            cur = {}
+            continue
+        if line.startswith('I:'):
+            f = dict(x.split('=', 1) for x in line[2:].split() if '=' in x)
+            cur['id'] = (f.get('Vendor', ''), f.get('Product', ''))
+        elif line.startswith('N:'):
+            cur['name'] = line[2:].strip().removeprefix('Name=').strip('"')
+        elif line.startswith('B:'):
+            k, _, v = line[2:].strip().partition('=')
+            cur[k] = _bits(v)
+    return devs
+
+
+def real_mice(text):
+    devs = input_devices(text)
+    def touchy(d):
+        return bool(d.get('PROP', 0) & 0x2) or bool(d.get('ABS', 0) & ((1 << 53) | (1 << 54))) or 'touch' in d.get('name', '').lower()
+    touch_ids = {d.get('id') for d in devs if touchy(d)}
+    out = []
+    for d in devs:
+        rel, ev, key = d.get('REL', 0), d.get('EV', 0), d.get('KEY', 0)
+        if (rel & 3) == 3 and ev & 0x4 and key & (1 << 0x110) and not touchy(d) and d.get('id') not in touch_ids:
+            out.append(d.get('name', '?'))
+    return out
+
+
 def wait_input(root):
     fds = {}
     for p in sorted(glob.glob(os.path.join(root, 'dev/input/event*'))):
@@ -144,6 +209,10 @@ def main():
     dd.add_argument('file')
     c = sub.add_parser('cursor-theme')
     c.add_argument('dir')
+    cp = sub.add_parser('cursor-path')
+    cp.add_argument('dir')
+    hm = sub.add_parser('has-mouse')
+    hm.add_argument('--devices', default='/proc/bus/input/devices')
     w = sub.add_parser('wait-input')
     w.add_argument('--root', default='/')
     o = ap.parse_args()
@@ -162,6 +231,18 @@ def main():
     if o.cmd == 'cursor-theme':
         cursor_theme(o.dir)
         return 0
+    if o.cmd == 'cursor-path':
+        cursor_path(o.dir)
+        return 0
+    if o.cmd == 'has-mouse':
+        try:
+            with open(o.devices) as f:
+                mice = real_mice(f.read())
+        except OSError:
+            return 1
+        for m in mice:
+            print(m)
+        return 0 if mice else 1
     if o.cmd == 'wait-input':
         return wait_input(o.root)
     return 1

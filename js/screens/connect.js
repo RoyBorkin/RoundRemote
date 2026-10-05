@@ -14,6 +14,8 @@ import { directTvs, directId, saveDirectTv, forgetDirectTv, pingDirect, directKe
 import { go } from '../core/router.js';
 import { haConsoles } from '../providers/playstation.js';
 import { normHost } from '../providers/streamer.js';
+import { setJellyfinServer, connectHass, hassMessage } from '../core/service-setup.js';
+import { setupButton, phoneCardFor } from './setup-remote.js';
 
 const err = (e) => e?.userMessage || e?.message || String(e);
 const btn = (label, onClick, cls = '') => h(`button.pill${cls ? '.' + cls : ''}`, { type: 'button', onclick: onClick }, label);
@@ -26,7 +28,7 @@ const BRIDGE_TIPS = {
   appletv: 'Apple TV: pair once with the code the TV shows.',
   netflix: 'Follows Netflix on a Google TV or Apple TV you’ve paired (Media → Google TV / Apple TV), or cast to a Chromecast. Pick the TV under Devices.',
   disney: 'Follows Disney+ on a Google TV or Apple TV you’ve paired (Media → Google TV / Apple TV), or cast to a Chromecast. Pick the TV under Devices.',
-  ytvideo: 'Plays on YouTube on your TV (link it under YouTube → “YouTube on your TV”), a Google TV or an Apple TV. Search needs a YouTube Data API key (Settings → Service keys).',
+  ytvideo: 'Plays on YouTube on your TV (link it under YouTube → “YouTube on your TV”), a Google TV or an Apple TV. Search needs a YouTube Data API key (Settings → Connection → Service keys).',
   castvideo: 'Chromecasts and Google TVs on the same network appear automatically. Cast a movie or show from any app (Netflix, Disney+, Plex, YouTube…).',
   upnp: 'UPnP/DLNA renderers on the same network appear automatically.',
   tidal: 'Play TIDAL through Roon, cast it from the TIDAL app, or send it to a UPnP renderer / AirPlay — this tile follows it.',
@@ -41,7 +43,8 @@ export function ConnectScreen({ id }) {
   const el = h('div.connect', { '--c': svc.color }, h('div.connect-glow'), back, body);
   let abort = null;
 
-  const header = () => [badge(svc, 'lg'), h('h1', svc.name), h('p.blurb', svc.blurb)];
+  // …and “Set up on your phone” (QR) where there's something to type: the phone's page does it in a real browser
+  const header = () => [badge(svc, 'lg'), h('h1', svc.name), h('p.blurb', svc.blurb), phoneCardFor(id) ? setupButton(id) : null];
   const status = h('div.status-line');
   const setStatus = (msg, kind = '') => { status.className = `status-line ${kind}`; status.textContent = msg; };
   const done = () => { toast(`${svc.name} connected`); openService(id); };
@@ -203,13 +206,7 @@ export function ConnectScreen({ id }) {
     if (signedIn()) { body.append(signedInActions()); return; }
     const area = h('div.stack');
     body.append(area, status);
-    const saveServer = () => {
-      let v = srv.querySelector('input').value.trim().replace(/\/$/, '');
-      if (v && !/^https?:\/\//.test(v)) v = 'http://' + v;
-      store.set('jellyfinServer', v);
-      srv.querySelector('input').value = v;
-      if (!v) throw new Error('Enter your server address first');
-    };
+    const saveServer = () => { srv.querySelector('input').value = setJellyfinServer(srv.querySelector('input').value); };
     area.append(h('div.actions',
       btn('Quick Connect', async () => {
         try {
@@ -322,6 +319,13 @@ export function ConnectScreen({ id }) {
       } catch (e) { clear(found); found.append(h('div.note.dim', bridgeErr(e))); }
     };
 
+    if (ad === 'androidtv') {
+      const finder = atvFinder({ api, bridgeErr, startPair, conf, enabled: !!a?.enabled });
+      body.append(tvList, h('div.section', 'Add a TV'), finder.el, pairStatus, pairArea, h('div.note.dim', conf.note));
+      loadTvs();
+      if (a?.enabled) finder.search();
+      return;
+    }
     const ip = field({ label: 'TV IP address', placeholder: '192.168.1.50' });
     body.append(
       tvList,
@@ -333,6 +337,85 @@ export function ConnectScreen({ id }) {
     );
     loadTvs();
     if (a?.enabled) search();
+  }
+
+  // Google TV: find TVs with every method the bridge has (bridge/adapters/androidtv-discover.js), show what was searched
+  // and why a TV may be missing (firewall, Public network, several adapters, avahi), and add one by its IP address.
+  function atvFinder({ api, bridgeErr, startPair, conf, enabled }) {
+    const found = h('div.stack.atv-found'), info = h('div.stack.atv-info'), more = h('div.stack.atv-more');
+    const st = h('div.status-line');
+    const say = (text, kind = '') => { st.className = `status-line${kind ? ' ' + kind : ''}`; st.textContent = text; };
+    let busy = false, last = null, open = false;
+    const copyBtn = (text) => btn('Copy', async (e) => {
+      try { await navigator.clipboard.writeText(text); toast('Copied'); } catch { toast('Select the text and copy it'); }
+      e?.stopPropagation?.();
+    });
+    const tvRow = (t) => h('div.atv-tv',
+      h('div.atv-tv-t', h('b', `📺 ${t.name}`), h('small', [t.model, t.host, t.offline ? 'not answering' : t.saved && !t.via.some((v) => v !== 'remembered') ? 'remembered' : ''].filter(Boolean).join(' · '))),
+      h('div.actions', t.paired ? h('span.note.dim', 'paired') : btn(t.offline ? 'Try pairing' : 'Pair', () => startPair(t.host, t.name), t.offline ? '' : 'primary'),
+        t.saved && !t.paired ? btn('Forget', async () => { await bridgeFetch(api('forget'), { method: 'POST', json: { host: t.host } }).catch(() => {}); search(); }) : null));
+    function paintDiag() {
+      clear(more);
+      if (!open || !last) return;
+      const d = last.diag, m = d.methods;
+      const ifs = d.interfaces.map((i) => `${i.searched ? '✓' : '–'} ${i.name}  ${i.address}  (${i.cidr})${i.virtual ? ' · virtual' : ''}${i.linkLocal ? ' · no DHCP address' : ''}${i.replies ? ` · ${i.replies} answer${i.replies > 1 ? 's' : ''}` : ''}${i.error ? ` · ${i.error}` : ''}`);
+      const meth = [
+        `One-shot search on every network: ${m.unicast.replies} answer${m.unicast.replies === 1 ? '' : 's'}${m.unicast.errors.length ? ` (${m.unicast.errors.join('; ')})` : ''}`,
+        `mDNS port 5353: ${m.multicast.bound ? `${m.multicast.heard} packet${m.multicast.heard === 1 ? '' : 's'} heard, ${m.multicast.replies} from TVs` : `not available${m.multicast.error ? ` (${m.multicast.error})` : ''}`}`,
+        m.avahi.available == null ? null : `avahi-browse: ${m.avahi.available ? `${m.avahi.found} found${m.avahi.error ? ` · ${m.avahi.error}` : ''}` : 'not installed'}`,
+        `Cast devices: ${m.cast.found} found, ${m.cast.verified} with the Google TV remote ports`,
+        m.sweep.ran ? `Port scan (6467) of ${m.sweep.cidrs.join(', ') || 'no network'}: ${m.sweep.hosts} addresses, ${m.sweep.found} TV${m.sweep.found === 1 ? '' : 's'}` : 'Port scan: not needed',
+        m.known.checked ? `TVs added by IP: ${m.known.online} of ${m.known.checked} answering` : null,
+      ].filter(Boolean);
+      more.append(h('div.section', 'What was searched'), h('code.uri.atv-pre', ifs.join('\n') || 'No IPv4 network'), h('code.uri.atv-pre', meth.join('\n')),
+        h('div.note.dim', `${d.platform === 'win32' ? 'Windows' : d.platform === 'linux' ? 'Linux' : d.platform === 'darwin' ? 'macOS' : d.platform} · ${(d.ms / 1000).toFixed(1)} s`),
+        h('div.actions', btn('Scan every address', () => search(true))));
+    }
+    function paint() {
+      clear(found); clear(info);
+      if (!last) return;
+      const tvs = last.tvs || [];
+      for (const t of tvs) found.append(tvRow(t));
+      const real = last.diag.interfaces.filter((i) => i.searched && !i.virtual);
+      const where = real.map((i) => `${i.name} ${i.cidr}`).join(', ') || 'no network';
+      const live = tvs.filter((t) => !t.offline).length;
+      say(live ? `Found ${live} TV${live > 1 ? 's' : ''} · searched ${where}` : `No Google TV found · searched ${where}`, live ? 'ok' : 'warn');
+      if (!last.installed) info.append(h('div.note.warn-note', conf.missing));
+      for (const hint of (live ? [] : last.diag.hints || [])) {
+        info.append(h(`div.note${hint.level === 'info' ? '.dim' : ''}`, hint.text));
+        if (hint.code) info.append(h('code.uri.atv-pre', hint.code), h('div.actions', copyBtn(hint.code)));
+      }
+      paintDiag();
+    }
+    async function search(sweep = false) {
+      if (busy) return;
+      busy = true; scanBtn.disabled = true;
+      say(sweep ? 'Scanning every address on the network… (about 10 seconds)' : 'Searching the network… (about 5 seconds)');
+      try { last = await bridgeFetch(api(`scan${sweep ? '?sweep=1' : ''}`), { timeout: 40000 }); paint(); }
+      catch (e) { say(e?.status === 404 ? 'This bridge is too old to search well — update it, or add the TV by its IP address below.' : bridgeErr(e), 'error'); }
+      finally { busy = false; scanBtn.disabled = false; }
+    }
+    const scanBtn = btn('Search again', () => search());
+    const detailsBtn = btn('Details', () => { open = !open; detailsBtn.classList.toggle('on', open); paintDiag(); });
+    let ipV = '';
+    const ip = field({ label: 'Or type the TV’s IP address', placeholder: '192.168.1.50', onChange: (v) => { ipV = v; } });
+    const ipNote = h('div.status-line');
+    const byIp = async () => {
+      const host = (ip.querySelector('input').value || ipV).trim();
+      if (!host) { ipNote.className = 'status-line error'; ipNote.textContent = `Type the IP address (${conf.ipHint})`; return; }
+      el.querySelectorAll('.atv-anyway').forEach((x) => x.remove());
+      ipNote.className = 'status-line'; ipNote.textContent = `Checking ${host}…`;
+      let r = null;
+      try { r = await bridgeFetch(api('check'), { method: 'POST', json: { host }, timeout: 15000 }); }
+      catch (e) { if (e?.status === 404) { ipNote.textContent = ''; startPair(host); return; } ipNote.className = 'status-line error'; ipNote.textContent = bridgeErr(e); return; }
+      ipNote.className = `status-line ${r.ok ? 'ok' : 'warn'}`; ipNote.textContent = r.message;
+      if (r.ok) { startPair(host, r.name || undefined); return; }
+      await bridgeFetch(api('remember'), { method: 'POST', json: { host } }).catch(() => {});
+      ipNote.after?.(h('div.actions.atv-anyway', btn('Pair anyway', (e) => { e?.target?.closest('.atv-anyway')?.remove(); startPair(host); })));
+    };
+    const el = h('div.stack', h('div.actions', scanBtn, detailsBtn), st, found, info, more, ip, h('div.actions', btn('Check & pair', byIp, 'primary')), ipNote);
+    if (!enabled) say('Searching needs the Google TV adapter in the bridge (see above).', 'warn');
+    return { el, search };
   }
 
 
@@ -427,16 +510,10 @@ export function ConnectScreen({ id }) {
       h('div.note', 'In Home Assistant open your profile (bottom left) → Security → Long-lived access tokens → Create token, and paste it here.'),
       u, t, status,
       h('div.actions', btn(p.isAuthed() ? 'Save & test' : 'Connect', async () => {
-        url = (u.querySelector('input').value || url).trim().replace(/\/$/, '');
+        url = (u.querySelector('input').value || url).trim();
         token = (t.querySelector('input').value || token).trim();
-        if (url && !/^https?:\/\//.test(url)) url = `http://${url}`;
-        if (!url) { setStatus('Enter the address of Home Assistant', 'error'); return; }
-        const oldAuth = store.auth('homeassistant');
-        store.set('haUrl', url);
-        if (token) p.saveToken(token); else if (oldAuth?.token) p.saveToken(oldAuth.token);
-        else { setStatus('Paste a long-lived access token', 'error'); return; }
         setStatus('Connecting…');
-        try { const r = await p.test(); setStatus(`Connected to ${r.name} · ${r.count} entities${r.mode === 'rest' ? ' (through the bridge)' : ''}`, 'ok'); setTimeout(() => openService(id), 700); }
+        try { const r = await connectHass(url, token); setStatus(hassMessage(r), 'ok'); setTimeout(() => openService(id), 700); }
         catch (e) { setStatus(e.userMessage || e.message, 'error'); }
       }, 'primary'), p.isAuthed() ? btn('Open', () => openService(id)) : null,
       p.isAuthed() ? btn('Forget token', () => { p.signOut(); render(); toast('Home Assistant token removed'); }) : null),

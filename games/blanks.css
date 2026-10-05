@@ -194,3 +194,23 @@
 .fb-stack .fb-prompt.win { margin-top: 1.4cqmin; }
 .fb-pack-t b, .fb-pack-t small { text-align: left; }
 .fb-m-acts .pill { padding: 1.8cqmin 3.6cqmin; font-size: 2.7cqmin; }
+
+/* ---------- card source (Built-in · Custom · All) and Custom cards ---------- */
+.fb-src { display: flex; align-items: center; gap: 1cqmin; margin-top: .4cqmin; }
+.fb-src-l { font-size: 2.2cqmin; font-weight: 700; color: var(--muted); margin-inline-end: .6cqmin; text-transform: uppercase; letter-spacing: .08em; }
+.fb .fb-src .chip { font-size: 2.3cqmin; padding: 1.1cqmin 2.3cqmin; display: inline-flex; align-items: center; gap: .9cqmin; white-space: nowrap; }
+.fb-src-n { min-width: 3cqmin; padding: .2cqmin .8cqmin; border-radius: 99px; background: rgb(var(--ink) / .14); font-size: 1.8cqmin; font-weight: 800; line-height: 1.5; }
+.fb .chip.on .fb-src-n { background: rgb(0 0 0 / .18); }
+.fb[data-view="lobby"] .fb-lobby { top: 42%; }
+.fb[data-view="lobby"] .fb-qr, .fb[data-view="lobby"] .fb-qr-wait { width: 23cqmin; }
+.fb[data-view="lobby"] .fb-qr-wait { height: 23cqmin; }
+.fb-cards { top: 41%; gap: 1.3cqmin; }
+.fb-cards .fb-room b.fb-plain { font-family: inherit; letter-spacing: 0; font-size: inherit; }
+.fb-acts.cards { top: 69.5%; }
+.fb-acts.low.cards { top: 81%; }
+.fb-qr.sm { width: 24cqmin; }
+.fb-sect { display: flex; flex-direction: column; text-align: start; padding: 2.4cqmin .4cqmin .6cqmin; }
+.fb-sect b { font-size: 2.2cqmin; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); }
+.fb-sect small { font-size: 2cqmin; color: var(--muted); }
+.fb-sect.off b { color: var(--dim); }
+.fb-row-in { padding-inline-start: 6cqmin; }

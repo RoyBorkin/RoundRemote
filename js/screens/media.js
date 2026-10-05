@@ -14,6 +14,7 @@ import { toast, topPanel } from '../ui/overlay.js';
 import { openDevices, openVolume, openTvRemote, buildTvRemote, openCustomizeControls } from './panels.js';
 import { createMediaLibrary, runtimeOf } from '../views/media-library.js';
 import { mediaFacts } from '../core/mediainfo.js';
+import { userChip } from './users.js';
 import {
   currentDetails, openMediaEpisodes, openMediaInfo, openMediaCast, openMediaFacts, openMediaSuggestions, openMediaCollection, openMediaTracks, openMediaOptions,
 } from './media-panels.js';
@@ -111,7 +112,8 @@ export function MediaScreen() {
   // ---------- chrome ----------
   const tabNow = h('button.m-tab.on', { type: 'button', onclick: (e) => { e.stopPropagation(); setTab('now'); } }, 'Now playing');
   const tabLib = h('button.m-tab', { type: 'button', onclick: (e) => { e.stopPropagation(); setTab('lib'); } }, 'Library');
-  const tabs = h('div.m-tabs', tabNow, tabLib);
+  const userBtn = userChip(prov?.id, { short: true });   // who's watching (Plex Home users / Jellyfin users): avatar + name, opens the picker
+  const tabs = h('div.m-tabs', userBtn, tabNow, tabLib);
   const btnHome = onCircle(iconBtn('home', 'Services', () => go('home'), 'mp-home'), -42, 38.5);
   const btnDev = onCircle(iconBtn('devices', 'Devices', () => openDevices(), 'mp-devices'), 42, 38.5);
   const pill = h('button.device-pill.m-pill', { type: 'button', onclick: (e) => { e.stopPropagation(); openDevices(); } },
@@ -423,6 +425,9 @@ export function MediaScreen() {
     store.on('change:mediaSlideSec', () => { bgKey = null; refreshBgIfChanged(); }),
     store.on('change:mediaIdleFacts', () => { detailsKey = null; loadDetails(); }),
     store.on('change:mediaHideWatched', () => { if (library) { library.el.remove(); library = null; if (tab === 'lib') lib(); } }),
+    // another user picked: their own Continue watching, watched state and libraries
+    prov.on('user', () => { detailsKey = null; if (library) { library.el.remove(); library.destroy(); library = null; if (tab === 'lib') lib(); } }),
+    () => userBtn.destroy?.(),
     player.on('state', render),
     player.on('error', (msg) => toast(msg, { kind: 'error' })),
   ];

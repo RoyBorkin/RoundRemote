@@ -168,6 +168,37 @@ input { font: inherit; color: inherit; }
 .now-text b { font-size: 2.7cqmin; }
 .now-text small { font-size: 2.3cqmin; color: var(--muted); }
 .home-settings { margin-top: 3cqmin; width: 9.5cqmin; height: 9.5cqmin; font-size: 4.4cqmin; }
+/* battery level next to the date (js/screens/home.js; Settings → Home screen → Battery level) */
+.date { display: flex; align-items: center; justify-content: center; gap: 1.5cqmin; }
+.home-batt { display: inline-flex; align-items: center; gap: .6cqmin; color: var(--muted); font-variant-numeric: tabular-nums; }
+.home-batt[hidden] { display: none; }
+.home-batt::before { content: ''; width: .5cqmin; height: .5cqmin; border-radius: 50%; background: currentColor; opacity: .5; margin-right: .5cqmin; }
+.home-batt svg { width: 4.1cqmin; height: 2.4cqmin; display: block; overflow: visible; }
+.home-batt .bt-shell { fill: none; stroke: currentColor; stroke-width: 1.4; opacity: .7; }
+.home-batt .bt-nub { fill: currentColor; opacity: .7; }
+.home-batt .bt-fill { fill: currentColor; }
+.home-batt .bt-bolt { fill: var(--fg); stroke: var(--bg); stroke-width: 1; paint-order: stroke; }
+.home-batt b { font-weight: 600; font-size: .92em; }
+.home-batt.charging { color: var(--ok); }
+.home-batt.low { color: var(--warn); }
+.home-batt.crit { color: var(--danger); }
+.home-batt.crit .bt-fill { animation: batt-blink 2.4s ease-in-out infinite; }
+@keyframes batt-blink { 50% { opacity: .35; } }
+#app.lite .home-batt.crit .bt-fill { animation: none; }
+#app[data-mode="light"] .home-batt.low { color: color-mix(in srgb, var(--warn) 70%, #6b4400); }
+/* the hint under the menu opens Settings → Home screen → Services */
+.home-hint.tap { cursor: pointer; text-decoration: underline; text-decoration-color: rgb(var(--ink) / .3); text-underline-offset: .4cqmin; }
+/* hold a tile: Hide from Home · Open · Choose services */
+.home-tile-panel .panel-body { align-items: center; justify-content: center; gap: 3cqmin; }
+.htp-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.6cqmin; max-width: 80%; }
+.home-undo {
+  position: absolute; left: 50%; top: 24%; z-index: 40; translate: -50% 0; display: flex; align-items: center; gap: 2cqmin;
+  padding: .9cqmin .9cqmin .9cqmin 3.4cqmin; border-radius: 99px; font-size: 2.6cqmin; font-weight: 600; white-space: nowrap;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); box-shadow: 0 1cqmin 4cqmin rgb(var(--shade) / .35);
+  opacity: 0; transform: translateY(-1.5cqmin) scale(.96); pointer-events: none; transition: opacity .25s, transform .3s var(--ease);
+}
+.home-undo.show { opacity: 1; transform: none; pointer-events: auto; }
+.home-undo-btn { padding: 1.2cqmin 2.8cqmin; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 2.5cqmin; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* The main menu: three stacked pills — Music · Media · Rhythm / Home · Apps · Games / Settings — on a shared column
@@ -623,6 +654,14 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 .field-input:focus { border-color: var(--accent); }
 .status-line { font-size: 2.5cqmin; color: var(--muted); max-width: 90%; min-height: 1em; }
 .status-line.error { color: color-mix(in srgb, var(--danger) 70%, rgb(var(--ink))); } .status-line.ok { color: var(--ok); } .status-line.warn { color: var(--warn); }
+/* Google TV finder (connect.js atvFinder) */
+.atv-tv { display: flex; flex-direction: column; align-items: center; gap: .6cqmin; width: 92%; padding: 1.6cqmin 2cqmin; border-radius: 3cqmin; background: rgb(var(--ink) / .06); border: 1px solid var(--line); }
+.atv-tv-t { display: flex; flex-direction: column; gap: .3cqmin; font-size: 2.8cqmin; }
+.atv-tv-t small { color: var(--muted); font-size: 2.2cqmin; }
+.atv-tv .actions { margin-top: .4cqmin; }
+code.uri.atv-pre { text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 2cqmin; line-height: 1.45; }
+.note.warn-note { color: var(--warn); }
+.connect .pill.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .code-box { display: flex; flex-direction: column; align-items: center; gap: 1.4cqmin; }
 .code { font-family: var(--mono); font-size: 10cqmin; font-weight: 700; letter-spacing: .18em; margin-right: -.18em; color: rgb(var(--ink)); text-shadow: 0 0 4cqmin color-mix(in srgb, var(--c) 60%, transparent); }
 

@@ -12,7 +12,7 @@ import { GAMES } from '../games/index.js';
 import { RHYTHM } from '../rhythm/index.js';
 import { RULES } from './bg-rules.js';
 import { COMPANIONS } from './bg-games.js';
-import { APPS } from './index.js';
+import { appById } from './index.js';
 import * as COLL from './collection-store.js';
 
 const any = ['any', 'Any'];
@@ -240,6 +240,7 @@ const PLAY_D = {
   ideas() {
     const out = [];
     for (const g of GAMES) {
+      if (g.app) continue;   // Drinking Games / Trivia Night sit on the Games ring but are apps — listed once, below
       const two = TWO_PLAYER[g.id];
       if (g.party) {
         const [players, mins] = Array.isArray(g.players) ? [g.players, g.mins || 30] : PARTY_SIZE[g.id] || [[3, 12], 30];
@@ -272,7 +273,7 @@ const PLAY_D = {
       out.push({ key: `p:h:${c.id}`, title: c.name, he: c.he, sub: `${players[0]}–${players[1] >= 20 ? `${players[0]}+` : players[1]} players · game helper here`, info: c.blurb || '', glyph: 'meeple', color: c.color || '#8b5cf6', src: 'idea',
         tags: { players, mins: c.time ? parseMinutes(c.time) : 30, kind, app: true, adult: !!c.adult }, ref: { companion: c.id } });
     }
-    const app = (id, extra) => { const a = APPS.find((x) => x.id === id); if (a) out.push({ key: `p:a:${id}`, title: a.name, info: a.blurb, icon: a.icon, glyph: 'party', color: a.color, src: 'idea', ref: { go: ['app', { id }] }, ...extra, tags: { ...extra.tags, app: true, adult: !!(extra.tags.adult || a.adult) } }); };
+    const app = (id, extra) => { const a = appById(id); if (a) out.push({ key: `p:a:${id}`, title: a.name, info: a.blurb, icon: a.icon, glyph: 'party', color: a.color, src: 'idea', ref: { go: ['app', { id }] }, ...extra, tags: { ...extra.tags, app: true, adult: !!(extra.tags.adult || a.adult) } }); };
     app('bottle', { sub: '3+ players · 20 min · party app', tags: { players: [3, 20], mins: 20, kind: 'app' } });
     app('drinks', { sub: '18+ · 3+ players · 30 min · party app', tags: { players: [3, 20], mins: 30, kind: 'app', adult: true } });
     app('trivia', { sub: '2+ players · 45 min · quiz night · phones buzz in', tags: { players: [2, 30], mins: 45, kind: 'app' } });

@@ -1,0 +1,78 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Set up from your phone or computer (js/screens/setup-remote.js): the pairing QR + code, connected phones,
+   the "Set up on your phone" button on service setup screens and Home's first-run hint. */
+.rs-panel .panel-body { align-items: center; justify-content: center; }
+.rs-view { display: flex; flex-direction: column; align-items: center; gap: 2.4cqmin; width: 100%; text-align: center; }
+.rs-page-view { padding: 2cqmin 0 4cqmin; transform: none !important; opacity: 1 !important; }   /* one tall item: the curved list's fade would dim the QR code */
+
+.rs-main { display: flex; align-items: center; justify-content: center; gap: 4.2cqmin; }
+.rs-page-view .rs-main { flex-direction: column; gap: 2.6cqmin; }
+
+/* the QR inside a ring that runs down with the code's 15 minutes */
+.rs-ring { position: relative; width: 33cqmin; height: 33cqmin; flex: none; }
+.rs-page-view .rs-ring { width: 30cqmin; height: 30cqmin; }
+.rs-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rs-ring circle { fill: none; }
+.rs-ring-bg { stroke: var(--line); stroke-width: 2; }
+.rs-ring-fg { stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.rs-qr { position: absolute; inset: 12%; border-radius: 2cqmin; overflow: hidden; background: #fff; box-shadow: 0 1.2cqmin 4cqmin rgb(0 0 0 / .28); }
+.rs-qr svg { display: block; width: 100%; height: 100%; }
+
+.rs-info { display: flex; flex-direction: column; align-items: flex-start; gap: .5cqmin; text-align: left; min-width: 0; max-width: 34cqmin; }
+.rs-page-view .rs-info { align-items: center; text-align: center; max-width: 80%; }
+.rs-step { font-size: 2.7cqmin; font-weight: 750; color: var(--fg); line-height: 1.25; }
+.rs-or { font-size: 1.9cqmin; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; margin-top: 1cqmin; }
+.rs-url { font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 2.35cqmin; font-weight: 700; color: var(--fg); word-break: break-all; line-height: 1.3; }
+.rs-code { font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 7.2cqmin; font-weight: 800; letter-spacing: .06em; line-height: 1; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rs-time { font-size: 2cqmin; color: var(--muted); margin-top: .6cqmin; font-variant-numeric: tabular-nums; }
+
+/* who's connected */
+.rs-phones { display: flex; flex-direction: column; align-items: center; gap: 1.2cqmin; max-width: 100%; }
+.rs-phone {
+  display: inline-flex; align-items: center; gap: 1.4cqmin; max-width: 100%;
+  padding: .9cqmin .9cqmin .9cqmin 2.2cqmin; border-radius: 99px; font-size: 2.45cqmin;
+  background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  animation: rs-in .35s var(--spring, ease) both;
+}
+.rs-phone-ic { width: 3.4cqmin; height: 3.4cqmin; flex: none; color: var(--ok); display: grid; }
+.rs-phone-ic svg { width: 100%; height: 100%; }
+.rs-phone-t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-phone-t b { font-weight: 750; }
+.rs-phone-t span { color: var(--muted); }
+.rs-phone-x { width: 5.4cqmin; height: 5.4cqmin; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 2.4cqmin; color: var(--fg); background: var(--glass-2); border: 1px solid var(--line); }
+.rs-phone-x:active { transform: scale(.9); }
+.rs-waiting { display: inline-flex; align-items: center; gap: 1.4cqmin; font-size: 2.35cqmin; color: var(--muted); }
+.rs-pulse { width: 1.6cqmin; height: 1.6cqmin; border-radius: 50%; background: var(--accent); animation: rs-pulse 1.6s ease-in-out infinite; }
+#app.lite .rs-pulse, #app.lite .rs-phone { animation: none; }
+@keyframes rs-pulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes rs-in { from { opacity: 0; transform: translateY(1.2cqmin) scale(.96); } }
+.rs-acts { display: flex; gap: 1.6cqmin; justify-content: center; min-height: 1px; }
+.rs-acts .pill.small { margin-top: 0; }
+.rs-hint { font-size: 2.2cqmin; color: var(--dim); max-width: 78%; line-height: 1.45; }
+
+/* no bridge / an old bridge */
+.rs-wait { display: flex; flex-direction: column; align-items: center; gap: 2cqmin; color: var(--muted); font-size: 2.6cqmin; padding: 6cqmin 0; }
+.rs-off { display: flex; flex-direction: column; align-items: center; gap: 1.8cqmin; max-width: 92%; }
+.rs-off-ic { width: 10cqmin; height: 10cqmin; color: var(--accent); }
+.rs-off-ic svg { width: 100%; height: 100%; }
+.rs-off-t { font-size: 3.4cqmin; font-weight: 800; }
+.rs-off-m { font-size: 2.4cqmin; color: var(--muted); line-height: 1.45; }
+.rs-off-b { display: flex; flex-wrap: wrap; gap: 1.6cqmin; justify-content: center; margin-top: .6cqmin; }
+.rs-off-b .pill.small { margin-top: 0; }
+
+/* "Set up on your phone" on a service's setup screen */
+.rs-btn { display: inline-flex; align-items: center; gap: 1.4cqmin; font-size: 2.5cqmin; padding: 1.4cqmin 3.2cqmin 1.4cqmin 2.4cqmin; }
+.rs-btn-qr { width: 3.2cqmin; height: 3.2cqmin; display: grid; flex: none; }
+.rs-btn-qr svg { width: 100%; height: 100%; }
+.connect-body > .rs-btn { margin-top: -.4cqmin; }
+
+/* Home: first-run hint */
+.rs-home { display: inline-flex; align-items: center; gap: .8cqmin; margin-top: .4cqmin; }
+.home-hint:has(.rs-home) { margin-top: 1.2cqmin; }
+.rs-home-go {
+  display: inline-flex; align-items: center; gap: 1.1cqmin; padding: 1cqmin 2.4cqmin 1cqmin 1.8cqmin; border-radius: 99px;
+  font-size: 2.2cqmin; font-weight: 700; color: var(--fg); background: var(--glass-2); border: 1px solid var(--line);
+}
+.rs-home-go .rs-btn-qr { width: 2.7cqmin; height: 2.7cqmin; color: var(--accent); }
+.rs-home-go:active { transform: scale(.95); }
+.rs-home-x { width: 4.2cqmin; height: 4.2cqmin; border-radius: 50%; font-size: 1.8cqmin; color: var(--dim); display: grid; place-items: center; }

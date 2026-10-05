@@ -12,7 +12,8 @@
 #
 # What it does: packages (Chromium, cage, NetworkManager, BlueZ, PipeWire, i2c-tools, avahi, Node.js ≥ 18…),
 # clones / updates the app to ~/RoundRemote, installs the bridge, sets up the round screen (KMS), I2C, sound,
-# the kiosk (cage + Chromium on tty1, no desktop), the setup hotspot for Wi-Fi, narrow sudo rules, and services.
+# the kiosk (cage + Chromium on tty1, no desktop), the boot splash (Plymouth, pi/plymouth/), the setup hotspot for
+# Wi-Fi, narrow sudo rules, and services.
 #
 # Options:
 #   --display=auto|waveshare-4-hdmi|waveshare-4-dsi|none   the screen (default auto: DSI if its overlay is set, else HDMI)
@@ -27,8 +28,13 @@
 #   --hdmi-audio=auto|on|off   auto: off when a USB / I2S speaker is found
 #   --no-airplay  --no-pyatv  --with-roon  --no-kiosk  --kiosk=service|autostart  --compositor=cage|labwc
 #   --dir=PATH  --user=NAME  --repo=URL  --branch=NAME  --no-update (don't git pull)
+#   --no-splash   leave the boot screen alone (default: the Round Remote boot splash — logo + ring on black, no boot
+#                 text, no rainbow square; on a re-run it removes the splash again)
+#   --verbose-boot  show the boot messages instead of the splash (to see what's wrong); run again without it to hide them
 #   --readonly    make the SD card read-only (overlay file system; settings then reset at every boot!)
 #   --dry-run     print what would be done, change nothing         --interactive   ask about the main choices
+#   --same-options  start from the options of the last run (kept in /etc/roundremote/install-args); what you add
+#                 after it wins — pi/update.sh --apply-system uses it
 #   --reboot      reboot at the end                                 --uninstall     remove services and system files
 set -euo pipefail
 
@@ -43,8 +49,10 @@ WAVESHARE_TIMINGS="720 0 40 40 200 720 0 24 4 12 0 0 0 78 0 59400000 0"
 DRY=0; INTERACTIVE=0; UNINSTALL=0; REBOOT=0; READONLY=0
 DISPLAY_KIND=auto; DISPLAY_MODE=auto; ROTATE=""; HOSTNAME_WANT=""; WIFI_COUNTRY=""; AUDIO_HAT=""; HDMI_AUDIO=auto
 AIRPLAY=1; PYATV=1; ROON=0; KIOSK=1; KIOSK_KIND=""; COMPOSITOR=""; APP_DIR_OPT=""; USER_OPT=""; REPO_URL="$REPO_URL_DEFAULT"; BRANCH=main; GIT_UPDATE=1
-FROM_BOOTSTRAP=0
+FROM_BOOTSTRAP=0; SPLASH_MODE=on
 ORIG_ARGS=("$@")
+THEME_DIR=/usr/share/plymouth/themes/roundremote
+PLYMOUTH_DROPIN=/etc/systemd/system/plymouth-quit.service.d/roundremote.conf
 
 usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]:-/dev/null}" 2>/dev/null | sed -e '/^set -euo/d' -e 's/^# \{0,1\}//'; }
 
@@ -56,6 +64,9 @@ parse_args() {
       --uninstall) UNINSTALL=1 ;;
       --reboot) REBOOT=1 ;;
       --readonly) READONLY=1 ;;
+      --no-splash) SPLASH_MODE=off ;;
+      --verbose-boot) SPLASH_MODE=verbose ;;
+      --splash) SPLASH_MODE=on ;;
       --display=*) DISPLAY_KIND="${a#*=}" ;;
       --display-mode=*) DISPLAY_MODE="${a#*=}" ;;
       --rotate=*) ROTATE="${a#*=}" ;;
@@ -75,6 +86,7 @@ parse_args() {
       --branch=*) BRANCH="${a#*=}" ;;
       --no-update) GIT_UPDATE=0 ;;
       --from-bootstrap) FROM_BOOTSTRAP=1 ;;
+      --same-options) ;;
       -h|--help) usage; exit 0 ;;
       *) die "unknown option: $a (see --help)" ;;
     esac
@@ -166,6 +178,35 @@ display_tokens() {   # display_tokens KIND MODE → cmdline tokens for that choi
     none) echo "consoleblank=0" ;;
   esac
 }
+# The boot splash: cmdline.txt tokens. on = quiet boot with the splash (kernel messages on tty3, no Raspberry Pi
+# logos, no blinking cursor); verbose = boot messages on the screen; off = take our extras out again (Raspberry Pi
+# OS's own "quiet splash plymouth.ignore-serial-consoles" stay as they are).
+splash_cmdline() {   # splash_cmdline "<current line>" on|verbose|off → new line (ours stay where they are)
+  local line="$1" mode="$2" out=() t seen=" "
+  for t in $line; do
+    case "$t" in
+      logo.nologo|vt.global_cursor_default=*|loglevel=*|udev.log_level=*|quiet|splash|plymouth.ignore-serial-consoles)
+        if [ "$mode" = on ]; then
+          case "$t" in vt.global_cursor_default=*) t=vt.global_cursor_default=0 ;; loglevel=*) t=loglevel=3 ;; udev.log_level=*) t=udev.log_level=3 ;; esac
+        elif [ "$mode" = verbose ] || ! [[ "$t" =~ ^(quiet|splash|plymouth\.ignore-serial-consoles)$ ]]; then continue; fi
+        [[ "$seen" == *" $t "* ]] && continue ;;
+      console=tty1|console=tty3) if [ "$mode" = on ]; then t=console=tty3; else t=console=tty1; fi ;;
+    esac
+    seen+="$t "; out+=("$t")
+  done
+  if [ "$mode" = on ]; then
+    for t in quiet splash plymouth.ignore-serial-consoles logo.nologo vt.global_cursor_default=0 loglevel=3 udev.log_level=3; do
+      [[ "$seen" == *" $t "* ]] || out+=("$t")
+    done
+  fi
+  echo "${out[*]}"
+}
+splash_block() {   # splash_block on|verbose|off HAS_AUTO_INITRAMFS → config.txt lines
+  [ "$1" = off ] && return 0
+  [ "$1" = on ] && echo "disable_splash=1"
+  [ "$2" = 1 ] || echo "auto_initramfs=1"
+  return 0
+}
 display_block() {   # display_block KIND HAS_KMS_OVERLAY AUDIO_HAT NEED_I2C → config.txt lines
   local kind="$1" has_kms="$2" hat="$3" need_i2c="$4"
   [ "$has_kms" = 1 ] || echo "dtoverlay=vc4-kms-v3d"
@@ -244,7 +285,7 @@ step_repo() {
 step_packages() {
   step "Packages"
   root apt-get update -y </dev/null || warn "apt-get update had errors"
-  local want=(git curl ca-certificates python3 network-manager dnsmasq-base nftables iw rfkill avahi-daemon libnss-mdns
+  local want=(git curl ca-certificates python3 network-manager dnsmasq-base nftables iw rfkill avahi-daemon avahi-utils libnss-mdns
     bluez pipewire pipewire-pulse wireplumber alsa-utils i2c-tools playerctl)
   local p
   p="$(first_avail python3-smbus2 python3-smbus || true)"; [ -n "$p" ] && want+=("$p")
@@ -342,14 +383,21 @@ step_display() {
   if [ "$has_kms" = 1 ] && grep -qx 'dtoverlay=vc4-kms-v3d' <<<"$cur_block" && [ "$(grep -Ec '^dtoverlay=vc4-(f)?kms-v3d' "$cfgf")" -le 1 ]; then has_kms=0; fi
   local hat="$AUDIO_HAT"
   [ -z "$hat" ] && hat="$(sed -n 's/^dtoverlay=\([a-z0-9_-]*\)$/\1/p' <<<"$cur_block" | grep -Ev '^vc4-' | head -1 || true)"
-  local block=""
+  local block="" has_initramfs=0 splash
   [ "$kind" != none ] && block="$(display_block "$kind" "$has_kms" "$hat" "${NEED_I2C_LINE:-0}")"
+  # the boot splash (Plymouth) runs from the initramfs, which the firmware loads with auto_initramfs=1 (Pi OS default)
+  awk -v b="$MARK_BEGIN" -v e="$MARK_END" '$0==b{s=1;next} $0==e{s=0;next} !s' "$cfgf" | grep -Eq '^(auto_initramfs=1|initramfs )' && has_initramfs=1
+  splash="$(splash_block "$SPLASH_MODE" "$has_initramfs")"
+  [ -n "$splash" ] && block="${block:+$block$'\n'}# boot splash (pi/plymouth, Plymouth from the initramfs)"$'\n'"$splash"
   backup_once "$cfgf"; backup_once "$cmdf"
   config_apply "$(cat "$cfgf")" "$block" | write_file "$cfgf" 0755 root:root
   local tokens; tokens="$(display_tokens "$kind" "$DISPLAY_MODE")"
   [ "$DISPLAY_MODE" = none ] && [ "$kind" = waveshare-4-hdmi ] && tokens="$(grep -oE '(video=HDMI-A-1:[^ ]*|drm\.edid_firmware=[^ ]*)' "$cmdf" | tr '\n' ' ') consoleblank=0"
+  # the boot splash's tokens first (they stay in place), then the display's (always last) → one write, idempotent
+  local line; line="$(head -1 "$cmdf")"
+  [ "$SPLASH_MODE" != off ] && line="$(splash_cmdline "$line" "$SPLASH_MODE")"
   # shellcheck disable=SC2086
-  cmdline_apply "$(head -1 "$cmdf")" $tokens | write_file "$cmdf" 0755 root:root
+  cmdline_apply "$line" $tokens | write_file "$cmdf" 0755 root:root
   if [ "$kind" = waveshare-4-hdmi ] && [ "$DISPLAY_MODE" = edid ]; then
     local tmp; tmp="$(mktemp)"
     python3 "$APP_DIR/pi/rr-tool.py" edid --out "$tmp" --timings "$WAVESHARE_TIMINGS"
@@ -408,6 +456,76 @@ EOF
     root systemctl enable --quiet --now shairport-sync || warn "shairport-sync didn't start"
     info "AirPlay speaker \"Round Display\" (classic AirPlay; see README for AirPlay 2)"
   fi
+}
+
+# copy a folder's files to a root-owned folder, only what changed → SYNC_CHANGED=1 when something did
+sync_dir() {
+  local src="$1" dst="$2" f n=0
+  SYNC_CHANGED=0
+  for f in "$src"/*; do
+    [ -f "$f" ] || continue
+    if ! cmp -s "$f" "$dst/$(basename "$f")" 2>/dev/null; then
+      n=$((n + 1)); SYNC_CHANGED=1
+      [ "$DRY" = 1 ] || $SUDO install -D -m 0644 -o root -g root "$f" "$dst/$(basename "$f")"
+    fi
+  done
+  if [ "$n" = 0 ]; then info "unchanged: $dst"
+  elif [ "$DRY" = 1 ]; then echo "    [dry-run] copy $n file(s) to $dst"
+  else info "updated $n file(s) in $dst"; fi
+}
+
+step_splash() {
+  step "Boot splash ($SPLASH_MODE)"
+  local cmdf="$BOOT_DIR/cmdline.txt"
+  if [ "$SPLASH_MODE" = off ]; then
+    if [ -d "$THEME_DIR" ] || grep -qs 'logo.nologo' "$cmdf"; then splash_remove; else info "left alone (--no-splash)"; fi
+    return 0
+  fi
+  [ -d "$APP_DIR/pi/plymouth/roundremote" ] || { warn "pi/plymouth/roundremote is missing — skipping the boot splash"; return 0; }
+  # Plymouth: the "script" plugin is in plymouth-themes on Debian / Raspberry Pi OS; plymouth-label draws text
+  local want=() p
+  for p in plymouth plymouth-themes plymouth-label; do pkg_avail "$p" && ! pkg_installed "$p" && want+=("$p"); done
+  if ! pkg_avail plymouth && ! pkg_installed plymouth; then warn "no plymouth package — skipping the boot splash"; return 0; fi
+  [ "${#want[@]}" -gt 0 ] && root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${want[@]}" </dev/null
+  sync_dir "$APP_DIR/pi/plymouth/roundremote" "$THEME_DIR"
+  local changed="$SYNC_CHANGED" cur=""
+  command -v plymouth-set-default-theme >/dev/null && cur="$(plymouth-set-default-theme 2>/dev/null || true)"
+  if [ "$cur" != roundremote ] || [ "$changed" = 1 ]; then
+    info "making it the boot theme and rebuilding the initramfs (a minute or two)…"
+    root plymouth-set-default-theme -R roundremote || warn "plymouth-set-default-theme failed — the splash may not show"
+    NEEDS_REBOOT=1
+  else info "boot theme: roundremote"; fi
+  # Plymouth leaves its last frame (logo + full ring) on screen when it quits, until the kiosk draws
+  local ply; ply="$(command -v plymouth || echo /usr/bin/plymouth)"
+  printf '%s\n' "# Round Remote (pi/install.sh): when Plymouth quits, keep the boot splash's last frame on the screen until the" \
+    "# kiosk (cage + Chromium) draws — no text console in between." "[Service]" "ExecStart=" "ExecStart=-$ply quit --retain-splash" \
+    | write_file "$PLYMOUTH_DROPIN" 0644 root:root
+  root systemctl daemon-reload
+  if [ -f "$cmdf" ]; then
+    backup_once "$cmdf"
+    local before; before="$(head -1 "$cmdf")"
+    splash_cmdline "$before" "$SPLASH_MODE" | write_file "$cmdf" 0755 root:root
+    [ "$(splash_cmdline "$before" "$SPLASH_MODE")" = "$before" ] || NEEDS_REBOOT=1
+  fi
+  if [ "$DRY" = 0 ] && [ -d "$BOOT_DIR" ] && ! ls "$BOOT_DIR"/initramfs* >/dev/null 2>&1; then
+    warn "no initramfs in $BOOT_DIR — the splash then starts a few seconds later (from the root file system)"
+  fi
+  if [ "$SPLASH_MODE" = verbose ]; then info "boot messages will show (run install.sh again without --verbose-boot to hide them)"
+  else info "quiet boot: black → logo → Round Remote (boot messages: --verbose-boot)"; fi
+}
+
+splash_remove() {   # --no-splash after it was on, and --uninstall
+  local cmdf="$BOOT_DIR/cmdline.txt"
+  if [ -d "$THEME_DIR" ]; then
+    if command -v plymouth-set-default-theme >/dev/null && [ "$(plymouth-set-default-theme 2>/dev/null)" = roundremote ]; then
+      root plymouth-set-default-theme --reset
+      root update-initramfs -u || warn "update-initramfs failed"
+    fi
+    root rm -rf "$THEME_DIR"; info "removed $THEME_DIR"
+  fi
+  [ -e "$PLYMOUTH_DROPIN" ] && { root rm -f "$PLYMOUTH_DROPIN"; root systemctl daemon-reload; info "removed $PLYMOUTH_DROPIN"; }
+  if [ -f "$cmdf" ]; then splash_cmdline "$(head -1 "$cmdf")" off | write_file "$cmdf" 0755 root:root; fi
+  NEEDS_REBOOT=1
 }
 
 step_files() {
@@ -505,6 +623,7 @@ do_uninstall() {
   done
   root systemctl daemon-reload
   root nmcli connection delete id "$HOTSPOT_SSID" >/dev/null 2>&1 || true
+  splash_remove
   if [ -f "$BOOT_DIR/config.txt" ]; then
     config_apply "$(cat "$BOOT_DIR/config.txt")" "" | write_file "$BOOT_DIR/config.txt" 0755 root:root
     # shellcheck disable=SC2046
@@ -542,8 +661,17 @@ summary() {
   fi
 }
 
+SAVED_ARGS_FILE=/etc/roundremote/install-args
+# the options worth repeating next time (not one-off ones like --dry-run or --reboot)
+saved_args() { local a; for a in "$@"; do case "$a" in --dry-run|--interactive|--reboot|--uninstall|--from-bootstrap|--same-options|--no-update|--user=*|-h|--help) ;; *) printf '%s\n' "$a" ;; esac; done; }
+
 main() {
-  parse_args "$@"
+  local a saved=()
+  for a in "$@"; do
+    if [ "$a" = --same-options ] && [ -r "$SAVED_ARGS_FILE" ]; then mapfile -t saved < "$SAVED_ARGS_FILE"; break; fi
+  done
+  parse_args "${saved[@]}" "$@"
+  [ "${#saved[@]}" -gt 0 ] && ORIG_ARGS=("${saved[@]}" "${ORIG_ARGS[@]}")
   detect
   if [ "$DRY" = 0 ]; then
     LOG="$TARGET_HOME/roundremote-install.log"
@@ -564,9 +692,11 @@ main() {
   step_bridge
   step_system
   step_display
+  step_splash
   step_audio
   step_files
   step_services
+  saved_args "${ORIG_ARGS[@]}" | write_file "$SAVED_ARGS_FILE" 0644 root:root
   summary
 }
 

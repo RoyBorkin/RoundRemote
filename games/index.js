@@ -4,6 +4,7 @@
 // (Names are our own; several games are round takes on well-known arcade classics.)
 
 import { rhythmById, loadRhythmGame } from '../rhythm/index.js';
+import { GAME_APPS } from '../apps/index.js';
 
 // tiny helpers to write 24×24 icon paths
 const c = (x, y, r, hole = false) => `M${x - r} ${y}a${r} ${r} 0 1 ${hole ? 0 : 1} ${2 * r} 0a${r} ${r} 0 1 ${hole ? 0 : 1} ${-2 * r} 0z`;
@@ -69,6 +70,8 @@ export const GAMES = [
     icon: 'M3 3h5v5H3zm6.5 0h5v5h-5zM16 3h5v5h-5zM3 9.5h5v5H3zm6.5 0h5v5h-5zM16 9.5h5v5h-5zM3 16h5v5H3zm6.5 0h5v5h-5zM16 16h5v5h-5z' },
   { id: 'blanks', file: './blanks.js', name: 'Fill the Blank', color: '#111827', party: true, blurb: 'A party card game for groups — everyone plays from their phone, the judge picks the funniest answer.',
     icon: 'M3 4h11v16H3zm2 3v1.6h7V7zm0 3.5v1.6h5v-1.6zM15.5 6.5l5.2 1.4-3.6 13.5-5.2-1.4.6-2.1 3.3.9 2.6-9.8-3.5-.9z' },
+  // two party apps live here too (apps/drinks.js, apps/trivia.js): `app` = open that app (go('app', { id })) instead of the games shell
+  ...GAME_APPS.map((a) => ({ id: a.id, app: a.id, name: a.name, color: a.color, blurb: a.blurb, icon: a.icon, party: true, adult: !!a.adult })),
 ];
 
 // The Rhythm category's games (rhythm/index.js) run in the same shell: found here too, loaded from rhythm/.
@@ -79,6 +82,7 @@ export async function loadGame(id) {
   if (!GAMES.some((g) => g.id === id) && rhythmById(id)) return loadRhythmGame(id);
   const meta = gameById(id);
   if (!meta) throw new Error(`No game “${id}”`);
+  if (meta.app) throw new Error(`${meta.name} opens as an app`);   // games/hub.js routes these to go('app')
   const mod = await import(meta.file);
   return { ...meta, ...mod.default, id: meta.id, name: meta.name, color: meta.color, icon: meta.icon };
 }

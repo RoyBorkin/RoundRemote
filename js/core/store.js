@@ -34,6 +34,9 @@ export const DEFAULTS = Object.freeze({
   kbdLang: 'en',               // on-screen keyboard language: en | he
   onlySignedIn: false,         // home: hide services that aren't signed in / reachable
   showDemo: true,              // home: show the Demo service tile
+  homeHidden: [],              // home: service ids hidden from the ring (Settings → Home screen → Services, or hold a tile)
+  homeOrder: [],               // home: service ids in the order chosen there (the rest follow in the built-in order)
+  homeBattery: true,           // home: battery level next to the date (when this device has a battery)
   typoRandomOff: [],           // Kinetic Type variants left out of Random (new variants are in by default)
   playerHide: [],              // parts of the music player's controls to hide (see PLAYER_PARTS)
   showDevicePill: true,        // player: the "Service · Device" line near the top
@@ -81,6 +84,8 @@ export const DEFAULTS = Object.freeze({
   mediaSubAuto: true,          // switch to downloaded subtitles straight away
   mediaSkipPop: true,          // "Skip intro" / "Skip credits" button while the TV shows one (Plex, Jellyfin)
   mediaAutoSkip: false,        // skip intros and recaps by themselves
+  plexAskWho: false,           // Plex Movies & TV: "Who's watching?" (Plex Home users) every time it opens (js/screens/users.js)
+  jellyfinAskWho: false,       // Jellyfin Movies & TV: the same for the Jellyfin users signed in here
   // Home (smart home)
   haUrl: '',                   // Home Assistant address, e.g. http://homeassistant.local:8123
   haFavorites: [],             // entity ids on the Favourites tab (empty = suggestions)

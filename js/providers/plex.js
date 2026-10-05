@@ -22,6 +22,7 @@ const baseHeaders = (token) => ({
   'X-Plex-Device-Name': 'Round Display', 'X-Plex-Platform': 'Web',
   ...(token ? { 'X-Plex-Token': token } : {}),
 });
+export const plexHeaders = baseHeaders;   // plex-users.js (Home users) talks to plex.tv as the same client
 
 export class PlexProvider extends Provider {
   constructor(meta) {
@@ -34,9 +35,19 @@ export class PlexProvider extends Provider {
     this.tick = 0;
     this.timeline = {};
     this.ctype = 'music';   // Plex Companion command type: music (Plexamp) | video (Movies & Shows)
+    // a Plex Home user was picked (js/providers/plex-users.js): reconnect to the server as that user
+    store.on('auth', (k) => { if (k === 'plex.user') this._userChanged(); });
   }
-  get token() { return store.auth('plex')?.token; }
-  isAuthed() { return !!this.token; }
+  /** plex.tv token in use: the picked Home user's, else the signed-in account's. */
+  get token() { return store.auth('plex.user')?.token || store.auth('plex')?.token; }
+  isAuthed() { return !!store.auth('plex')?.token; }
+  _userChanged() {
+    this.server = null; this.resources = null; this.sessionsCache = []; this.clientsCache = null; this.goodRoute = {};
+    this.cache?.clear();
+    this.emit('user');
+    if (this.timer) { this.publish({ track: null, isPlaying: false, status: 'loading', message: 'Switching user…' }); this.refresh().catch((e) => this.publish({ status: 'error', message: e.message })); }
+  }
+  _signedIn(token) { store.setAuth('plex.user', null); store.setAuth('plex.home', null); store.setAuth('plex.tokens', null); store.setAuth('plex', { token }); }
 
   // ---------- auth ----------
   async pinStart(strong = false) {
@@ -47,7 +58,7 @@ export class PlexProvider extends Provider {
     while (!signal?.aborted) {
       await sleep(2000);
       const p = await http(`${PLEX_TV}/pins/${id}`, { headers: baseHeaders() }).catch(() => null);
-      if (p?.authToken) { store.setAuth('plex', { token: p.authToken }); return true; }
+      if (p?.authToken) { this._signedIn(p.authToken); return true; }
       if (p && p.expiresIn != null && p.expiresIn <= 0) throw new Error('Code expired — try again');
     }
     return false;
@@ -58,8 +69,10 @@ export class PlexProvider extends Provider {
     store.temp('plex_pin', String(id));
     store.temp('plex_return', this.id); // which tile (music Plex or Movies & Shows Plex) to open afterwards
     const forwardUrl = `${location.origin}${location.pathname.replace(/index\.html$/, '')}?plexpin=${id}`;
-    location.href = `https://app.plex.tv/auth#?${qs({ clientID: clientId(), code, forwardUrl, 'context[device][product]': PRODUCT })}`;
+    location.href = this.authUrl(code, forwardUrl);
   }
+  /** Plex's sign-in page for a PIN (any browser — e.g. a phone setting up this display, js/core/remote-setup.js). */
+  authUrl(code, forwardUrl) { return `https://app.plex.tv/auth#?${qs({ clientID: clientId(), code, forwardUrl, 'context[device][product]': PRODUCT })}`; }
   async handleRedirect(params) {
     const id = params.get('plexpin');
     if (!id) return false;
@@ -67,11 +80,11 @@ export class PlexProvider extends Provider {
     store.temp('plex_return', null);
     const p = await http(`${PLEX_TV}/pins/${id}`, { headers: baseHeaders() });
     if (!p?.authToken) throw new Error('Plex sign-in was not completed');
-    store.setAuth('plex', { token: p.authToken });
+    this._signedIn(p.authToken);
     store.temp('plex_pin', null);
     return true;
   }
-  signOut() { store.setAuth('plex', null); this.server = null; }
+  signOut() { store.setAuth('plex.user', null); store.setAuth('plex.home', null); store.setAuth('plex.tokens', null); store.setAuth('plex', null); this.server = null; }
 
   // ---------- discovery ----------
   async _resources() {

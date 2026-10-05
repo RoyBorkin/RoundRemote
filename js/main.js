@@ -1,5 +1,7 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round Remote — boot, routing, OAuth redirects, keyboard shortcuts, idle dimming.
+import './core/splash.js';    // first: takes the startup animation (index.html #rr-splash) away once Home is up
+import './core/pointer.js';   // hides the mouse pointer while touch is used
 import { store, isLite } from './core/store.js';
 import { initTheme } from './core/theme.js';
 import { player } from './core/player.js';
@@ -143,6 +145,7 @@ window.addEventListener('keydown', (e) => {
 
 // ---------- boot ----------
 async function boot() {
+  if (window.__rrHandoff) return;   // js/setup-handoff.js is passing a phone's Spotify sign-in on to its setup page
   // Optional defaults from the bridge's config.json (client IDs, server URLs…).
   const info = await Promise.race([bridgeInfo({ passive: true }), new Promise((r) => setTimeout(() => r(null), 2500))]);
   if (info?.config) store.applyRemoteDefaults(info.config);
@@ -162,6 +165,7 @@ async function boot() {
     history.replaceState({}, document.title, location.pathname);
     for (const svc of SERVICES) {
       const p = provider(svc.id);
+      if (typeof p?.handleRedirect !== 'function') continue;   // e.g. PlayStation / Steam have no OAuth redirect
       try {
         if (await p.handleRedirect(params)) { toast(`${svc.name} connected`); return openService(svc.id); }
       } catch (e) { toast(e.message, { kind: 'error', ms: 4000 }); return go('connect', { id: svc.id }); }

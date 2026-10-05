@@ -17,6 +17,10 @@
 #   ROUNDREMOTE_OUTPUT       the screen's output name (default: auto, e.g. HDMI-A-1)
 #   ROUNDREMOTE_TRANSFORM    normal | 90 | 180 | 270 | flipped… — turn the whole screen (wlr-randr --transform)
 #   ROUNDREMOTE_MODE         e.g. 720x720 or 720x720@60 — force a mode after start (wlr-randr --mode / --custom-mode)
+#   ROUNDREMOTE_CURSOR       auto | hide | show — the mouse pointer (default auto: hidden unless a real mouse is
+#                            plugged in when the kiosk starts; the app also hides it while touch is used)
+#   ROUNDREMOTE_BOOT_PAGE    1 | 0 — show the logo (pi/boot.html) while the bridge starts, carrying on from the
+#                            boot splash (default 1; 0 = wait on a black screen, then open the app)
 #   CHROMIUM_FLAGS           extra Chromium flags
 # The screen never blanks by itself: the app turns the HDMI output off after the idle time set in
 # Settings → Device → Screen (through the bridge: POST /api/system/screen).
@@ -27,16 +31,33 @@ if [ -r /etc/roundremote/kiosk.env ]; then set -a; . /etc/roundremote/kiosk.env;
 URL="${ROUNDREMOTE_URL:-http://127.0.0.1:8765/}"
 APP_URL="$URL"
 if [ -n "${ROUNDREMOTE_PROFILE:-}" ]; then APP_URL="${URL}?profile=${ROUNDREMOTE_PROFILE// /%20}"; fi
-CURSOR_DIR="$HOME/.local/share/icons/roundremote-hidden"
+CURSOR_DIR="$HOME/.local/share/roundremote-cursors"
+TOOL="$(dirname "$SELF")/rr-tool.py"
 
 log() { echo "kiosk: $*" >&2; }
 
-start_compositor() {
-  # an invisible pointer for the compositor and Chromium (touch screen)
-  if [ ! -e "$CURSOR_DIR/cursors/default" ] && command -v python3 >/dev/null; then
-    python3 "$(dirname "$SELF")/rr-tool.py" cursor-theme "$CURSOR_DIR" 2>/dev/null || true
+# The touch screen needs no pointer. cage shows one as soon as ANY pointer device exists — and most USB touch panels
+# (the Waveshare round one too) add a "mouse" interface next to the touch one, so an arrow sat in the middle of the
+# screen. Setting XCURSOR_THEME alone didn't hide it: cage 0.1.x (Bookworm) ignores it and loads the theme called
+# "default". So the kiosk gets its own cursor path where both "default" and "roundremote-hidden" are invisible —
+# unless a real mouse is plugged in (or ROUNDREMOTE_CURSOR=show). The app also hides the pointer while touch is used.
+cursor_setup() {
+  local mode="${ROUNDREMOTE_CURSOR:-auto}" mouse=""
+  case "$mode" in show|visible|on) log "pointer: visible (ROUNDREMOTE_CURSOR=$mode)"; return 0 ;; esac
+  command -v python3 >/dev/null || return 0
+  if [ "$mode" = auto ] && mouse="$(python3 "$TOOL" has-mouse 2>/dev/null)"; then
+    log "pointer: visible — a mouse is plugged in (${mouse//$'\n'/, }); the app hides it while you use touch"
+    return 0
   fi
-  [ -e "$CURSOR_DIR/cursors/default" ] && export XCURSOR_THEME=roundremote-hidden XCURSOR_PATH="$HOME/.local/share/icons:/usr/share/icons" XCURSOR_SIZE=24
+  if [ ! -e "$CURSOR_DIR/default/cursors/default" ] || [ ! -e "$CURSOR_DIR/roundremote-hidden/cursors/left_ptr" ]; then
+    python3 "$TOOL" cursor-path "$CURSOR_DIR" 2>/dev/null || { log "couldn't write the invisible pointer theme"; return 0; }
+  fi
+  export XCURSOR_PATH="$CURSOR_DIR" XCURSOR_THEME=roundremote-hidden XCURSOR_SIZE=24
+  log "pointer: hidden (no mouse plugged in; ROUNDREMOTE_CURSOR=show keeps it)"
+}
+
+start_compositor() {
+  cursor_setup
   export XDG_SESSION_TYPE=wayland MOZ_ENABLE_WAYLAND=1
   local comp="${ROUNDREMOTE_COMPOSITOR:-}"
   [ -z "$comp" ] && { command -v cage >/dev/null && comp=cage || comp=labwc; }
@@ -78,10 +99,14 @@ screen_setup() {
 }
 
 run_browser() {
-  # wait for the bridge (it also serves the app); show Chromium's own error page if it never comes
-  for _ in $(seq 1 60); do curl -fsS -m 2 "${URL}api/info" >/dev/null 2>&1 && break; sleep 1; done
+  # The bridge serves the app. Chromium opens pi/boot.html first — the logo and ring of the boot splash in the same
+  # place — which waits for the bridge and then opens the app (whose startup animation carries on from there).
+  # Without it: wait here (black screen), and show Chromium's own error page if the bridge never comes.
+  local START="$APP_URL" BOOT_PAGE; BOOT_PAGE="$(dirname "$SELF")/boot.html"
+  if [ "${ROUNDREMOTE_BOOT_PAGE:-1}" != 0 ] && [ -r "$BOOT_PAGE" ]; then START="file://$BOOT_PAGE#$APP_URL"
+  else for _ in $(seq 1 60); do curl -fsS -m 2 "${URL}api/info" >/dev/null 2>&1 && break; sleep 1; done; fi
 
-  # hide the mouse pointer on X11 desktops (Wayland: the invisible cursor theme above)
+  # hide the mouse pointer on X11 desktops (Wayland: the invisible cursor theme in cursor_setup)
   if [ -n "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ] && command -v unclutter >/dev/null; then (unclutter -idle 0.5 -root &) 2>/dev/null; fi
   [ -n "${WAYLAND_DISPLAY:-}" ] && screen_setup
 
@@ -93,12 +118,15 @@ run_browser() {
   if [ -f "$DATA/Default/Preferences" ]; then
     sed -i -e 's/"exited_cleanly":false/"exited_cleanly":true/' -e 's/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$DATA/Default/Preferences" 2>/dev/null || true
   fi
+  # --force-dark-mode: Chromium's own background before the first page paints is dark grey instead of white
+  # (there is no --default-background-color outside headless Chromium); boot.html itself is black from its first byte
   local OZONE=--ozone-platform-hint=auto
   [ -n "${WAYLAND_DISPLAY:-}" ] && OZONE=--ozone-platform=wayland
   # shellcheck disable=SC2086
   exec "$BROWSER" \
     --user-data-dir="$DATA" \
-    --kiosk --app="$APP_URL" --start-fullscreen \
+    --kiosk --app="$START" --start-fullscreen \
+    --force-dark-mode \
     --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble \
     --disable-translate --disable-features=TranslateUI,Translate,MediaRouter \
     --overscroll-history-navigation=0 --disable-pinch \

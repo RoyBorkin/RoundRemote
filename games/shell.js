@@ -17,6 +17,8 @@
 //                                                        // Top 5 on the start card, no score on the pause card, and g.over()
 //                                                        // doesn't record (unless it passes record: true)
 //     create(g, { mode, opts }) { …; return { destroy() {} } } // start a new round (opts = chosen options)
+//     menuActions: () => [{ label, run({ play }) }],      // optional: extra small buttons on the start card (e.g. Fill the
+//                                                        // Blank's "Add cards"); play() starts a round like Play does
 //     lang: () => 'he',                                  // optional: the shell's own texts in that language (and right to
 //                                                        // left); howTo / modes / unit may be getters — read on every render
 //   }
@@ -349,6 +351,7 @@ export function GameScreen({ id }) {
       }
       return rows.length ? h('div.g-choices', rows) : null;
     };
+    const menuActs = () => { try { return (def.menuActions?.() || []).filter((a) => a?.label && a.run); } catch { return []; } };   // a game's own extra buttons
     const scoreText = (e) => (def.lang ? `${format(e.score)}${unit() ? ` ${unit()}` : ''}` : e.text || format(e.score));
     const best = () => { const b = list()[0]; return b ? T('best', scoreText(b)) : T('No best score yet'); };
     if (kind === 'menu') {
@@ -360,7 +363,8 @@ export function GameScreen({ id }) {
         modeChips(),
         party() ? null : h('div.g-best', best()),
         h('div.g-actions', pill(T('Play'), startRound, 'primary')),
-        h('div.g-actions.small', party() ? null : pill(T('Top 5'), () => showOv('scores', { back: 'menu' })), pill(homeName(), () => go(homeRoute))),
+        h('div.g-actions.small', party() ? null : pill(T('Top 5'), () => showOv('scores', { back: 'menu' })),
+          ...menuActs().map((a) => pill(a.label, () => a.run({ play: startRound }))), pill(homeName(), () => go(homeRoute))),
       );
     } else if (kind === 'scores') {
       put(h('div.g-title.sm', T('top5', meta.name)), keyLabel() ? h('div.g-keyname', keyLabel()) : null, modeChips(), chart(), h('div.g-actions', pill(T('Back'), () => showOv(data.back || 'menu'), 'primary')));
@@ -399,7 +403,8 @@ export function GameScreen({ id }) {
   // ---------- load ----------
   ov.append(h('div.g-card', h('div.g-how', 'Loading…')));
   ov.classList.add('on');
-  loadGame(id).then((d) => {
+  if (meta.app) setTimeout(() => go('app', { id: meta.app }), 0);   // an app on the Games ring (games/index.js) — open the app instead
+  else loadGame(id).then((d) => {
     def = d;
     const saved = (store.get('gameModes') || {})[id];
     mode = def.modes?.some((m) => m.id === saved) ? saved : def.modes?.[0]?.id || null;

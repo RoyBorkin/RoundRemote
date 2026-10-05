@@ -299,7 +299,7 @@ async function proxy(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  { const m = url.pathname.match(/^\/(?:api\/)?(collection|dj|trivia|movienight|petakiot|codewords|blanks|system)(?:\/|$)/); if (m) return (await import(`./lib/${m[1]}.js`)).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname }); }  // phone pages + APIs: Collection, Party DJ, Trivia, Movie Night, the Notes / Code Words / Fill the Blank games, and the Pi system API (lib/<name>.js)
+  { const m = url.pathname.match(/^\/(?:api\/)?(collection|dj|trivia|movienight|petakiot|codewords|blanks|system|setup)(?:\/|$)/); if (m) return (await import(`./lib/${m[1]}.js`)).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname }); }  // phone pages + APIs: Collection, Party DJ, Trivia, Movie Night, the Notes / Code Words / Fill the Blank games, and the Pi system API (lib/<name>.js)
   if (/^\/(api\/)?tasks(\/|$)/.test(url.pathname)) return (await import('./lib/tasks.js')).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname });  // Tasks app: phone page + /api/tasks (lib/tasks.js)
   if (url.pathname.startsWith('/api/')) {
     cors(req, res);

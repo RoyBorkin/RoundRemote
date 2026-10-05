@@ -987,3 +987,9 @@ div.bg-cn-turn { background: transparent; border-color: transparent; font-size: 
 #app[data-theme="bauhaus"] .pill.primary.bg-gate-ok { background: var(--c1); }
 .bg-cn-wins small { font-family: var(--font); font-size: 1.6cqmin; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; margin-right: .6cqmin; }
 .bg-cat-atkvs .barb b { color: color-mix(in srgb, var(--danger) 75%, rgb(var(--ink))); } .bg-cat-atkvs .kn b { color: color-mix(in srgb, #2563eb 70%, rgb(var(--ink))); }
+/* Cards Against Humanity → "Play it on the screen" (Fill the Blank) */
+.bg-ca-play { font-size: 2.3cqmin; font-weight: 700; color: var(--accent); padding: 1cqmin 2cqmin; border-radius: 99px; text-decoration: underline; text-underline-offset: .5cqmin; }
+.bg-ca-play.wide { display: flex; flex-direction: column; align-items: flex-start; gap: .4cqmin; width: 100%; text-decoration: none; text-align: start; padding: 1.8cqmin 2.4cqmin; border-radius: 2.4cqmin;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); margin-bottom: 1cqmin; }
+.bg-ca-play.wide b { font-size: 2.8cqmin; color: var(--fg); }
+.bg-ca-play.wide small { font-size: 2.1cqmin; color: var(--muted); font-weight: 500; }

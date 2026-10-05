@@ -66,13 +66,14 @@ export function GamesHubScreen() {
     name.textContent = gm.name;
     blurb.textContent = gm.blurb;
     const bt = bestText(gm.id);
-    best.textContent = gm.party ? 'Party game' : bt ? `Best  ${bt}` : 'No score yet';
+    best.textContent = gm.app ? `Party app${gm.adult ? ' · 18+' : ''}` : gm.party ? 'Party game' : bt ? `Best  ${bt}` : 'No score yet';
+    playBtn.textContent = gm.app ? 'Open' : 'Play';
     pointer.style.transform = `rotate(${(sel / n) * 360}deg)`;
     center.classList.remove('swap'); void center.offsetWidth; center.classList.add('swap');
     store.set('lastGame', gm.id);
     if (!quiet) sfx('tick');
   }
-  function play() { sfx('tap'); go('game', { id: GAMES[sel].id }); }
+  function play() { sfx('tap'); const gm = GAMES[sel]; if (gm.app) go('app', { id: gm.app }); else go('game', { id: gm.id }); }   // an app entry opens the app (Back returns here)
 
   // drag around the ring to move through the games
   let drag = null;

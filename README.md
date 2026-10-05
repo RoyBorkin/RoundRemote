@@ -12,14 +12,14 @@
   </tr>
   <tr>
     <td align="center"><img src="screenshots/home-smart.png" width="230" alt="Home screen in smart-home mode, light theme"><br><sub>Smart home · Music Red, light</sub></td>
-    <td align="center"><img src="screenshots/games-hub.png" width="230" alt="The Games ring"><br><sub>30 games · Classic</sub></td>
-    <td align="center"><img src="screenshots/apps-hub.png" width="230" alt="The Apps ring"><br><sub>20 apps · Classic</sub></td>
+    <td align="center"><img src="screenshots/games-hub.png" width="230" alt="The Games ring"><br><sub>32 games · Classic</sub></td>
+    <td align="center"><img src="screenshots/apps-hub.png" width="230" alt="The Apps ring"><br><sub>18 apps · Classic</sub></td>
   </tr>
 </table>
 
 *All screenshots are from Demo mode on the 720×720 round screen, with sample data. Every theme comes in Dark, OLED and Light.*
 
-> **Two targets, one app.** The same files run as a **Raspberry Pi kiosk** (the round screen as an appliance) and as a web page on **GitHub Pages** (phones, tablets, computers). Nearly every feature works on both; [Where it works](#where-it-works) lists the exceptions. The few Pi-only settings (Wi-Fi, Bluetooth, sound, battery, screen and updates under *Settings → Device*) show up only on the Pi and stay hidden on the web. Battery saver and screen rotation are under *Settings → General → Display* on the web. The phone pages for the party apps and games need the [bridge](#the-bridge), which the Pi runs for you; on the web, start it on a computer. Without the bridge these apps and games run on one device.
+> **Two targets, one app.** The same files run as a **Raspberry Pi kiosk** (the round screen as an appliance) and as a web page on **GitHub Pages** (phones, tablets, computers). Nearly every feature works on both; [Where it works](#where-it-works) lists the exceptions. The few Pi-only settings (Wi-Fi, Bluetooth, sound, battery, screen and updates under *Settings → Device*) show up only on the Pi and stay hidden on the web. Battery saver and screen rotation are under *Settings → General* on the web. The phone pages for the party apps and games need the [bridge](#the-bridge), which the Pi runs for you; on the web, start it on a computer. Without the bridge these apps and games run on one device.
 
 © 2026 Roy Borkin. All rights reserved. See [Copyright & license](#copyright--license).
 
@@ -59,6 +59,8 @@ Under the clock, the Home screen has its menu in three rows:
 
 Music, Media and Home each show their own services around the ring: tap one, or swipe sideways to move between them. Rhythm, Apps, Games and Settings open their own screens. With a keyboard or the knob, ← → step through the buttons and ↑ ↓ move between the rows (Enter opens). The clock, the menu and the now-playing pill always fit inside the ring of services, at every control size.
 
+**Your own ring.** Hold a service tile (or right-click it) → **Hide from Home** takes it off the ring, with an **Undo** for a few seconds; it stays signed in. *Settings → Home screen → Services* lists every service of Music, Movies & TV and Home with a switch each and ↑ ↓ to change their order. **Battery:** when the device has a battery (the Pi's UPS / PiSugar through the bridge, or a phone, tablet or laptop), its level shows next to the date, with a bolt while charging; amber at 20 %, red at 10 % (*Settings → Home screen → Battery level on Home* turns it off).
+
 <table>
   <tr>
     <td align="center"><img src="screenshots/home-music.png" width="230" alt="Home in Music mode"><br><sub>Music · Classic, dark</sub></td>
@@ -72,9 +74,9 @@ Music, Media and Home each show their own services around the ring: tap one, or 
 | **[Music](#music)** | Spotify, Apple Music, YouTube Music, YouTube, Plex / Plexamp, Jellyfin, Roon, UPnP / DLNA, Google Cast, AirPlay, Tidal, Qobuz, the apps on your computer, and a Demo. Six ways to show the song: Info, Vinyl (or cassette / CD), synced Lyrics in six styles, Video, Tone Visual and Fun Facts. |
 | **[Movies & TV](#movies--tv)** | Now playing and a full library for Plex and Jellyfin, plus Chromecast, Apple TV, Netflix, Disney+, YouTube on the TV and a Google TV remote. |
 | **[Home & smart home](#home--smart-home)** | Home Assistant (favourites, rooms, scenes, round controls), Google Home commands and speakers, PlayStation and Steam status screens, and a Fosi S3 music streamer. |
-| **[Games](#games)** | 30 games: 27 round arcade and puzzle games with a top-5 chart for every mode, plus three party games played from your phones (Notes Game, Code Words, Fill the Blank). A pause menu with a mini player, touch, keyboard and knob controls. |
+| **[Games](#games)** | 32 games: 27 round arcade and puzzle games with a top-5 chart for every mode, three party games played from your phones (Notes Game, Code Words, Fill the Blank), plus Trivia Night and Drinking Games (18+). A pause menu with a mini player, touch, keyboard and knob controls. |
 | **[Rhythm](#rhythm-music-games)** | Hitster plus five rhythm games that learn the song that's playing on your own music service. |
-| **[Apps](#apps)** | 20 tools: clock & alarms, calculator, timers, party games, board-game companions for 17 games and rules for 45, a physical-media collection (games, board games, books, vinyl, CDs, discs), wish lists, plants & pets, focus timer, sleep sounds, party DJ, movie night, trivia night, countdowns and more. Guests join several of them from their phones. |
+| **[Apps](#apps)** | 18 tools: clock & alarms, calculator, timers, party games, board-game companions for 17 games and rules for 45, a physical-media collection (games, board games, books, vinyl, CDs, discs), wish lists, plants & pets, focus timer, sleep sounds, party DJ, movie night, countdowns and more. Guests join several of them from their phones. |
 | **[Settings & themes](#settings--themes)** | 11 themes, each in Dark, OLED or Light with your own colours, console-style Home backgrounds, settings profiles you can copy to another display, and smart-home alerts. |
 
 ### Where it works
@@ -94,7 +96,7 @@ Round Remote runs in three ways: as a **Raspberry Pi appliance** (the round scre
 | Rhythm: learn from a microphone | ✅ (USB mic) | ✅ | ✅ |
 | Settings profiles saved on the bridge | ✅ | file export / import only | ✅ |
 | *Settings → Device*: Wi-Fi, Bluetooth, sound, battery & power, screen off, motion-sensor rotation, updates, restart / shut down | ✅ | — | — |
-| Screen rotation (manual or the device's motion sensor) and Battery saver | ✅ (*Settings → Device*) | ✅ (*Settings → General → Display*) | ✅ |
+| Screen rotation (manual or the device's motion sensor) and Battery saver | ✅ (*Settings → Device*) | ✅ (*Settings → General*) | ✅ |
 | Smart-home alerts (Home Assistant) | ✅ | ✅ | ✅ (plus Google Home broadcasts) |
 
 ---
@@ -400,7 +402,7 @@ Setup for every Home service is under [Connecting your services](#connecting-you
 
 ## Games
 
-Tap **Games** on the Home screen for **30 games** on a ring: tap one (or drag around the ring, scroll, or use ← →) to see it in the middle, then tap **Play**. Every game keeps a **top-5 chart** for each of its modes and options (like difficulty); Notes Game and Code Words, which are played in teams, keep their scores per game instead. It shows after every round and under **Top 5** on its start card. When a score makes the chart you're asked for your name; the last name is filled in next time and you can tap it to change it. Each place shows the name and the date. The scores are saved with your settings, so a settings profile copies them to another display.
+Tap **Games** on the Home screen for **32 games** on a ring: tap one (or drag around the ring, scroll, or use ← →) to see it in the middle, then tap **Play**. Every game keeps a **top-5 chart** for each of its modes and options (like difficulty); Notes Game and Code Words, which are played in teams, keep their scores per game instead. It shows after every round and under **Top 5** on its start card. When a score makes the chart you're asked for your name; the last name is filled in next time and you can tap it to change it. Each place shows the name and the date. The scores are saved with your settings, so a settings profile copies them to another display.
 
 **Pause (⏸ at the top):** Resume, Restart and Quit, sound on/off, and a mini player for whatever is playing in Music or Movies & TV: previous, play/pause, next and volume.
 
@@ -458,7 +460,7 @@ Tap **Games** on the Home screen for **30 games** on a ring: tap one (or drag ar
 | **Rope Snip** | Swipe to cut the ropes and swing the sweet into the hungry critter's mouth, grabbing the 3 stars. 36 levels in 3 boxes with bubbles, puffers, ringed pins, spikes, moving pins and a gravity switch. The top 5 is your total stars. |
 | **Notes Game** (פתקיות) | The Israeli party game in the spirit of Fishbowl. *With phones*: scan the QR code, pick a team (or let the game balance them) and write your notes (names everyone knows) or pick from a starter pack of ~260 English and ~280 Hebrew famous names; the bowl on the display fills up. Teams take turns against the clock (30 / 45 / 60 / 90 s): the explainer's phone shows the note with big ✓ Got it and ⤼ Skip, teammates' phones say *Guess!*, the display shows the round and its rule, whose turn, a timer ring that beeps in the last 10 s, the scores and the notes left. Rounds (pick them and their order): Describe, One word, Charades, Sounds only, One gesture under a sheet — the same notes every round. Options: notes per player, 2–4 teams, skip penalty, skips per turn, carry the time left into the next round (classic rule). The end: scores, the best explainer, play again with the same notes or new ones. *One device* (no bridge, e.g. on GitHub Pages): type the notes on the display or add famous names, and the explainer holds the display. English or Hebrew on the display and on every phone. |
 | **Code Words** | A word-guessing team game in the spirit of Codenames, with our own look and word lists (~410 English and ~410 Hebrew words in 16 categories, plus a Kids set and your own words). A 5×5 grid fills the round screen (wider rows in the middle), red vs blue, 9/8/7/1 key. *With phones*: spymasters join by QR and only they see the key on their phone (the host can reassign); the spymaster types the clue and number on the phone; operatives tap the cards on the display (tap twice to reveal) or vote on their phones. Number + 1 guesses, a bystander or the other team's card ends the turn, the assassin ends the game. Optional turn timer, reveal animation, new game with the same teams (the other team starts). *One device* (no bridge): hold 🔑 to peek at the key, or scan the key QR — a page that rebuilds the key from the game's code, works on GitHub Pages too. |
-| **Fill the Blank** | A party card game for 3–20 players in the spirit of Cards Against Humanity, with our own name, look and cards. *With phones*: scan the QR code, pick a colour, and your phone holds your hand of 7 answer cards. Each round a prompt card (one or two blanks — *Pick 2* in order) shows big on the display with the players around the rim; everyone but the rotating judge plays from their phone, anonymously; the judge taps through the answers (phone or display/knob) and picks the funniest → a point and confetti. First to 5–15 points or a round limit; podium at the end. House rules: *Fresh hand* (trade a point to swap cards), *Robo* (a house bot that plays a random card), *Write your own* blank cards (0–3 per game), a timer that plays a random card for the slow ones, and *Everyone votes* instead of a judge. Packs: Family (~120 prompts + ~400 answers in English, ~60 + ~200 in Hebrew) and Party 18+ (~100 + ~300 English, ~50 + ~150 Hebrew, behind an 18+ check), a *house pack* that phones add cards to (kept in `bridge/blanks.json`), and your own JSON packs — uploaded from a phone or imported by link (`{ name, lang, prompts: [{ text, pick }], answers: [text] }`; imported packs are your responsibility). A phone that reloads gets its hand back; the display can resume a game after a reload. *Pass the device* (no bridge, e.g. on GitHub Pages): add the players on the display, each picks privately on the round screen with a cover screen in between. |
+| **Fill the Blank** | A party card game for 3–20 players in the spirit of Cards Against Humanity, with our own name, look and cards. *With phones*: scan the QR code, pick a colour, and your phone holds your hand of 7 answer cards. Each round a prompt card (one or two blanks — *Pick 2* in order) shows big on the display with the players around the rim; everyone but the rotating judge plays from their phone, anonymously; the judge taps through the answers (phone or display/knob) and picks the funniest → a point and confetti. First to 5–15 points or a round limit; podium at the end. House rules: *Fresh hand* (trade a point to swap cards), *Robo* (a house bot that plays a random card), *Write your own* blank cards (0–3 per game), a timer that plays a random card for the slow ones, and *Everyone votes* instead of a judge. Packs: Family (~120 prompts + ~400 answers in English, ~60 + ~200 in Hebrew) and Party 18+ (~100 + ~300 English, ~50 + ~150 Hebrew, behind an 18+ check), a *house pack* that phones add cards to (kept in `bridge/blanks.json`), and your own JSON packs — uploaded from a phone or imported by link (`{ name, lang, prompts: [{ text, pick }], answers: [text] }`; imported packs are your responsibility). **Cards** (in the lobby and under Rules): play from *Built-in* (our packs), *Custom* (the house pack + imported packs) or *All*; the lobby shows how many custom cards there are, and if a choice can't deal a game you're told how many prompts and answers it has and can add cards or switch to All. **Add cards** (on the start card, in the lobby and under Rules → Custom cards) shows a QR code for a phone page (`/blanks/add`, no game needed): write prompts with `____` for each blank (Pick 1 / Pick 2 detected), answers, in English or Hebrew, each optionally 18+; the phone lists the house pack and can delete its own cards. *Custom cards* on the display shows the counts, browses and deletes house cards, exports everything as one JSON file (QR to save it on a phone, or download) and imports packs by link; 18+ house cards are only dealt when you turn them on (Card packs). A phone that reloads gets its hand back; the display can resume a game after a reload. *Pass the device* (no bridge, e.g. on GitHub Pages): add the players on the display, each picks privately on the round screen with a cover screen in between. |
 
 Every game works with touch, and also with the keyboard: arrows, space and Enter. Games that turn something around the circle also take a rotary knob (←/→ or the scroll wheel). The ⏸ button at the top pauses the game; you can also turn the sound on or off there and on the Games ring. Circles and balls are drawn flat: solid colours, no gloss. The games follow the theme. The names, characters and art are original; several games are round takes on well-known arcade classics.
 
@@ -530,7 +532,7 @@ Each learn is saved as a **version**; a song can have several (tap the learned b
 
 ## Apps
 
-Tap **Apps** on the Home screen for handy tools on a ring. Apps that need your attention (alarms, timers, reminders, limits) ring on any screen while Round Remote is open, and can also reach you through your home (see [Smart-home alerts](#smart-home-alerts)).
+Tap **Apps** on the Home screen for handy tools on a ring. (**Trivia Night** and **Drinking Games** are on the Games ring now, after the party games: they open as apps and Back returns to the Games ring.) Apps that need your attention (alarms, timers, reminders, limits) ring on any screen while Round Remote is open, and can also reach you through your home (see [Smart-home alerts](#smart-home-alerts)).
 
 <table>
   <tr>
@@ -569,7 +571,7 @@ Tap **Apps** on the Home screen for handy tools on a ring. Apps that need your a
 | **Tasks** | Your truths, dares and tasks (starter packs in English and Hebrew included, plus an 18+ party set that only appears in 18+ mode). **Any entry can be marked 18+**: the *18+* chip on its row, the *Adults only* switch on its card, or the *18+* box when adding (built-in ones too). 18+ entries only show, count and get drawn while 18+ mode is on. Players **scan the QR code with their phone** and add their own (needs the bridge; see [Phone pages](#phone-pages)). Everything is kept; choose *All* or *This session*. |
 | **Randomizer** | Random number, colour, letter (English or Hebrew), who goes first (a spinning wheel), teams, yes / no / maybe, pick from your own lists, shuffle. |
 | **Board Games** | **Dice** (1–12 dice, d4–d20 and d100, hold & re-roll, advantage, Risk-style battle, duel), **coin flip**, **score keeper**, **companions for 17 games** (Catan with its expansions, Munchkin, Codenames, Dixit, Cards Against Humanity, פתקיות and more) and **rules for 45 board and card games** (in our own words, with expansions and editions; search in English or Hebrew). See [Board Games companions](#board-games-companions) below. |
-| **Drinking Games** | 18+ (asks once). Six party games for a shared players list: **Kings Cup** (52-card deck with flip animation, editable rule per rank, Question/Thumb Master, mates, rules in play, the four Kings), **Never Have I Ever** and **Most Likely To** (3-2-1 countdown, tap who got pointed at), **Power Hour** (a new song every 60 s / 30 s Turbo from your music service, next track or a playlist, for 30/60/100 rounds; beeps only without music), **Ride the Bus** (red/black, higher/lower, inside/outside, suit, then the bus) with a Higher or Lower mode, and **Party Cards** (challenges, pairs, mini-games, votes and rules that last a few cards, naming your players). Prompts in English or Hebrew, mild or with spicy cards. Sips, not shots; a water-break reminder every 20 min (Settings). |
+| **Drinking Games** (on the Games ring) | 18+ (asks once). Six party games for a shared players list: **Kings Cup** (52-card deck with flip animation, editable rule per rank, Question/Thumb Master, mates, rules in play, the four Kings), **Never Have I Ever** and **Most Likely To** (3-2-1 countdown, tap who got pointed at), **Power Hour** (a new song every 60 s / 30 s Turbo from your music service, next track or a playlist, for 30/60/100 rounds; beeps only without music), **Ride the Bus** (red/black, higher/lower, inside/outside, suit, then the bus) with a Higher or Lower mode, and **Party Cards** (challenges, pairs, mini-games, votes and rules that last a few cards, naming your players). Prompts in English or Hebrew, mild or with spicy cards. Sips, not shots; a water-break reminder every 20 min (Settings). |
 | **Decide** | Can't choose? Six slot-machine deciders (marquee lights, ticks, confetti; turn the knob to spin): **what to watch** (your Plex / Jellyfin movies & shows: unwatched, genre, under 2 h, movie or show, continue watching, with *Play on TV* and *Add to wish list*, or ~140 well-known titles), **what to do** (210 ideas in English and Hebrew by mood, indoors/outdoors, alone/with others, time, cost), **what to play** (board, card and party games with player count and time, plus the Games / Rhythm games and party apps; opens the game, its rules or its Board Games helper; *Pick from → Games with an app here* and a *Party / couples* filter: 2 / 3–5 / 6+), **where to go** (45 kinds of places plus your own, opened in Maps via a QR code), **which video game** (Steam / PlayStation recently played plus 66 picks; launch on the bridge PC) **what to eat** (110 dishes from 15 cuisines, Hebrew names for Israeli favourites; cook / order / go out, optional *cuisine first*) and **My lists** — your own draw lists ("Friday night", "Couple night"…) picked from every game Decide knows (your Collection, Board Games helpers and rules, party apps and games, rhythm games, the games on this screen, our picks, your own), spun on their own or from *What to play* / *Video game*. Favourites, history (no immediate repeats) and your own options per decider. See [Decide: games with an app here and draw lists](#decide-games-with-an-app-here-and-draw-lists). |
 | **Wish Lists** | Games, movies, shows and books you want, on a ring of covers (or a list) with priority stars, notes and *Wanted → Got it / Watched / Read*. **+** searches the Steam store, imports your Steam wishlist and PlayStation / Steam games (needs the bridge), your Plex / Jellyfin library plus iTunes for movies and shows, and Open Library for books, or type a title. Tap ♡ on a movie or show in *Movies & TV* or on a game in the PlayStation / Steam screens to save it there. |
 | **Play Time** | The "I played too much" timer. Players with a **daily gaming budget per weekday**, an optional session limit and a **bedtime** (quiet hours). A big dial shows the time used and what's left, turning amber and red. Start / stop by hand, or **automatically** while the linked PlayStation or Steam account is in a game. Warnings at **15, 5 and 0 minutes** and at bedtime ring on any screen (and through your smart home, *Settings → Alerts*); when time is up it can **pause the music** and put the **PS5 in rest mode** after a 60-second "Saving? +5 min / Rest now" countdown. A week of history, streaks within budget, **bonus minutes**, and an optional 4-digit parent PIN. |
@@ -579,7 +581,7 @@ Tap **Apps** on the Home screen for handy tools on a ring. Apps that need your a
 | **Focus** | A Pomodoro timer with focus music and Home Assistant lights. See [Focus](#focus) below. |
 | **Party DJ** | Guests request songs and vote from their phones. See [Party DJ](#party-dj) below. |
 | **Movie Night** | A shortlist, phone voting, a drumroll reveal and the lights dimmed. See [Movie Night](#movie-night) below. |
-| **Trivia Night** | A quiz with teams and phone buzzers. See [Trivia Night](#trivia-night) below. |
+| **Trivia Night** (on the Games ring) | A quiz with teams and phone buzzers. See [Trivia Night](#trivia-night) below. |
 | **Countdowns** | Days until birthdays, trips and holidays (Jewish holidays worked out on the device). See [Countdowns](#countdowns) below. |
 | **Sleep Sounds** | Generated noise and nature sounds with a sleep timer. See [Sleep Sounds](#sleep-sounds) below. |
 
@@ -613,7 +615,7 @@ Tap **Apps** on the Home screen for handy tools on a ring. Apps that need your a
 | **Dixit** | The rabbit track to 30 around the screen, and a **scoring wizard**: pick the storyteller, say who voted for whose card, and it works out everyone's points. A picker for the sets and expansions, the Odyssey rules for 7–12 players (two votes each), and *until the deck runs out*. |
 | **Alias** | The team race around the board: a turn timer, +1 per word, −1 per skip (can be off), the last word open to everyone, and practice words in English and Hebrew. |
 | **פתקיות** (Petakiot) | The bowl counter, turn timer and team scores for describe, one word and charades, plus an optional fourth round. To play it with phones, use the [Notes Game](#games). |
-| **Cards Against Humanity** | 18+ (asks once that everyone is 18+). Awesome Points, the Card Czar crown that moves every round, the official house rules as switches (Rando Cardrissian, God Is Dead, Serious Business, Rebooting the Universe, Happy Ending…) and the official boxes and packs. A scoring helper only, with no card text. |
+| **Cards Against Humanity** | 18+ (asks once that everyone is 18+). Awesome Points, the Card Czar crown that moves every round, the official house rules as switches (Rando Cardrissian, God Is Dead, Serious Business, Rebooting the Universe, Happy Ending…) and the official boxes and packs. A scoring helper only, with no card text. No box at hand? *Play it on the screen* (on the 18+ notice and under More) opens [Fill the Blank](#games). |
 | **Ticket to Ride**, **Monopoly**, **Talisman**, **Clue** | Route points, trains, tickets and longest route; the banker with a log and undo; hero sheets with a battle helper and the movement die; a detective notepad with a hide button. |
 | **Taki**, **Uno**, **Rummikub**, **Yahtzee**, **Twister**, **Jungle Speed** | Turn, direction and colour (Taki); round scoring (Uno, Rummikub); the full score sheet (Yahtzee); the spinner with spoken calls (Twister); cards left and a reflex duel (Jungle Speed). |
 
@@ -753,9 +755,9 @@ The games follow the theme too. In Light mode the immersive player views (Vinyl,
 
 ### Settings
 
-Settings is split into groups with headers: **Theme, General, Device** (on the Raspberry Pi only)**, Music, Movies & TV, Home, Alerts, Games, Rhythm, Connection** and **Profiles & about**. The chips at the top jump straight to a group.
+Settings works like a phone's: a list of categories, each with a line saying what's inside — **Theme, Home screen, General, Device** (on the Raspberry Pi only)**, Music, Movies & TV, Smart home, Alerts, Games, Rhythm, Connection** and **Profiles & about**. Tap one for its page: its own switches plus rows for deeper pages (e.g. *Music → Lyrics*, *Alerts → Quiet hours*, *Device → Wi-Fi*), each with **Back** at the top. Back, <kbd>Esc</kbd> or <kbd>Backspace</kbd> go up one level; with a keyboard or the knob, ↑ ↓ (or ← →) move between the rows and controls and Enter opens. **Search settings** at the top finds any setting by name (*wifi*, *subtitles*, *quiet*…) and jumps to it, highlighted; Back returns to the results. Reopened within ten minutes, Settings comes back to the page you left.
 
-**Settings → Device** is the Raspberry Pi's own settings page. It appears only when the bridge says it runs on a Pi; on GitHub Pages, *Screen rotation* and *Battery saver* are under *General → Display* instead.
+**Settings → Device** is the Raspberry Pi's own settings page. It appears only when the bridge says it runs on a Pi; on GitHub Pages, *Screen rotation* and *Battery saver* are pages under *General* instead.
 
 <table>
   <tr>
@@ -772,8 +774,8 @@ Settings is split into groups with headers: **Theme, General, Device** (on the R
 
 | Setting | What it does |
 |---|---|
-| Show only signed-in services | Home shows only the services you've signed in to or that the bridge can reach |
-| Show the Demo service | Hide the Demo tile from Home |
+| Home screen → Services | *Show only signed-in services* (only the ones you've signed in to or that the bridge can reach), *Show the Demo service*, and every service per mode (Music, Movies & TV, Home) with a switch to show or hide it on the ring and ↑ ↓ to reorder them. Hiding never signs you out |
+| Home screen → Battery level on Home | The battery level and charging bolt next to the date (on by default; shown only when there is a battery) |
 | Theme | Classic, Liquid Glass, Soft, Slate, Vivid, Bauhaus, XMB, Console 5, Music Red, Music Green or Click Wheel, each in Dark, OLED or Light mode with your own main and secondary colours, plus the Home background (see [Themes](#themes-settings--theme)) |
 | Control size | XS, S, M, **L** (default), XL: scales the players, the games and the Home screen (tiles, clock and category buttons) |
 | Start in view | Info, Vinyl, Lyrics, Video, Tone Visual or Fun Facts |
@@ -787,8 +789,10 @@ Settings is split into groups with headers: **Theme, General, Device** (on the R
 | Reduce effects | Fewer blur effects for slower GPUs |
 | Open last service on start | Go straight to the last service |
 | Dim screen when idle | Dims when nothing is playing (never / 2 / 10 / 30 min) |
-| General → Display: Screen rotation (phones, tablets, computers) | Turn the whole round app: *Off*, *Every 90°*, *Every 45°* or *Free*, following **this device's motion sensor** (iOS asks for permission; lock the phone's own rotation) or turned by hand with the ↺ / ↻ buttons (±45° / ±90°) and *Back to upright*. Snapped modes switch only once the device is clearly past half-way, and animate; *Free* follows smoothly. A turn waits while your finger is on the screen. On the Pi this is under *Device → Orientation* |
-| General → Display: Battery saver (phones, tablets, computers) | *Off*, *On* or *Auto at ≤ N %* (5–50 %, default 20 %, with the battery the browser reports), optionally off again while charging. It works like *Reduce effects* (no blur, still Home backgrounds, services polled every 4 s at most) without changing that setting, and can dim the screen with a dark layer. On the Pi it's under *Device → Battery & power* with more savings |
+| General → Startup animation | The logo animation while the app loads: *Always*, *First load only* (default: reloads in the same session only show the logo for a moment) or *Off*. It never holds the app back (it speeds up once the app is ready, and a tap skips it); with *Reduce effects* it's a simple fade. In light themes on phones and computers it's a dark logo on a light disc. *Preview* plays it again |
+| General → Startup animation → Mouse pointer | *Auto* (hidden while you use touch and 2 s after the mouse stops; a moving mouse brings it back), *Always hide* or *Never hide* |
+| General → Screen rotation (phones, tablets, computers) | Turn the whole round app: *Off*, *Every 90°*, *Every 45°* or *Free*, following **this device's motion sensor** (iOS asks for permission; lock the phone's own rotation) or turned by hand with the ↺ / ↻ buttons (±45° / ±90°) and *Back to upright*. Snapped modes switch only once the device is clearly past half-way, and animate; *Free* follows smoothly. A turn waits while your finger is on the screen. On the Pi this is under *Device → Orientation* |
+| General → Battery saver (phones, tablets, computers) | *Off*, *On* or *Auto at ≤ N %* (5–50 %, default 20 %, with the battery the browser reports), optionally off again while charging. It works like *Reduce effects* (no blur, still Home backgrounds, services polled every 4 s at most) without changing that setting, and can dim the screen with a dark layer. On the Pi it's under *Device → Battery & power* with more savings |
 | On-screen keyboard | Auto (touch screens), on or off |
 | Keyboard language | English or עברית (Hebrew). You can also switch with the **עב / EN** key on the keyboard; the last choice is remembered |
 | Lyrics style / Kinetic Type variant / timing offset | See the Lyrics view |
@@ -807,7 +811,7 @@ Settings is split into groups with headers: **Theme, General, Device** (on the R
 | Movies & TV: library view | List, Posters, Grid, Cover Flow, Rings, Watch, DVD, Disc, DVD + disc |
 | Movies & TV: show these parts | Every part of the Now playing screen (also under ⋯ → Customize controls) |
 | Movies & TV: subtitles from the internet | Your subtitle languages (the first is the default) and whether to switch to downloaded subtitles straight away |
-| Home | Set up Home Assistant and Google Home |
+| Smart home | Set up Home Assistant and Google Home |
 | Alerts | Smart-home alerts: lights, speaker (with *Resume what was playing*), phone, script / scene and Google Home per alert level, per app, quiet hours and a test (see [Smart-home alerts](#smart-home-alerts)) |
 | Games: sound / player name / clear scores | Game sound effects, the name suggested for new top-5 scores, and clearing every game's top 5 |
 | Rhythm | Learn songs from (Auto, song file, microphone, bridge computer, tempo / tap, chart library), audio latency calibration, Hitster language and *Update songs*, forget learned songs |
@@ -924,7 +928,9 @@ The installer:
 - clones the app to `~/RoundRemote` (or uses the checkout it runs from), installs the bridge and creates `bridge/config.json`;
 - sets up the round screen for the KMS graphics driver (see [Display modes](#display-modes-rotation-and-a-black-screen)), turns on I2C and sets the hostname to `roundremote` if it is still `raspberrypi`;
 - adds three services: `roundremote-bridge` (the app server and device APIs), `roundremote-kiosk` (cage + Chromium on the screen, logged in as you, with no desktop) and `roundremote-netcheck` (the Wi-Fi setup hotspot);
-- adds narrow `sudo` rules (`/etc/sudoers.d/roundremote`): restart and shut down, restart its own services, NetworkManager, and a small root helper (`/usr/local/sbin/roundremote-helper`) that only accepts a fixed list of actions.
+- adds narrow `sudo` rules (`/etc/sudoers.d/roundremote`): restart and shut down, restart its own services, NetworkManager, and a small root helper (`/usr/local/sbin/roundremote-helper`) that only accepts a fixed list of actions;
+- sets up a quiet boot with the Round Remote **boot splash** (Plymouth) and hides the mouse pointer on the touch screen (see [Boot splash and the mouse pointer](#boot-splash-and-the-mouse-pointer));
+- remembers the options you used (`/etc/roundremote/install-args`), so `--same-options` (and `pi/update.sh --apply-system`) can repeat them.
 
 Options (add them after `bash -s --` when you use the one-liner, for example `curl -fsSL …/install.sh | bash -s -- --no-airplay`, or pass them to `bash ~/RoundRemote/pi/install.sh` when you run it from the checkout):
 
@@ -939,6 +945,9 @@ Options (add them after `bash -s --` when you use the one-liner, for example `cu
 | `--hdmi-audio=auto\|on\|off` | `auto` hides HDMI sound when a USB or I2S speaker is found. |
 | `--no-airplay`, `--no-pyatv`, `--with-roon` | Skips the AirPlay receiver or the Apple TV library, or adds the Roon libraries. |
 | `--no-kiosk`, `--compositor=labwc` | Installs without the screen service, or uses labwc instead of cage. |
+| `--no-splash` | Leaves the boot screen as Raspberry Pi OS has it (no boot splash). On a Pi that has the splash, it removes it again. |
+| `--verbose-boot` | Shows the boot messages instead of the splash, to see what goes wrong at boot. Run the installer again without it to hide them. |
+| `--same-options` | Starts from the options of the last run; options you add after it win (e.g. `--same-options --verbose-boot`). |
 | `--interactive` | Asks about the main choices. |
 | `--dry-run` | Prints every action, including file diffs, and changes nothing. |
 | `--uninstall` | Removes the services and system files. The app folder and packages stay. |
@@ -948,7 +957,7 @@ Options (add them after `bash -s --` when you use the one-liner, for example `cu
 
 #### 4. First boot
 
-After the reboot, the screen shows Round Remote within about half a minute. From another device, it's at `http://roundremote.local:8765/`.
+After the reboot, the screen goes black, then shows the Round Remote logo with a ring that fills as the Pi boots, and then Round Remote itself, within about half a minute. From another device, it's at `http://roundremote.local:8765/`.
 
 - No network yet? About 45 seconds after the start the Pi opens the **setup hotspot** (see step 5).
 - **Settings → Device** appears only on the Pi. It has Wi-Fi, Bluetooth, Sound, Battery & power, Screen, Orientation, Updates, and Restart / Shut down (see [Settings](#settings)).
@@ -973,13 +982,48 @@ There are four ways to connect the Pi to Wi-Fi:
 
 #### Updates
 
-Use *Settings → Device → Updates → Check for updates → Install update*. You can also run:
+**How to update the Raspberry Pi.** There are two kinds of changes, and most updates only have the first:
 
-```bash
-bash ~/RoundRemote/pi/update.sh
-```
+1. **The app and the bridge** (everything the screen shows, the bridge's features). Install them in either of two ways:
+   - On the round screen: *Settings → Device → Updates → Check for updates → Install update*.
+   - Over SSH (`ssh <your user>@roundremote.local`):
 
-Either way, it pulls from GitHub (fast-forward only), runs `npm install` when the bridge's packages changed, and restarts the bridge; the screen then reloads. Your `bridge/config.json` and other saved files aren't in git and stay untouched. If an update changes the Pi's system files (services, the helper), the updater says so: run `bash ~/RoundRemote/pi/install.sh` once to apply them.
+     ```bash
+     bash ~/RoundRemote/pi/update.sh
+     ```
+
+   Either way, it pulls from GitHub (fast-forward only), runs `npm install` when the bridge's packages changed, and restarts the bridge; the screen then reloads by itself. Your `bridge/config.json` and other saved files aren't in git and stay untouched. If you edited tracked files on the Pi, it stops and says so; `bash ~/RoundRemote/pi/update.sh --force` puts your edits aside first (`git stash`).
+2. **System-level changes**: the installer itself, the services, the `sudo` rules and root helper, the boot splash theme (`pi/plymouth/`), `config.txt` / `cmdline.txt` settings. These only take effect when the installer runs again, which needs `sudo`, so it can't happen from the round screen. When an update contains such changes, *Settings → Device → Updates* and `update.sh` say so. Apply them over SSH with:
+
+   ```bash
+   bash ~/RoundRemote/pi/update.sh --apply-system
+   ```
+
+   It updates (if needed) and then runs `bash ~/RoundRemote/pi/install.sh --same-options --no-update`, so the installer repeats the options you used last time. You can also run the installer yourself with any options, e.g. `bash ~/RoundRemote/pi/install.sh --same-options`. Then `sudo reboot` if it asks for one (boot settings and the boot splash need a reboot). The installer is safe to run again: it only changes what differs, and keeps your settings.
+
+   For example, the boot splash and the hidden mouse pointer came in a system-level update: after updating, run `bash ~/RoundRemote/pi/update.sh --apply-system` and `sudo reboot` once.
+
+**After you push to GitHub** (if you change the code yourself): the Pi only gets what's on the branch it was installed from (`main` unless you used `--branch=…`). Push, then update the Pi as above. The GitHub Pages web app updates itself a minute or two after the push (it checks for a new version when it opens; a reload picks it up). Changes to files under `pi/` that the installer copies into the system (services, `pi/conf/`, `pi/plymouth/`, the helper) still need `--apply-system`; `pi/kiosk.sh`, `pi/boot.html` and `pi/rr-tool.py` are used straight from `~/RoundRemote` and only need the kiosk to restart, which `update.sh` does when they change (by hand: `sudo systemctl restart roundremote-kiosk`).
+
+#### Boot splash and the mouse pointer
+
+The installer sets up a quiet boot: no rainbow square, no Raspberry Pi logos, no scrolling text and no blinking cursor. The screen goes black, then shows the Round Remote logo with a ring that fills clockwise as the Pi boots (a [Plymouth](https://www.freedesktop.org/wiki/Software/Plymouth/) theme in `pi/plymouth/roundremote`, installed to `/usr/share/plymouth/themes/roundremote`). When Plymouth hands over, the kiosk shows the same logo and ring in the same place (`pi/boot.html`, while the bridge starts), and the app's startup animation carries on from there into Home. At shutdown and restart a short arc circles round the logo instead.
+
+What it changes (originals are kept as `config.txt.rr-orig` and `cmdline.txt.rr-orig`):
+
+- packages `plymouth`, `plymouth-themes` and `plymouth-label`; `plymouth-set-default-theme -R roundremote` makes it the boot theme and rebuilds the initramfs (`/boot/firmware/initramfs8` on a Pi 4, loaded by `auto_initramfs=1`, which Raspberry Pi OS already has; the installer adds it if it's missing);
+- `config.txt`: `disable_splash=1` (no rainbow square);
+- `cmdline.txt`: `quiet splash plymouth.ignore-serial-consoles logo.nologo vt.global_cursor_default=0 loglevel=3 udev.log_level=3`, and the kernel console moves from `console=tty1` to `console=tty3` so no text appears on the screen;
+- a drop-in for `plymouth-quit.service` that quits Plymouth with `--retain-splash`, so its last frame stays up until the kiosk draws.
+
+To see the boot messages (when something goes wrong at boot), run `bash ~/RoundRemote/pi/install.sh --same-options --verbose-boot` and reboot; run it again without `--verbose-boot` to hide them. `--no-splash` removes the splash and the extra `cmdline.txt` settings again. If you can't log in at all, edit `cmdline.txt` on the card's boot partition from a computer: change `console=tty3` back to `console=tty1` and remove `quiet splash`. To change the logo or the ring, edit `logo/logo-white.svg` and run `python3 pi/plymouth/make-theme.py` (needs Pillow), then `--apply-system`.
+
+**Mouse pointer.** The touch screen needs no pointer, but cage shows one whenever any pointer device exists, and most USB touch panels (the Waveshare round one too) add a "mouse" interface next to the touch one. That's why an arrow could sit in the middle of the screen. Setting a cursor theme by name didn't help, because cage 0.1.x (Bookworm) always loads the theme called `default`. Now the kiosk handles it at two levels:
+
+- **System:** `pi/kiosk.sh` gives the kiosk its own cursor path (`~/.local/share/roundremote-cursors`), where both `default` and `roundremote-hidden` are invisible, unless a real mouse or trackpad is plugged in when the kiosk starts (`python3 ~/RoundRemote/pi/rr-tool.py has-mouse` shows what it finds; the touch panel's own "mouse" doesn't count). Force it with `ROUNDREMOTE_CURSOR=hide` or `show` in `/etc/roundremote/kiosk.env`. If you plug in a mouse later, restart the kiosk: `sudo systemctl restart roundremote-kiosk`.
+- **App** (the Pi, the web app and any browser): *Settings → General → Startup animation → Mouse pointer*. *Auto* hides it while you use touch and 2 s after the mouse stops, and shows it again when a real mouse moves.
+
+Chromium starts with `--force-dark-mode`, so its background before the first page paints is dark grey instead of white, and `pi/boot.html` is black from its first byte. (`--default-background-color` only exists in headless Chromium.) Set `ROUNDREMOTE_BOOT_PAGE=0` in `kiosk.env` to open the app directly instead (the screen then stays black until the bridge answers).
 
 #### Display modes, rotation and a black screen
 
@@ -1089,7 +1133,7 @@ Browsers can't find devices on your home network by themselves. The bridge is a 
    - **Windows:** double-click **`start-bridge.bat`** in this folder.
    - **Mac / Linux:** run `./start-bridge.sh`.
 3. Open the GitHub Pages app and tap Roon / UPnP / Cast / Tidal / Qobuz. When Chrome asks about **local network access**, click **Allow**. The app then finds the bridge at `http://127.0.0.1:8765` automatically.
-4. To use a bridge on another machine (e.g. the Pi), enter its address under *Settings → Bridge address*, e.g. `http://192.168.1.50:8765`.
+4. To use a bridge on another machine (e.g. the Pi), enter its address under *Settings → Connection → Bridge*, e.g. `http://192.168.1.50:8765`.
 
 AirPlay needs shairport-sync, so it only works when the bridge runs on Linux / the Pi.
 
@@ -1140,6 +1184,7 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it. The main 
 - **`tasks`**: `file` (where the Tasks list is kept) and `publicUrl` (the address in the QR code).
 - **`collection`**: `file`, `publicUrl`, `bgg` (`username`, `token`), `pricecharting` (`token`), `rawg` (`username`, `key`), `discogs` (`username`, `token`), `tmdb` (`key`), `watchFile` + `watchPreset`, `upcLookup`, `userAgent`.
 - **`party`** (or `dj`, `movienight`, `trivia` per app): `publicUrl` for the party apps' QR codes.
+- **`setup`**: `publicUrl` (the address in the phone-setup QR code) and `spotifyRelay` (the https page a phone's Spotify sign-in returns to, default `https://royborkin.github.io/RoundSpotify/`). See [Set up from your phone or computer](#set-up-from-your-phone-or-computer).
 - **`audio`**: recording the computer's sound for the Rhythm games (see [below](#rhythm-let-the-bridge-hear-your-music)).
 - **`charts`**: the Rhythm chart library (see [below](#rhythm-the-chart-library)).
 - **`system`** (Raspberry Pi only): `allowRemote` (let other devices change Wi-Fi, power… — default `false`), `battery` (`auto` / `pisugar` / `ups-hat` / `none`), `pisugar` (`host`, `port`), `upsHat` (`bus`, `address`, `capacityMah`, `curve`), `imu` (`enabled`, `bus`, `address`, `chip`, `hz`, `alpha`, `plane`, `offset`, `invert`, `swapXY`), `hotspot`, `output` (the screen's output name, default automatic) and `wakeOnInput`. See [Raspberry Pi kiosk](#raspberry-pi-kiosk).
@@ -1148,19 +1193,39 @@ Copy `bridge/config.example.json` to `bridge/config.json` and edit it. The main 
 
 ## Connecting your services
 
+### Set up from your phone or computer
+
+Typing tokens, keys and passwords on a round touch screen is no fun, so every service below can be set up from a phone or a computer's browser instead:
+
+1. On the round display open **Settings → General → Set up from phone or computer**, or tap **Set up on your phone** on any service's setup screen (on a fresh display Home offers **Set up with your phone**). It shows a QR code, a short address such as `http://roundremote.local:8765/setup` and a 6-digit code.
+2. Scan the QR code with the phone's camera, or open the address on any phone or computer on the same Wi-Fi and type the code. The display shows **Phone connected — <name>** with a ✕ to disconnect it.
+3. The page lists every service with its live status (**Connected** / **Not set up**) and a guide and form for each: Spotify (Client ID + sign-in), Apple Music (upload your MusicKit `.p8` key to the bridge, or paste a developer token), YouTube keys, Plex (sign in on plex.tv, or the plex.tv/link code), Jellyfin (username & password or Quick Connect), Home Assistant (address + long-lived token, with a link to your HA profile page), Google Home (OAuth client), PlayStation (NPSSO, with the links to get it), Steam (key + profile), the music streamer, Google TV / Apple TV pairing codes and the YouTube TV code, the Collection connections (BoardGameGeek, PriceCharting, RAWG, Discogs, TMDB), a test alert, the Pi's Wi-Fi, **Keys & advanced** (the bridge's `config.json` `"app"` defaults) and **Copy setup to another device**.
+4. What you send goes to the bridge and on to the display, which signs in with its own setup code exactly as if you had typed it there, and reports back on the phone (*Signed in as …*, *Wrong username or password*, …). Things the bridge keeps itself (the Apple key, Steam, PlayStation, Google Home, Collection tokens, `config.json`) are saved on the bridge.
+
+**Copy setup to another device:** save the display's setup as a settings profile on the bridge (optionally with its sign-ins), download it as a file, upload one, or load one onto this display. On the other device (the PC web app or another Pi) use *Settings → Profiles → Load*, or open it with `?profile=NAME`.
+
+**Security:** the setup page and its API answer only phones and computers on your home network (or the bridge computer itself). A code works for 15 minutes and the QR's built-in token works once. A paired phone controls only that one display and is disconnected after 15 idle minutes, when the display taps ✕ or **End setup**, or when the bridge restarts. Secrets are never written to the bridge's log and are dropped from its memory as soon as the display has picked them up. Too many wrong codes are slowed down, then the code changes.
+
+**Needs the bridge.** The page is served by the bridge the display uses (on the Pi it's always running). On the GitHub Pages app, start the bridge on your computer (`start-bridge.bat`) or point *Settings → Connection → Bridge* at the Pi; without a bridge the display explains this and offers the on-screen keyboard instead. If the QR code shows an address phones can't reach (a VPN or Docker interface), set `"setup": { "publicUrl": "http://192.168.1.50:8765" }` in `bridge/config.json`. On Windows, allow Node.js through the firewall for private networks.
+
+**Spotify from a phone:** since 2025 Spotify only accepts `https` redirect addresses, or `http` with the loopback IP `127.0.0.1` (never `localhost` or a LAN address like `http://192.168.1.50:8765`) — see Spotify's [redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri). So the phone signs in with PKCE using the web app's own address as the redirect, `https://royborkin.github.io/RoundSpotify/` — the same Redirect URI the GitHub Pages app already needs, so there is nothing new to add in the Spotify dashboard. That page (`js/setup-handoff.js`) passes the one-time code straight back to the phone's setup page on your network, and the display swaps it for its tokens. (A fork on its own GitHub Pages address: when the display itself runs there, its own address is used; otherwise set `"setup": { "spotifyRelay": "https://you.github.io/RoundSpotify/" }` in `bridge/config.json` and register that address.)
+
 ### Spotify
 
-At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), open your app. The Client ID from the old RoundSpotify project is already filled in; you can change it under *Settings → Service keys*.
+At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), open your app. The Client ID from the old RoundSpotify project is already filled in; you can change it under *Settings → Connection → Service keys*.
 
 1. **Redirect URIs:** add exactly the address shown on the app's Spotify screen, then *Save*:
    - GitHub Pages: `https://royborkin.github.io/RoundSpotify/`. This replaces the old `…/RoundSpotify/spotifyround.html` address.
    - Raspberry Pi: `http://127.0.0.1:8765/`. Spotify only accepts a loopback IP here, not `localhost`.
+   - Signing in **from your phone** (*Set up from phone or computer*) uses the GitHub Pages address above, even for the Pi, so keep it in the list.
 2. **User Management:** add the Spotify account you'll sign in with. Development-mode apps allow up to 5 users, and the app owner needs **Premium**.
 3. In Round Remote, tap **Spotify → Sign in with Spotify**.
 
 You can control any device running Spotify (phone, PC, speakers) and pick one under **Devices**. If nothing is active, pressing Play wakes the last device you used.
 
 **This display as a speaker:** the page also appears in Spotify as a device called **"Round Remote"**, so you can play on it without opening Spotify anywhere else. This uses Spotify's Web Playback SDK and needs Premium. If you signed in before this feature existed, the Spotify screen shows **Sign in again**; tap it once. You can turn this off under *Settings → Play Spotify on this display*.
+
+**Several accounts:** Spotify has no family profiles, so save each person's account under *Settings → Spotify accounts → Add an account* (Spotify asks which account to use). Each one must be on the app's User Management list. With two or more saved, the avatar at the top of the Spotify screen switches between them.
 
 *Spotify's February 2026 API changes are already handled:* search returns at most 10 results, and playlists use `items`.
 
@@ -1243,11 +1308,15 @@ This uses YouTube's own TV-linking protocol, the one the YouTube phone app uses.
 
 Plexamp headless on a Pi works too. The same sign-in powers the Plex tile in **Media** (Movies & TV).
 
+**Users / who's watching:** with Plex Home, tap the avatar at the top of the Plex screens (or *Settings → Plex users*) and pick who's using Plex. PIN-protected users get a PIN pad. Both Plex tiles then act as that user: Continue watching, watched state, ratings, playlists and history are theirs, managed users only see the libraries they're allowed, and what you start on the TV reports progress as them. The choice is remembered (default: the account that signed in). Turn on *Ask who's watching when opening Movies & TV* for a "Who's watching?" screen every time.
+
 ### Jellyfin
 
 1. Tap **Jellyfin** and enter your server address, e.g. `http://192.168.1.20:8096` or `https://jellyfin.example.com`.
 2. Tap **Quick Connect**. In Jellyfin, open *your profile → Quick Connect* and enter the code shown. Or use **Username & password**.
 3. Open any Jellyfin app (web, Finamp, Jellyfin Media Player, Kodi…) and it appears under **Devices**.
+
+**Users / who's watching:** tap the avatar at the top of the Jellyfin screens (or *Settings → Jellyfin users*) to switch user. Each person signs in once, with their password on the on-screen keyboard or with Quick Connect (an administrator signed in here can approve Quick Connect for another user without their password). After that, switching is instant, and resume points, Next up, playlists, favourites and played state follow the user. *Ask who's watching when opening Movies & TV* works here too.
 
 **http servers from GitHub Pages:** an `https` page can normally only reach `http` servers through the bridge. **Chrome and Edge** can reach a plain `http://192.168.x.x` server directly once you click **Allow** when asked about *local network access*. Other browsers need an `https://` address or the bridge.
 
@@ -1265,8 +1334,14 @@ Neither offers an API for controlling playback. Play them through **Roon**, by c
 Controls the TV itself, like the Google TV app on a phone. Works with anything running Google TV or Android TV: Chromecast with Google TV, Google TV Streamer, Sony / TCL / Hisense / Philips TVs, Nvidia Shield…
 
 1. The bridge needs the `androidtv-remote` add-on. `start-bridge.bat` / `start-bridge.sh` install it automatically; otherwise run `npm run androidtv` in the `bridge` folder and restart the bridge.
-2. Turn the TV on, then tap **Google TV** (in Media). TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network → About) and tap **Pair by IP**.
+2. Turn the TV on, then tap **Google TV** (in Media). TVs on the network are listed. Tap **Pair**, or type the TV's IP address (TV Settings → Network & Internet → your network, or System → About → Status) and tap **Check & pair**.
 3. The TV shows a 6-character code. Type it in and tap **Pair**. Pairing is kept in `bridge/androidtv.json`, so you only do it once.
+
+**If it says "No Google TV found".** Google TVs announce their remote service over mDNS (`_androidtvremote2._tcp`, remote on TCP port 6466, pairing on 6467). The bridge searches in several ways at once, because one often fails: one-shot mDNS queries sent from every network adapter (the TV answers straight back, so this works next to avahi or Bonjour and through the Windows firewall), a normal mDNS listener on port 5353, `avahi-browse` on Linux, Chromecast-style devices (`_googlecast._tcp`) that turn out to have the pairing port open, and, if all that finds nothing, a quick scan of your local network for port 6467. TVs found once (or added by IP) are remembered and checked every time. **Details** shows which adapters were searched (VPN / WSL / Hyper-V / Docker adapters are marked and skipped for the scan) and what each method found, with hints:
+
+- **Windows:** allow Node.js on *Private* networks when Windows asks, and make sure your Wi-Fi isn't set to *Public*. The page shows the two PowerShell lines to copy (run PowerShell as administrator): a firewall rule for UDP 5353 and one for `node.exe`, plus `Set-NetConnectionProfile … -NetworkCategory Private` if a network is Public.
+- **Raspberry Pi:** `sudo apt install avahi-utils` adds the `avahi-browse` search; avahi-daemon must be running. The TV and the Pi must be on the same network (not a guest Wi-Fi, no "AP / client isolation").
+- **Any system:** typing the IP address always works. **Check & pair** first tests the TV's ports and whether it's on the same network as the bridge, and says what's wrong.
 
 The screen is the remote: a round D-pad with OK around the middle, Back and Home on the sides, Power, Mute and **Apps** (YouTube, YouTube Music, Spotify, Netflix, Prime Video, Disney+, Plex, Twitch) at the top, and volume and play/pause at the bottom. Hold an arrow or a volume key to repeat it. Tap the TV's name at the top to pick another TV.
 
@@ -1586,7 +1661,7 @@ js/views/                       info, vinyl (+ vinyl-styles.js; decks.js + deck-
                                 lyrics-kinetic3.js, lyrics-crt.js), video, tone (+ tone-visuals.js), facts, media-library + media-views (the 9 library views), ha-controls
 js/lyrics/                      lrc.js (LRC parser + LRCLIB lookup), bidi.js (right-to-left lines)
 js/screens/                     home, player, media (Movies & TV) + media-panels, smarthome (Home), consoles (PlayStation & Steam), streamer (the music streamer),
-                                panels, connect, settings + settings-alerts + settings-device (Settings → Device, Screen rotation, Battery saver)
+                                panels, connect, setup-remote (set up from a phone / computer), settings + settings-alerts + settings-device (Settings → Device, Screen rotation, Battery saver)
 js/ui/                          dom helpers, icons, overlay (panels, toasts), the round on-screen keyboard, Home backgrounds (backdrops*.js)
 games/                          the Games category: index.js (the list), hub.js (the Games ring), shell.js (start card, pause, game over, top 5), kit.js (sound + drawing
                                 helpers), scores.js, games.css, and one file per game (+ level / generator helpers); the party games petakiot.js (Notes Game),
@@ -1598,7 +1673,7 @@ apps/                           the Apps category: index.js (the list), hub.js (
                                 clock-ring.js (the shared ringing screen), and one file per app with its helpers and css; Board Games: bg-games.js (the 17 companions),
                                 bg-*.js (one per companion), bg-rules.js (the 45 rules) and phone/codekey.html (the Codenames key page)
 bridge/                         Node bridge: server.js + adapters/ (roon, upnp, cast, youtubetv, androidtv, appletv, googlehome, psn, steam, streamsdk, airplay, cider,
-                                mpris, winmedia, mock) + lib/ (tasks, collection, party, dj, movienight, trivia, petakiot, codewords, blanks, audio, charts, hub, util, system + system-* = the Pi system API) + tools/ + settings profiles
+                                mpris, winmedia, mock) + lib/ (tasks, collection, party, dj, movienight, trivia, petakiot, codewords, blanks, audio, charts, hub, util, system + system-* = the Pi system API, setup + setup-page = phone / computer setup) + tools/ + settings profiles
 pi/                             the Pi appliance: install.sh (one-shot installer; setup.sh runs it), kiosk.sh (cage + Chromium), netcheck.sh (Wi-Fi
                                 setup hotspot), update.sh, roundremote-helper.sh (the root helper), imu.py (motion sensor), rr-tool.py (EDID, hidden cursor,
                                 touch wake), systemd units and conf/ (sudoers, polkit, PAM, WirePlumber, captive-portal DNS)

@@ -1,0 +1,103 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Settings, Android style (js/screens/settings.js + settings-nav.js): the category list, sub-menus and pages,
+   the search, Home screen → Services. Loaded by settings.js. The page lists reuse .settings-list (css/app.css). */
+
+.set-stage { position: absolute; inset: 0; }
+.set-page { position: absolute; inset: 0; display: none; }
+.set-page.shown { display: block; }
+.set-title { max-width: 54%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; pointer-events: none; }
+.settings .set-back { z-index: 3; }
+.set-list { gap: 2.2cqmin; }
+.set-end { display: none; }
+
+/* a row that opens a page: icon · title + one line of what's inside · chevron */
+.settings .row.set-nav, .settings .row.set-res {
+  width: 90%; gap: 2.2cqmin; padding: 1.5cqmin 2.2cqmin 1.5cqmin 1.5cqmin; min-height: 10.6cqmin;
+  background: var(--glass); border: 1px solid var(--line); transition: background .2s, border-color .2s;
+}
+.set-nav .row-text, .set-res .row-text { display: flex; flex-direction: column; }
+.set-nav .row-title { font-size: 3.2cqmin; }
+.set-nav .row-sub, .set-res .row-sub { font-size: 2.25cqmin; }
+.set-ic { flex: none; display: grid; place-items: center; width: 7.4cqmin; height: 7.4cqmin; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.set-ic .ic { width: 3.9cqmin; height: 3.9cqmin; }
+.set-ic.sm { width: 6cqmin; height: 6cqmin; } .set-ic.sm .ic { width: 3.2cqmin; height: 3.2cqmin; }
+.set-chev { flex: none; color: var(--dim); margin-left: -.6cqmin; }
+.set-chev .ic { width: 4cqmin; height: 4cqmin; }
+.settings .row.set-res { min-height: 9cqmin; padding: 1.2cqmin 2.4cqmin 1.2cqmin 1.3cqmin; }
+.set-res .row-title { font-size: 2.9cqmin; }
+.set-list :is(button, input, label):focus-visible { outline: .45cqmin solid var(--accent); outline-offset: .35cqmin; }
+.settings .row.set-nav:focus-visible { background: color-mix(in srgb, var(--accent) 16%, var(--glass)); border-color: var(--accent); outline: none; }
+
+/* search */
+.set-search, .set-qbox { display: flex; align-items: center; gap: 1.6cqmin; width: 66%; padding: 1.7cqmin 3cqmin; border-radius: 99px;
+  background: rgb(var(--ink) / .07); border: 1px solid var(--line); color: var(--muted); font-size: 2.8cqmin; font-weight: 600; }
+.set-qbox { width: 80%; padding: .6cqmin .6cqmin .6cqmin 3cqmin; }
+.set-q-ic { flex: none; display: grid; } .set-q-ic .ic { width: 3.4cqmin; height: 3.4cqmin; }
+.set-qbox .field-input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 1.4cqmin 1cqmin; font-size: 3cqmin; color: var(--fg); }
+.set-qbox .field-input::-webkit-search-cancel-button { filter: grayscale(1); }
+.set-qbox .field-input:is(:focus, :focus-visible) { border: 0; outline: none; }
+.set-qbox:focus-within { border-color: var(--accent); box-shadow: 0 0 0 .3cqmin color-mix(in srgb, var(--accent) 35%, transparent); }
+.set-q-hint { padding: 0 10%; }
+.set-flash { animation: set-flash 1.8s ease-out; border-radius: 4cqmin; }
+@keyframes set-flash { 0%, 40% { background-color: color-mix(in srgb, var(--accent) 16%, transparent); } to { background-color: transparent; } }
+
+/* Home screen → Services */
+.settings .hs-head { margin-top: 4cqmin; }
+.hs-row { gap: 1.8cqmin; padding: .4cqmin 3% .4cqmin 4%; }
+.hs-row .badge.sm { width: 7cqmin; height: 7cqmin; font-size: 2.6cqmin; }
+.hs-text { flex: 1; min-width: 0; text-align: left; }
+.hs-name { font-size: 3cqmin; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hs-sub { font-size: 2.1cqmin; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hs-mvs { display: flex; gap: .6cqmin; flex: none; }
+.hs-mv { display: grid; place-items: center; width: 5.6cqmin; height: 5.6cqmin; border-radius: 50%; color: var(--muted); background: rgb(var(--ink) / .06); border: 1px solid var(--line); }
+.hs-mv .ic { width: 3.4cqmin; height: 3.4cqmin; }
+.hs-mv.up .ic { transform: rotate(-90deg); } .hs-mv.down .ic { transform: rotate(90deg); }
+.hs-mv[disabled] { opacity: .25; }
+.hs-mv:not([disabled]):active { transform: scale(.88); }
+.hs-row.off :is(.badge, .hs-text) { opacity: .42; filter: saturate(.3); }
+
+#app.lite .set-flash { animation-duration: .9s; }
+
+/* ------------------------------------------------------------ themes */
+#app[data-theme="soft"] .settings :is(.row.set-nav, .row.set-res, .set-search, .set-qbox) { background: var(--bg); border: 0; box-shadow: var(--neu-up); }
+#app[data-theme="soft"] .settings .row.set-nav:focus-visible { box-shadow: var(--neu-in); }
+#app[data-theme="soft"] .set-ic { background: var(--bg); box-shadow: var(--neu-in); }
+#app[data-theme="soft"] .hs-mv { background: var(--bg); border: 0; box-shadow: var(--neu-up); }
+
+#app[data-theme="slate"] .settings :is(.row.set-nav, .row.set-res) { background: transparent; border-color: rgb(var(--ink) / .14); }
+#app[data-theme="slate"] .set-ic { background: transparent; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent); }
+
+#app[data-theme="vivid"] .set-ic { background: var(--grad); color: var(--on-accent); }
+
+#app[data-theme="bauhaus"] .settings :is(.row.set-nav, .row.set-res, .set-search, .set-qbox) { background: var(--surface); border: .35cqmin solid rgb(var(--ink)); backdrop-filter: none; }
+#app[data-theme="bauhaus"] .set-ic { background: var(--c1); color: var(--on-c1); }
+#app[data-theme="bauhaus"] .set-list > .set-nav:nth-of-type(3n+2) .set-ic { background: var(--c2); color: #111; }
+#app[data-theme="bauhaus"] .set-list > .set-nav:nth-of-type(3n) .set-ic { background: rgb(var(--ink)); color: var(--bg); }
+#app[data-theme="bauhaus"] .set-nav .row-title { font-weight: 800; letter-spacing: -.02em; }
+#app[data-theme="bauhaus"] .hs-mv { background: transparent; border: .3cqmin solid rgb(var(--ink)); color: rgb(var(--ink)); }
+
+#app[data-theme="xmb"] .settings :is(.row.set-nav, .row.set-res) { background: transparent; border-color: transparent; }
+#app[data-theme="xmb"] .settings .row.set-nav:is(:focus-visible, :active) { background: rgb(var(--ink) / .1); border-color: rgb(var(--ink) / .25); }
+#app[data-theme="xmb"] .set-ic { background: transparent; color: rgb(var(--ink)); filter: drop-shadow(0 0 1.2cqmin rgb(var(--ink) / .7)); }
+#app[data-theme="xmb"] .set-nav .row-title { font-weight: 400; }
+
+#app[data-theme="ps5"] .settings :is(.row.set-nav, .row.set-res) { border-radius: 2.4cqmin; background: rgb(var(--ink) / .06); border-color: transparent; }
+#app[data-theme="ps5"] .settings .row.set-nav:focus-visible { border-color: rgb(var(--ink)); box-shadow: 0 0 0 .4cqmin rgb(var(--ink) / .9); }
+#app[data-theme="ps5"] .set-ic { border-radius: 22%; }
+
+#app[data-theme="amusic"] .settings :is(.row.set-nav, .row.set-res) { background: rgb(var(--ink) / .045); border-color: transparent; border-radius: 3.2cqmin; }
+#app[data-theme="amusic"] .set-ic { border-radius: 26%; background: var(--accent); color: #fff; }
+#app[data-theme="amusic"] .set-nav .row-title { font-weight: 700; letter-spacing: -.02em; }
+
+#app[data-theme="spot"] .settings :is(.row.set-nav, .row.set-res) { background: rgb(var(--ink) / .06); border-color: transparent; }
+#app[data-theme="spot"] .settings .row.set-nav:is(:hover, :focus-visible) { background: rgb(var(--ink) / .12); }
+#app[data-theme="spot"] .set-ic { background: rgb(var(--ink) / .1); color: var(--accent); }
+#app[data-theme="spot"] .set-nav .row-title { font-weight: 800; letter-spacing: -.02em; }
+
+#app[data-theme="ipod"] .settings :is(.row.set-nav, .row.set-res) { background: var(--wheel); border: 1px solid var(--wheel-b); box-shadow: inset 0 1px 0 rgb(255 255 255 / .55), 0 .4cqmin 1.2cqmin rgb(var(--shade) / .18); }
+#app[data-theme="ipod"]:is([data-mode="dark"], [data-mode="oled"]) .settings :is(.row.set-nav, .row.set-res) { box-shadow: inset 0 1px 0 rgb(255 255 255 / .1), 0 .4cqmin 1.2cqmin rgb(0 0 0 / .45); }
+#app[data-theme="ipod"] .settings .row.set-nav:is(:focus-visible, :active) { background: var(--sel); color: #fff; border-color: color-mix(in srgb, var(--c1) 70%, #000); }
+#app[data-theme="ipod"] .settings .row.set-nav:is(:focus-visible, :active) :is(.row-sub, .set-chev) { color: rgb(255 255 255 / .85); }
+#app[data-theme="ipod"] .set-ic { background: var(--sel); color: #fff; }
+#app[data-theme="ipod"] .set-search { background: var(--wheel); border-color: var(--wheel-b); }

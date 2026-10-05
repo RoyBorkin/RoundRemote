@@ -12,13 +12,18 @@ import { editText } from '../js/ui/keyboard.js';
 import { store } from '../js/core/store.js';
 import { themeEvents } from '../js/core/theme.js';
 import { partyLink, qrBox, linkProblem, confetti } from '../apps/party-link.js';
+import { bridgeBase } from '../js/providers/bridge.js';
 import { BUILTIN, builtinById, loadBuiltin, bridgePacks, bridgePack, removeBridgePack, removeHouseCard, importUrl, fillParts } from './blanks-packs.js';
 
 const ID = 'blanks';
 const HAND = 7, MAX_PLAYERS = 20;
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e'];
 const BOT = { name: 'Robo', color: '#94a3b8' };
-const DEF = { packs: ['family-en'], win: 7, rounds: 0, timer: 0, judge: 'rotate', bot: false, wild: 1, swap: false };
+// source: which cards to play — 'builtin' (our packs, the ones ticked in `packs`), 'custom' (the bridge's house pack of cards
+// added from phones + imported packs, minus those in `off`) or 'all' (both). custom18: also deal house cards marked 18+.
+const DEF = { packs: ['family-en'], win: 7, rounds: 0, timer: 0, judge: 'rotate', bot: false, wild: 1, swap: false, source: 'builtin', off: [], custom18: false };
+const SOURCES = [['builtin', 'Built-in'], ['custom', 'Custom'], ['all', 'All']];
+let openOnStart = null;   // the start card's "Add cards" opens the Custom cards page right away (see menuActions)
 const ICON = {
   crown: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 7.5l5 4.2L12 4l4.5 7.7 5-4.2-2 11.5h-15z"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 16.6L4.6 12l-1.6 1.6 6.2 6.2L21 8l-1.6-1.6z"/></svg>',
@@ -53,6 +58,8 @@ export default {
   scoring: 'high',
   unit: 'pts',
   hud: false,
+  // an extra button on the start card (games/shell.js): straight to Custom cards, with the QR phones scan to add cards
+  menuActions: () => [{ label: 'Add cards', run: ({ play }) => { openOnStart = 'cards'; play(); } }],
   create(g, { mode: modeId }) {
     ensureCss();
     const host = g.canvas.parentElement;
@@ -64,7 +71,14 @@ export default {
 
     let lite = isLite();
     root.classList.toggle('lite', lite);
-    const settings = () => ({ ...DEF, ...(prog().settings || {}) });
+    const settings = () => {
+      const sv = prog().settings || {};
+      const out = { ...DEF, ...sv };
+      // older saves ticked custom packs in `packs`: keep playing them
+      if (!sv.source && (sv.packs || []).some((id) => !builtinById(id))) out.source = 'all';
+      out.packs = (out.packs || []).filter((id) => builtinById(id));
+      return out;
+    };
     let S = settings();
     const setS = (patch) => { S = { ...S, ...patch }; putProg({ settings: S }); };
     let mode = modeId === 'pass' ? 'pass' : 'phones';
@@ -73,7 +87,7 @@ export default {
     let nextPid = prog().nextPid || 1;
     const kicked = new Set(prog().kicked || []);   // phones removed in the lobby (refused by the bridge until a new room)
     let G = null, pool = null, view = 'lobby', browse = 0, kIdx = -1, kbd = false, modalOn = null;
-    let packInfo = null, packInfoAt = 0, qr = null, qrCode = '', busy = false, autoT = 0, botT = 0, revealT = 0, voteT = 0, saveT = 0;
+    let packInfo = null, packInfoAt = 0, qr = null, qrCode = '', busy = false, addQr = null, cardsBack = 'lobby', bcount = {}, packLoading = false, autoT = 0, botT = 0, revealT = 0, voteT = 0, saveT = 0;
     let animKey = '', rimKey = '', lastSec = -1, bgDirty = true, pausedAt = 0, offs = [];
     let hand = { sel: [], idx: 0, wild: '' };  // pass the device: the player's picks on the display
     const saved = prog().game && prog().game.phase !== 'final' && Date.now() - (prog().game.savedAt || 0) < 12 * 3600e3 ? prog().game : null;
@@ -81,7 +95,7 @@ export default {
 
     // ------------------------------------------------------------ phones (bridge link)
     const link = partyLink(ID, SHIM, { onAct });
-    offs.push(link.events.on('status', () => { if (view === 'lobby') render(); }));
+    offs.push(link.events.on('status', () => { if (view === 'lobby' || view === 'cards') render(); }));
     offs.push(link.events.on('room', () => { qr = null; qrCode = ''; render(); }));
 
     function onAct(a) {
@@ -119,8 +133,34 @@ export default {
 
     // ------------------------------------------------------------ packs
     const adultIds = () => new Set([...BUILTIN.filter((p) => p.adult).map((p) => p.id), ...(packInfo?.packs || []).filter((p) => p.adult).map((p) => p.id), ...(prog().local || []).filter((p) => p.adult).map((p) => p.id)]);
-    const adultOn = () => S.packs.some((id) => adultIds().has(id));
     const adultOk = () => !!prog().adultOk;
+    // ---- where the cards come from (S.source)
+    const builtinSel = () => { const b = S.packs.filter((id) => builtinById(id)); return b.length ? b : ['family-en']; };
+    /** Every custom pack there is: the house pack (if it has cards), the bridge's imported packs, packs imported on this screen. */
+    const customAll = () => [...(packInfo && packInfo.house.prompts + packInfo.house.answers ? ['house'] : []), ...(packInfo?.packs || []).map((p) => p.id), ...(prog().local || []).map((p) => p.id)];
+    const customSel = () => customAll().filter((id) => !(S.off || []).includes(id));
+    const usesCustom = () => S.source === 'custom' || S.source === 'all';
+    const effPacks = () => [...(S.source === 'custom' ? [] : builtinSel()), ...(usesCustom() ? customSel() : [])];
+    const houseAdult = () => usesCustom() && !(S.off || []).includes('house') && (S.custom18 || builtinSel().some((id) => S.source === 'all' && builtinById(id).adult));
+    const adultOn = () => effPacks().some((id) => adultIds().has(id)) || (houseAdult() && !!(packInfo?.house.adultPrompts || packInfo?.house.adultAnswers));
+    /** Cards in the custom packs that would be dealt now → { p, a } (null while the bridge's packs aren't known). */
+    function customCounts(all = false) {
+      const ids = all ? customAll() : customSel();
+      let p = 0, a = 0;
+      const ok18 = adultOk();
+      if (packInfo && ids.includes('house')) {
+        const H = packInfo.house, with18 = all || (ok18 && houseAdult());
+        p += H.prompts - (with18 ? 0 : H.adultPrompts || 0); a += H.answers - (with18 ? 0 : H.adultAnswers || 0);
+      }
+      for (const pk of packInfo?.packs || []) if (ids.includes(pk.id) && (all || !pk.adult || ok18)) { p += pk.prompts; a += pk.answers; }
+      for (const pk of prog().local || []) if (ids.includes(pk.id) && (all || !pk.adult || ok18)) { p += pk.prompts.length; a += pk.answers.length; }
+      return { p, a, known: !!packInfo || mode === 'pass' || link.status === 'down' };
+    }
+    function builtinCounts() {
+      let p = 0, a = 0, known = true;
+      for (const id of builtinSel()) { const c = bcount[id]; if (c) { p += c[0]; a += c[1]; } else { known = false; loadBuiltin(id).then((pk) => { bcount[id] = [pk.prompts.length, pk.answers.length]; if (['lobby', 'settings', 'packs', 'cards'].includes(view)) render(); }).catch(() => {}); } }
+      return { p, a, known };
+    }
     async function loadPackInfo(force = false) {
       if (!force && packInfo && Date.now() - packInfoAt < 20000) return packInfo;
       packInfo = await bridgePacks();
@@ -139,7 +179,7 @@ export default {
       for (const id of ids) {
         try {
           if (builtinById(id)) { if (builtinById(id).adult && !allowAdult) continue; add(await loadBuiltin(id)); }
-          else if (id === 'house') add(await bridgePack('house', allowAdult && adultOn()));
+          else if (id === 'house') add(await bridgePack('house', allowAdult && houseAdult()));
           else if (id.startsWith('l')) { const pk = (prog().local || []).find((x) => x.id === id); if (pk && (!pk.adult || allowAdult)) add(pk); }
           else { const pk = await bridgePack(id); if (!pk.adult || allowAdult) add(pk); }
         } catch (e) { errs.push(errMsg(e)); }
@@ -183,15 +223,18 @@ export default {
       const ppl = mode === 'phones' ? Object.entries(roster).filter(([d]) => !kicked.has(d)) : locals.map((p) => [p.key, p]);
       const total = ppl.length + (S.bot ? 1 : 0);
       if (total < 3) { g.toast(mode === 'phones' ? 'Need 3 players — scan to join (or add Robo)' : 'Add at least 3 players (or Robo)', 2200); g.sfx('hit'); return; }
-      if (!S.packs.length) { g.toast('Pick a card pack first', 1800); view = 'packs'; render(); return; }
+      if (usesCustom() && !packInfo && mode === 'phones' && link.status !== 'down') { busy = true; render(); await loadPackInfo(true).catch(() => null); busy = false; }
+      const packs = effPacks();
       if (adultOn() && !adultOk()) { if (!(await ageGate())) return; }
       busy = true; render();
-      pool = await buildPool(S.packs);
+      pool = await buildPool(packs);
       busy = false;
       if (pool.errs.length) g.toast(pool.errs[0], 2200);
-      if (!pool.prompts.length || pool.answers.length < HAND * total + 4) { g.toast('Not enough cards in those packs — add another pack', 2400); render(); return; }
+      const need = HAND * total + 4;
+      if (!pool.prompts.length || pool.answers.length < need) { notEnough(pool, total, need); render(); return; }
+      if (S.source === 'custom' && pool.prompts.length < 6) g.toast(`Only ${plural(pool.prompts.length, 'prompt')} — they’ll come round again`, 2400);
       G = { v: 1, mode, round: 0, ji: -1, judge: null, phase: 'play', players: {}, order: [], deck: { p: shuffle(range(pool.prompts.length)), a: shuffle(range(pool.answers.length)) },
-        packs: S.packs.slice(), poolSig: pool.sig, subs: {}, reveal: null, win: null, votes: {}, prompt: null, deadline: 0, total: 0, startedAt: Date.now() };
+        packs: packs.slice(), poolSig: pool.sig, subs: {}, reveal: null, win: null, votes: {}, prompt: null, deadline: 0, total: 0, startedAt: Date.now() };
       for (const [key, info] of shuffle(ppl)) addPlayer(key, { ...info, pid: info.pid || key });
       if (S.bot) addPlayer('bot', { ...BOT, pid: 'bot' });
       resumeAvail = false;
@@ -201,7 +244,7 @@ export default {
       const sv = prog().game;
       if (!sv) return;
       busy = true; render();
-      pool = await buildPool(sv.packs || S.packs);
+      pool = await buildPool(sv.packs || effPacks());
       busy = false;
       if (!pool.prompts.length || !pool.answers.length) { g.toast('Those card packs aren’t available any more', 2200); resumeAvail = false; render(); return; }
       G = sv; mode = G.mode || mode;
@@ -431,6 +474,19 @@ export default {
           h('div.fb-m-acts', btn('Cancel', () => { close(); resolve(false); }), btn(okLabel, () => { close(); resolve(true); }, 'primary')));
       }, () => resolve(false)));
     }
+    /** Start pressed but the chosen cards can't deal a game: say how many there are and offer a way out. */
+    function notEnough(pl, total, need) {
+      const custom = S.source === 'custom';
+      const allC = customCounts(), bc = builtinCounts();
+      openModal((box, close) => {
+        box.append(h('div.fb-m-t', custom ? 'Not enough custom cards' : 'Not enough cards'),
+          h('div.fb-m-s', `${plural(pl.prompts.length, 'prompt')} · ${plural(pl.answers.length, 'answer')}. ${total} players need at least 1 prompt and ${need} answers.`),
+          h('div.fb-m-acts',
+            btn('Add cards', () => { close(); openCards(); }, custom ? '' : 'primary'),
+            custom && (bc.known ? bc.p + allC.p > 0 && bc.a + allC.a >= need : true) ? btn('Play with All cards', () => { close(); setS({ source: 'all' }); publish(); startGame(); }, 'primary') : null,
+            !custom && S.source === 'all' ? null : btn('Cancel', () => close())));
+      });
+    }
     function openModal(build, onCancel) {
       closeModal();
       const box = h('div.fb-m-box');
@@ -469,7 +525,7 @@ export default {
       if (G) list = seats().map((k) => G.players[k]);
       else if (mode === 'phones') list = [...Object.entries(roster).map(([d, r]) => ({ key: d, ...r, score: 0 })), ...(S.bot ? [{ key: 'bot', ...BOT, bot: true, score: 0 }] : [])];
       else list = [...locals.map((p) => ({ ...p, score: 0 })), ...(S.bot ? [{ key: 'bot', ...BOT, bot: true, score: 0 }] : [])];
-      const hide = ['settings', 'packs', 'house'].includes(view) || view === 'final' || (G?.pass && ((G.phase === 'play' && G.pass.stage !== 'done') || (G.phase === 'reveal' && G.pass.stage === 'judge')));
+      const hide = ['settings', 'packs', 'house', 'cards'].includes(view) || view === 'final' || (G?.pass && ((G.phase === 'play' && G.pass.stage !== 'done') || (G.phase === 'reveal' && G.pass.stage === 'judge')));
       ring.hidden = hide || !list.length;
       if (ring.hidden) return;
       const n = list.length;
@@ -507,7 +563,12 @@ export default {
       root.dataset.view = view;
       root.dataset.mode = mode;
       clear(page);
-      const fn = { lobby: pgLobby, settings: pgSettings, packs: pgPacks, house: pgHouse, play: pgPlay, reveal: pgReveal, win: pgWin, final: pgFinal }[view] || pgLobby;
+      if (['lobby', 'settings', 'packs'].includes(view) && (usesCustom() || view === 'packs') && Date.now() - packInfoAt > (view === 'lobby' ? 8000 : 1500) && !packLoading && (mode === 'phones' || link.status === 'ok')) {
+        packLoading = true;
+        const before = JSON.stringify(packInfo);
+        loadPackInfo(true).then(() => { if (JSON.stringify(packInfo) !== before && ['lobby', 'settings'].includes(view)) { packInfoAt = Date.now(); render(); } }).catch(() => {}).finally(() => { packLoading = false; });
+      }
+      const fn = { lobby: pgLobby, settings: pgSettings, packs: pgPacks, house: pgHouse, cards: pgCards, play: pgPlay, reveal: pgReveal, win: pgWin, final: pgFinal }[view] || pgLobby;
       fn();
       drawRing();
       drawRim();
@@ -534,6 +595,7 @@ export default {
             });
           }
           mid.append(h('div.fb-room', 'Scan to join · room ', h('b', link.code)));
+          mid.append(sourceChips());
         } else if (link.status === 'connecting' || link.status === 'off') {
           mid.append(h('div.fb-qr-wait', h('div.fb-spin')), h('div.fb-room', 'Looking for the bridge…'));
         } else {
@@ -543,12 +605,12 @@ export default {
         }
       } else {
         mid.append(h('div.fb-passbox', h('span.fb-ic.big', { html: ICON.pass }), h('div', 'Pass the device: everyone picks their card on this screen in turn, with a cover screen in between.'),
-          btn('+ Add player', addLocal, 'sm')));
+          btn('+ Add player', addLocal, 'sm')), sourceChips());
       }
       page.append(mid);
       const acts = h('div.fb-acts.lobby');
       const canResume = resumeAvail && saved && (saved.mode || 'phones') === mode;
-      acts.append(btn('Rules', () => { view = 'settings'; render(); }, 'sm'));
+      acts.append(btn('Rules', () => { view = 'settings'; render(); }, 'sm'), btn('Cards', () => openCards('lobby'), 'sm'));
       if (!phones || link.status === 'ok') acts.append(btn(busy ? 'Dealing…' : 'Start', startGame, 'primary'));
       page.append(acts);
       const alt = h('div.fb-alt');
@@ -565,14 +627,93 @@ export default {
       putProg({ locals }); g.sfx('pop'); render();
     }
 
+    /** Built-in · Custom · All — which cards to deal (S.source), with how many custom cards there are. */
+    function sourceChips(cls = '') {
+      const cc = customCounts();
+      const n = cc.p + cc.a;
+      return h(`div.fb-src${cls ? '.' + cls : ''}`, h('span.fb-src-l', 'Cards'), SOURCES.map(([id, label]) => h(`button.chip.sm${S.source === id ? '.on' : ''}`, {
+        type: 'button', 'data-k': '', title: id === 'custom' ? 'Cards added from phones and imported packs' : '',
+        onclick: async () => { g.sfx('click'); setS({ source: id }); if (id !== 'builtin' && !packInfo) await loadPackInfo(true).catch(() => null); publish(); render(); },
+      }, label, id === 'custom' && cc.known ? h('span.fb-src-n', String(n)) : null)));
+    }
+    function countLine() {
+      const b = builtinCounts(), c = customCounts();
+      const part = (x, label) => (x.known ? `${label} ${x.p} prompts · ${x.a} answers` : `${label} …`);
+      return S.source === 'builtin' ? part(b, 'Built-in:') : S.source === 'custom' ? part(c, 'Custom:') : part({ p: b.p + c.p, a: b.a + c.a, known: b.known && c.known }, 'All:');
+    }
+    function openCards(back = view) {
+      cardsBack = ['lobby', 'settings', 'packs'].includes(back) ? back : 'lobby';
+      view = 'cards'; addQr = null;
+      loadPackInfo(true).catch(() => null);
+      render();
+    }
+    let cardsPoll = 0;
+    // Custom cards: the QR for the "Add cards" phone page (no game needed), counts, browse / export / import
+    function pgCards() {
+      clearInterval(cardsPoll);
+      cardsPoll = setInterval(() => { if (view !== 'cards' || !root.isConnected) { clearInterval(cardsPoll); return; } const before = JSON.stringify(packInfo); loadPackInfo(true).then(() => { if (view === 'cards' && JSON.stringify(packInfo) !== before) render(); }).catch(() => {}); }, 5000);
+      const H = packInfo?.house;
+      const nImp = (packInfo?.packs?.length || 0) + (prog().local?.length || 0);
+      page.append(head('Custom cards', H ? `House pack · ${plural(H.prompts, 'prompt')} · ${plural(H.answers, 'answer')}` : ''));
+      const mid = h('div.fb-lobby.fb-cards');
+      if (link.status === 'ok') {
+        if (addQr) mid.append(addQr);
+        else {
+          const ph = h('div.fb-qr-wait', h('div.fb-spin'));
+          mid.append(ph);
+          link.phoneUrl().then((r) => {
+            if (!r.url) { ph.replaceWith(h('div.fb-nolink', linkProblem(r.reason, 'bridge/server.js'))); return; }
+            const u = new URL(r.url); u.pathname = '/blanks/add'; u.search = '';
+            addQr = h('div.fb-qrwrap', qrBox(u.href, 'fb-qr'), h('div.fb-url', u.href.replace(/^https?:\/\//, '')));
+            if (view === 'cards' && ph.isConnected) ph.replaceWith(addQr);
+          });
+        }
+        mid.append(h('div.fb-room', 'Scan to add cards — ', h('b.fb-plain', 'no game needed')));
+      } else if (link.status === 'connecting' || link.status === 'off') mid.append(h('div.fb-qr-wait', h('div.fb-spin')), h('div.fb-room', 'Looking for the bridge…'));
+      else mid.append(h('div.fb-nolink', h('span.fb-ic.big', { html: ICON.phone }), h('div', 'Custom cards live on the bridge (bridge/server.js on this network): phones add them by scanning a QR code here.'),
+        h('div.fb-dim', 'Without it you can still import a pack by link.')));
+      const imp = nImp ? h('div.fb-dim', `${plural(nImp, 'imported pack')} · Cards: ${SOURCES.find((x) => x[0] === S.source)[1]}`) : h('div.fb-dim', `Playing with: ${SOURCES.find((x) => x[0] === S.source)[1]} cards`);
+      mid.append(imp);
+      page.append(mid);
+      const acts = h('div.fb-acts.cards');
+      if (H && H.prompts + H.answers) acts.append(btn('Browse', () => { view = 'house'; houseCards = null; render(); }, 'sm'));
+      if (packInfo && (H?.prompts + H?.answers || packInfo.packs.length)) acts.append(btn('Export', exportCards, 'sm'));
+      acts.append(btn('Import', importLink, 'sm'));
+      page.append(acts, h('div.fb-acts.low.cards', btn('Done', () => { clearInterval(cardsPoll); view = cardsBack; render(); }, 'primary')));
+    }
+    async function exportCards() {
+      const r = await link.phoneUrl();
+      const base = r.url ? new URL(r.url).origin : null;
+      const local = await bridgeBase().catch(() => null);
+      const url = (base || local || '') + '/api/blanks/export?id=all';
+      openModal((box, close) => {
+        box.append(h('div.fb-m-t', 'Export custom cards'),
+          h('div.fb-m-s', 'One JSON file with the house pack and the imported packs — import it again on any display or bridge. Scan to save it on a phone:'),
+          base ? qrBox(url, 'fb-qr.sm') : null,
+          h('div.fb-m-acts', btn('Download here', async () => {
+            try {
+              const res = await fetch((local || base) + '/api/blanks/export?id=all');
+              const blob = await res.blob();
+              const a = h('a', { href: URL.createObjectURL(blob), download: 'fill-the-blank-custom-cards.json' });
+              document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+              g.toast('Saved', 1400);
+            } catch (e) { g.toast(errMsg(e), 2000); }
+          }, 'sm'), btn('Close', () => close(), 'primary')));
+      });
+    }
+
     function pgSettings() {
       page.append(head('House rules'));
       const box = h('div.fb-scroll');
       const row = (label, sub, chips) => box.append(h('div.fb-row', h('div.fb-row-l', label, sub ? h('small', sub) : null), h('div.fb-chips', chips)));
       const chip = (on, label, fn) => h(`button.chip${on ? '.on' : ''}`, { type: 'button', 'data-k': '', onclick: () => { g.sfx('click'); fn(); publish(); render(); } }, label);
-      const packNames = S.packs.map((id) => builtinById(id)?.name || (id === 'house' ? 'House' : (packInfo?.packs || []).find((p) => p.id === id)?.name || (prog().local || []).find((p) => p.id === id)?.name || 'Pack'));
+      const nameOf = (id) => builtinById(id)?.name || (id === 'house' ? 'House' : (packInfo?.packs || []).find((p) => p.id === id)?.name || (prog().local || []).find((p) => p.id === id)?.name || 'Pack');
+      const packNames = effPacks().map(nameOf);
+      row('Cards from', countLine(), SOURCES.map(([id, l]) => chip(S.source === id, l, () => { setS({ source: id }); if (id !== 'builtin') loadPackInfo(true).then(() => view === 'settings' && render()).catch(() => {}); })));
       box.append(h('button.fb-packbtn', { type: 'button', 'data-k': '', onclick: () => { view = 'packs'; loadPackInfo(); render(); } },
         h('div.fb-row-l', 'Card packs', h('small', { dir: 'auto' }, packNames.join(' · ') || 'None picked')), h('span.fb-chev', '›')));
+      box.append(h('button.fb-packbtn', { type: 'button', 'data-k': '', onclick: () => openCards('settings') },
+        h('div.fb-row-l', 'Custom cards', h('small', 'Add from phones (QR) · browse · export')), h('span.fb-chev', '›')));
       row('Points to win', '', [5, 7, 10, 15].map((n) => chip(S.win === n, String(n), () => setS({ win: n }))));
       row('Round limit', 'End early after this many rounds', [[0, 'None'], [10, '10'], [15, '15'], [20, '20']].map(([n, l]) => chip(S.rounds === n, l, () => setS({ rounds: n }))));
       row('Timer', 'Time’s up → a random card is played', [[0, 'Off'], [45, '45 s'], [60, '60 s'], [90, '90 s']].map(([n, l]) => chip(S.timer === n, l, () => setS({ timer: n }))));
@@ -586,36 +727,49 @@ export default {
     }
 
     function pgPacks() {
-      page.append(head('Card packs', adultOk() ? '' : 'Party packs ask for an 18+ check'));
+      page.append(head('Card packs', `Cards from: ${SOURCES.find((x) => x[0] === S.source)[1]}${adultOk() ? '' : ' · 18+ packs ask first'}`));
       const box = h('div.fb-scroll');
-      const toggle = async (id, adult) => {
-        const on = S.packs.includes(id);
+      const toggle = async (id, adult, custom) => {
+        const on = custom ? !(S.off || []).includes(id) : S.packs.includes(id);
         if (!on && adult && !adultOk() && !(await ageGate())) return;
-        setS({ packs: on ? S.packs.filter((x) => x !== id) : [...S.packs, id] });
+        if (custom) setS({ off: on ? [...(S.off || []), id] : (S.off || []).filter((x) => x !== id) });
+        else setS({ packs: on ? S.packs.filter((x) => x !== id) : [...S.packs, id] });
         g.sfx('click'); publish(); render();
       };
-      const prow = (id, name, sub, adult, extra = null) => {
-        const on = S.packs.includes(id);
+      const prow = (id, name, sub, adult, extra = null, custom = false) => {
+        const on = custom ? !(S.off || []).includes(id) : S.packs.includes(id) || (!S.packs.length && id === 'family-en');
         box.append(h(`div.fb-pack${on ? '.on' : ''}`,
-          h('button.fb-pack-main', { type: 'button', 'data-k': '', onclick: () => toggle(id, adult) },
+          h('button.fb-pack-main', { type: 'button', 'data-k': '', onclick: () => toggle(id, adult, custom) },
             h('span.fb-box', { html: on ? ICON.check : '' }), h('span.fb-pack-t', h('b', { dir: 'auto' }, name), h('small', { dir: 'auto' }, sub)), adult ? h('span.fb-x18', '18+') : null),
           extra));
       };
-      for (const p of BUILTIN) prow(p.id, p.name, `${p.lang === 'he' ? 'עברית' : 'English'} · ${p.note}`, p.adult);
+      const sect = (title, used, sub) => box.append(h(`div.fb-sect${used ? '' : '.off'}`, h('b', title), h('small', used ? sub : `Not used — Cards from: ${SOURCES.find((x) => x[0] === S.source)[1]}`)));
+      sect('Built-in packs', S.source !== 'custom', 'Our own cards, English and Hebrew');
+      for (const p of BUILTIN) { const c = bcount[p.id]; prow(p.id, p.name, `${c ? `${c[0] + c[1]} cards · ` : ''}${p.lang === 'he' ? 'עברית' : 'English'} · ${p.note}`, p.adult); }
+      for (const p of BUILTIN) if (!bcount[p.id]) loadBuiltin(p.id).then((pk) => { bcount[p.id] = [pk.prompts.length, pk.answers.length]; if (view === 'packs') render(); }).catch(() => {});
+      sect('Custom cards', usesCustom(), 'Added from phones and imported — untick to leave one out');
       if (packInfo) {
-        const hc = packInfo.house.prompts + packInfo.house.answers;
-        prow('house', 'House pack', hc ? `${plural(packInfo.house.prompts, 'prompt')} · ${plural(packInfo.house.answers, 'answer')} — added from phones` : 'Empty — add cards from a phone (More → Add cards)', false,
-          hc ? h('button.fb-mini', { type: 'button', 'data-k': '', onclick: () => { view = 'house'; houseCards = null; render(); } }, 'Review') : null);
+        const H = packInfo.house, hc = H.prompts + H.answers;
+        prow('house', 'House pack', hc ? `${plural(H.prompts, 'prompt')} · ${plural(H.answers, 'answer')} — added from phones` : 'Empty — Custom cards → scan to add some', false,
+          h('button.fb-mini', { type: 'button', 'data-k': '', onclick: () => openCards('packs') }, hc ? 'Manage' : 'Add'), true);
+        if (H.adultPrompts + H.adultAnswers) {
+          box.append(h('div.fb-row.fb-row-in', h('div.fb-row-l', '18+ house cards', h('small', `${plural(H.adultPrompts + H.adultAnswers, 'card')} marked 18+ by whoever added them`)),
+            h('div.fb-chips', [false, true].map((v) => h(`button.chip${!!S.custom18 === v ? '.on' : ''}`, { type: 'button', 'data-k': '', onclick: async () => {
+              if (v && !adultOk() && !(await ageGate())) return;
+              g.sfx('click'); setS({ custom18: v }); publish(); render();
+            } }, v ? 'Include' : 'Leave out')))));
+        }
         for (const p of packInfo.packs) prow(p.id, p.name, `${plural(p.prompts, 'prompt')} · ${plural(p.answers, 'answer')}${p.by ? ` · from ${p.by}` : ''}`, p.adult,
           h('button.fb-mini', { type: 'button', 'data-k': '', onclick: async () => {
             if (!(await confirmBox(`Remove “${p.name}”?`, 'It’s removed from the bridge for every display.', 'Remove'))) return;
-            try { await removeBridgePack(p.id, link.key); setS({ packs: S.packs.filter((x) => x !== p.id) }); await loadPackInfo(true); } catch (e) { g.toast(errMsg(e), 2000); }
+            try { await removeBridgePack(p.id, link.key); setS({ off: (S.off || []).filter((x) => x !== p.id) }); await loadPackInfo(true); } catch (e) { g.toast(errMsg(e), 2000); }
             render();
-          } }, '✕'));
+          } }, '✕'), true);
       } else if (mode === 'phones' && link.status !== 'down') box.append(h('div.fb-note', h('span.fb-spin.sm'), ' Loading the bridge’s packs…'));
+      else box.append(h('div.fb-note', 'The house pack lives on the bridge — start bridge/server.js on this network to add cards from phones.'));
       for (const p of prog().local || []) prow(p.id, p.name, `${plural(p.prompts.length, 'prompt')} · ${plural(p.answers.length, 'answer')} · on this screen`, p.adult,
-        h('button.fb-mini', { type: 'button', 'data-k': '', onclick: () => { putProg({ local: (prog().local || []).filter((x) => x.id !== p.id) }); setS({ packs: S.packs.filter((x) => x !== p.id) }); render(); } }, '✕'));
-      box.append(h('div.fb-note', 'Import your own JSON pack: from a phone (More → Import a card pack) or by link here. Imported packs are your responsibility — only load cards you may use (e.g. Creative Commons).'));
+        h('button.fb-mini', { type: 'button', 'data-k': '', onclick: () => { putProg({ local: (prog().local || []).filter((x) => x.id !== p.id) }); setS({ off: (S.off || []).filter((x) => x !== p.id) }); render(); } }, '✕'), true);
+      box.append(h('div.fb-note', 'Import your own JSON pack: from a phone (Custom cards → scan → Import a card pack) or by link here. Imported packs are your responsibility — only load cards you may use (e.g. Creative Commons).'));
       page.append(box, h('div.fb-acts.low', btn('Import link', importLink, 'sm'), btn('Done', () => { view = 'settings'; render(); }, 'primary')));
     }
     async function importLink() {
@@ -624,12 +778,12 @@ export default {
       g.toast('Loading…', 1200);
       try {
         const r = await importUrl(/^https?:\/\//i.test(url) ? url : `https://${url}`);
-        if (r.bridge) { setS({ packs: [...new Set([...S.packs, r.bridge.id])] }); await loadPackInfo(true); g.toast(`Imported “${r.bridge.name}”`, 1800); }
+        if (r.bridge) { setS({ off: (S.off || []).filter((x) => x !== r.bridge.id), ...(S.source === 'builtin' ? { source: 'all' } : {}) }); await loadPackInfo(true); g.toast(`Imported “${r.bridge.name}”${S.source === 'all' ? ' · playing All cards' : ''}`, 2000); }
         else {
           const pk = { id: `l${Date.now().toString(36)}`, ...r.local };
           if (JSON.stringify(pk).length > 400000) throw new Error('That pack is too big to keep on this screen — import it from a phone instead');
           putProg({ local: [...(prog().local || []).slice(-2), pk] });
-          setS({ packs: [...S.packs, pk.id] });
+          if (S.source === 'builtin') setS({ source: 'all' });
           g.toast(`Imported “${pk.name}”`, 1800);
         }
         g.sfx('coin');
@@ -638,7 +792,7 @@ export default {
     }
     let houseCards = null;
     function pgHouse() {
-      page.append(head('House pack', 'Cards added from phones — tap ✕ to remove one'));
+      page.append(head('House pack', 'Added from phones · ✕ removes a card'));
       const box = h('div.fb-scroll');
       if (!houseCards) {
         box.append(h('div.fb-note', h('span.fb-spin.sm')));
@@ -652,7 +806,7 @@ export default {
             render();
           } }, '✕')));
       }
-      page.append(box, h('div.fb-acts.low', btn('Back', () => { view = 'packs'; render(); }, 'primary')));
+      page.append(box, h('div.fb-acts.low', btn('Back', () => { view = 'cards'; render(); }, 'primary')));
     }
 
     function judgeName() { const j = judgeKey(); return j ? G.players[j]?.name || '' : ''; }
@@ -870,7 +1024,8 @@ export default {
     if (mode === 'pass' && S.judge === 'vote') setS({ judge: 'rotate' });
     link.start();
     publish(); render();
-    if (mode === 'phones') loadPackInfo();
+    if (mode === 'phones' || usesCustom()) loadPackInfo().then(() => { if (['lobby', 'settings', 'cards'].includes(view)) render(); }).catch(() => {});
+    if (openOnStart) { openOnStart = null; openCards('lobby'); }
 
     return {
       pause() { pausedAt = Date.now(); clearTimeout(voteT); },
@@ -880,7 +1035,7 @@ export default {
         if (G?.phase === 'reveal' && S.judge === 'vote') autoReveal();
       },
       destroy() {
-        clearTimeout(botT); clearTimeout(autoT); clearTimeout(revealT); clearTimeout(voteT);
+        clearTimeout(botT); clearTimeout(autoT); clearTimeout(revealT); clearTimeout(voteT); clearInterval(cardsPoll);
         if (saveT) { clearTimeout(saveT); if (G && G.phase !== 'final') putProg({ game: { ...G, savedAt: Date.now() } }); }
         link.stop();
         for (const off of offs) { try { off(); } catch {} }

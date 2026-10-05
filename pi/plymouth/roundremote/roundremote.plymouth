@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Round Remote
+Description=The Round Remote logo on black with a ring that fills as the Raspberry Pi boots (for the round 720x720 screen)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/roundremote
+ScriptFile=/usr/share/plymouth/themes/roundremote/roundremote.script

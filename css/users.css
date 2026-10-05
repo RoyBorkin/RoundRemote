@@ -1,0 +1,126 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Who's watching / listening: user chips, the round user picker, the PIN pad (js/screens/users.js) */
+
+/* ---------- avatar ---------- */
+.uav {
+  --h: 200; --s: 4.4cqmin;
+  width: var(--s); height: var(--s); border-radius: 50%; flex: none; position: relative;
+  display: inline-grid; place-items: center; overflow: hidden;
+  background: linear-gradient(140deg, hsl(var(--h) 62% 52%), hsl(calc(var(--h) + 40) 58% 34%)) center/cover;
+  color: #fff; font-weight: 800; font-size: calc(var(--s) * .4); letter-spacing: -.02em; line-height: 1;
+  box-shadow: 0 0 0 .3cqmin rgb(var(--paper) / .35);
+}
+.uav.has-img { background-size: cover; background-position: center; }
+.uav.has-img .uav-i { display: none; }
+.uav.sm { --s: 9cqmin; }
+.uav.rw { --s: 9cqmin; }
+.uav.lg { --s: 15cqmin; }
+.uav.xl { --s: 19cqmin; }
+.uav.add { background: var(--glass-2); color: var(--fg); border: .35cqmin dashed var(--line); box-shadow: none; font-size: 6cqmin; }
+.uav .ic, .uav.add .ic { width: 1em; height: 1em; fill: currentColor; }
+
+/* ---------- the chip in the service headers ---------- */
+.uchip {
+  display: inline-flex; align-items: center; gap: 1.1cqmin; max-width: 22cqmin;
+  padding: .45cqmin 1.8cqmin .45cqmin .45cqmin; border-radius: 99px;
+  background: var(--glass); border: 1px solid var(--line); color: var(--fg);
+  font-size: 2.3cqmin; font-weight: 700; transition: transform .2s var(--spring, ease), background .2s;
+}
+.uchip[hidden] { display: none; }
+.uchip:active { transform: scale(.93); }
+.uchip .uav { --s: 4.6cqmin; box-shadow: none; }
+.uchip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.uchip.compact { padding: .5cqmin; }
+.uchip.compact .uav { --s: 6.6cqmin; }
+/* Movies & TV: inside the Now playing / Library switch */
+.m-tabs:has(.uchip:not([hidden])) { width: max-content; white-space: nowrap; }
+.m-tabs:has(.uchip:not([hidden])) .m-tab { white-space: nowrap; }
+.m-tabs .uchip { background: transparent; border: none; padding-right: 1.4cqmin; margin-right: .2cqmin; color: var(--fg); }
+.m-tabs .uchip .uav { --s: 4.2cqmin; }
+.m-tabs .uchip-name { max-width: 12cqmin; }
+/* the music player: a small avatar at the top centre, between Playlists and Search */
+.player .uchip.pp-user { position: absolute; left: 50%; top: 12.2%; transform: translate(-50%, -50%); z-index: 2; }
+.player .uchip.pp-user:active { transform: translate(-50%, -50%) scale(.92); }
+
+/* ---------- Home tile: tiny avatar on the badge ---------- */
+.badge:has(> .svc-user) { position: relative; }
+.badge > .uav.svc-user {
+  position: absolute; right: -10%; bottom: -10%; width: 42%; height: 42%; font-size: 1.6cqmin; letter-spacing: 0;
+  box-shadow: 0 0 0 .4cqmin var(--bg); z-index: 1;
+}
+
+/* ---------- the picker panel ---------- */
+.users-panel .panel-body { top: 18%; bottom: 16%; left: 9%; right: 9%; justify-content: center; align-items: center; gap: 2cqmin; }
+.users-panel.whos .panel-title { top: 13%; font-size: 5cqmin; letter-spacing: -.01em; font-family: var(--display, inherit); }
+.users-panel.whos .panel-body { top: 21%; }
+.ups-grid {
+  display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 2.4cqmin 3.2cqmin;
+  max-width: 76cqmin; max-height: 100%; overflow-y: auto; scrollbar-width: none; padding: 1.5cqmin;
+}
+.ups-grid::-webkit-scrollbar { display: none; }
+.ups-grid.n1 .uav.lg, .ups-grid.n2 .uav.lg { --s: 19cqmin; }
+.ups-grid.n3 .uav.lg, .ups-grid.n4 .uav.lg { --s: 17cqmin; }
+.ups-grid.n4 { max-width: 52cqmin; }   /* 2 × 2 */
+.ups-grid.n7 .uav.lg { --s: 13cqmin; }
+.ups-user {
+  display: flex; flex-direction: column; align-items: center; gap: 1cqmin; width: 20cqmin;
+  transition: transform .2s var(--spring, ease); animation: ups-in .45s var(--spring, ease) both;
+}
+.ups-user:nth-child(2) { animation-delay: .04s; } .ups-user:nth-child(3) { animation-delay: .08s; } .ups-user:nth-child(4) { animation-delay: .12s; }
+.ups-user:nth-child(5) { animation-delay: .16s; } .ups-user:nth-child(6) { animation-delay: .2s; } .ups-user:nth-child(7) { animation-delay: .24s; }
+@keyframes ups-in { from { opacity: 0; transform: scale(.6) translateY(2cqmin); } }
+.ups-user:active { transform: scale(.92); }
+.ups-av { position: relative; display: grid; place-items: center; border-radius: 50%; }
+.ups-user .uav { box-shadow: 0 1.2cqmin 4cqmin rgb(var(--shade) / .45), 0 0 0 .35cqmin rgb(var(--ink) / .12); transition: box-shadow .25s; }
+.ups-user.on .uav { box-shadow: 0 1.2cqmin 4cqmin rgb(var(--shade) / .45), 0 0 0 .6cqmin var(--bg), 0 0 0 1.1cqmin var(--accent); }
+.ups-user:focus-visible .uav { box-shadow: 0 0 0 .6cqmin var(--bg), 0 0 0 1.1cqmin var(--fg); }
+.ups-lock, .ups-on {
+  position: absolute; width: 5.2cqmin; height: 5.2cqmin; border-radius: 50%; display: grid; place-items: center;
+  font-size: 2.9cqmin; border: .45cqmin solid var(--bg);
+}
+.ups-lock { right: -.4cqmin; bottom: -.4cqmin; background: var(--surface); color: var(--fg); }
+.ups-on { right: -.4cqmin; top: -.4cqmin; background: var(--accent); color: var(--on-accent); }
+.ups-lock .ic, .ups-on .ic { width: 1em; height: 1em; fill: currentColor; }
+.ups-name { font-size: 2.9cqmin; font-weight: 700; color: var(--fg); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-user:not(.on) .ups-name { color: var(--muted); }
+.ups-user.add .ups-name { font-size: 2.4cqmin; font-weight: 600; white-space: normal; text-align: center; line-height: 1.15; }
+.ups-tag { margin-top: -.6cqmin; font-size: 1.85cqmin; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim, var(--muted)); }
+.ups-note { max-width: 56cqmin; text-align: center; font-size: 2.5cqmin; color: var(--muted); line-height: 1.35; }
+.ups-busy, .ups-qc { display: flex; flex-direction: column; align-items: center; gap: 2cqmin; text-align: center; }
+.ups-busy .loading { padding: 1cqmin 0; }
+.ups-busy > .ups-name { font-size: 3.6cqmin; color: var(--fg); }
+.ups-actions { display: flex; gap: 2cqmin; justify-content: center; flex-wrap: wrap; }
+.ups-code { font: 700 9cqmin/1 var(--mono, 'JetBrains Mono', monospace); letter-spacing: .14em; color: var(--fg); }
+
+/* ---------- PIN pad ---------- */
+.ups-pin { display: flex; flex-direction: column; align-items: center; gap: 2.2cqmin; margin-top: -2cqmin; }
+.pin-head { display: flex; align-items: center; gap: 1.6cqmin; }
+.pin-head .uav { --s: 6.4cqmin; }
+.pin-msg { font-size: 2.8cqmin; font-weight: 600; color: var(--muted); }
+.pin-dots { display: flex; gap: 2.6cqmin; height: 3cqmin; align-items: center; }
+.pin-dots i { width: 2.6cqmin; height: 2.6cqmin; border-radius: 50%; border: .4cqmin solid var(--fg); opacity: .55; transition: background .15s, transform .2s var(--spring, ease), opacity .15s; }
+.pin-dots i.on { background: var(--fg); opacity: 1; transform: scale(1.15); }
+.pin-dots.shake { animation: pin-shake .42s ease; }
+.pin-dots.shake i { border-color: var(--danger, #e5484d); }
+@keyframes pin-shake { 20%, 60% { transform: translateX(-2cqmin); } 40%, 80% { transform: translateX(2cqmin); } }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 10.6cqmin); gap: 1.6cqmin 3.4cqmin; }
+.pin-pad.wait { opacity: .45; pointer-events: none; }
+.pin-key {
+  width: 10.6cqmin; height: 10.6cqmin; border-radius: 50%; display: grid; place-items: center;
+  font-size: 4.4cqmin; font-weight: 600; color: var(--fg); background: var(--glass); border: 1px solid var(--line);
+  transition: transform .12s, background .15s;
+}
+.pin-key:active { transform: scale(.9); background: var(--glass-2); }
+.pin-key.fn { background: transparent; border-color: transparent; font-size: 4.4cqmin; color: var(--muted); }
+.pin-key .ic { width: 1em; height: 1em; fill: currentColor; }
+
+/* ---------- Settings pages ---------- */
+.ups-settings { display: flex; flex-direction: column; gap: 2cqmin; }
+.ups-rows { display: flex; flex-direction: column; gap: .6cqmin; }
+.ups-row .row-title { display: flex; align-items: center; gap: 1cqmin; }
+.ups-lock-in { font-size: 2.6cqmin; color: var(--muted); display: inline-grid; }
+.ups-lock-in .ic { width: 1em; height: 1em; fill: currentColor; }
+.ups-row-right { display: flex; align-items: center; gap: 1.4cqmin; flex: none; }
+.ups-acts { display: flex; gap: 2cqmin; justify-content: center; flex-wrap: wrap; }
+
+#app.lite .ups-user, #app.lite .ups-user .uav { animation: none; transition: none; }

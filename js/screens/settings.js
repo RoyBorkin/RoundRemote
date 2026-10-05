@@ -1,10 +1,13 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Settings: everything persists in this browser (localStorage). On the Pi you can also
 // pre-fill keys via bridge/config.json so nothing has to be typed on the round screen.
-import { h, iconBtn, onCircle, badge, clear } from '../ui/dom.js';
+// Android style: a list of categories → each category's page (its controls and rows for deeper pages) → deeper
+// pages (js/screens/settings-nav.js). Other modules add pages through js/screens/settings-registry.js
+// (imported in settings-extra.js). openSettings('device/wifi') opens a page directly.
+import { h, badge, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { field } from '../ui/keyboard.js';
-import { curve, toast } from '../ui/overlay.js';
+import { toast } from '../ui/overlay.js';
 import { chips, stepper, toggle, infoArtChips, deckOptions } from './panels.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
@@ -26,192 +29,333 @@ import { SOURCES, forgetAll, learnedSongCount } from '../../rhythm/session.js';
 import { openCalibration } from '../../rhythm/hub.js';
 import { alertsSection } from './settings-alerts.js';
 import { deviceGroup, displayExtras } from './settings-device.js';
+import { systemInfo, cachedInfo, canWrite, forcedDevice } from '../core/device.js';
+import { createNav } from './settings-nav.js';
+import { settingsEntries } from './settings-registry.js';
+import { homeServicesPage, homeBatteryOpts } from './settings-home.js';
+import './settings-extra.js';
 
 export const VERSION = '2.0.0';
 
-export function SettingsScreen() {
-  const list = h('div.settings-list');
-  const back = onCircle(iconBtn('back', 'Back', () => go('home')), 0, 42);
-  const el = h('div.settings', h('div.settings-title', 'Settings'), back, list);
+// the page to open next time Settings opens (openSettings)
+let pendingPath = null;
+/** Open Settings at a page: '' (the list), 'music', 'music/lyrics', 'device/wifi', 'homescreen/services'… */
+export function openSettings(path = '') { pendingPath = String(path || ''); go('settings', { path: pendingPath }); }
 
-  const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
-  const section = (t) => h('div.section', t);
-  // the big headers (Theme, General, Music…), with a row of chips at the top to jump to them
-  const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['device', 'Device', 'devices'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
-    ['home', 'Home', 'house'], ['alerts', 'Alerts', 'megaphone'], ['games', 'Games', 'gamepad'], ['rhythm', 'Rhythm', 'rhythm'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
-  const groupEls = {};
-  const group = (id) => {
-    const [, title, ic] = GROUPS.find((g) => g[0] === id);
-    return (groupEls[id] = h('div.set-group', { dataset: { group: id } }, h('span.set-group-ic', { html: icon(ic) }), h('span', title)));
+function ensureCss() {
+  if (document.getElementById('settings-css')) return;
+  const l = document.createElement('link');
+  l.id = 'settings-css'; l.rel = 'stylesheet'; l.href = new URL('../../css/settings.css', import.meta.url).href;
+  document.head.append(l);
+}
+
+const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
+const hint = (t) => h('div.opt-hint', t);
+const once = (fn) => { let v; let done = false; return () => { if (!done) { v = fn(); done = true; } return v; }; };
+const slug = (t) => String(t).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** Split a builder's list at its section headers: [{ title, head, nodes }] (the first has no header). */
+function splitSections(nodes, isHead = (n) => n?.classList?.contains('section') && !n.classList.contains('sub')) {
+  const out = [{ title: '', head: null, nodes: [] }];
+  for (const n of nodes.filter(Boolean)) {
+    if (isHead(n)) out.push({ title: n.textContent.trim(), head: n, nodes: [] });
+    else out[out.length - 1].nodes.push(n);
+  }
+  return out;
+}
+const sectionPages = (parts, extra = {}) => parts.filter((p) => p.head).map((p) => ({
+  id: p.head.dataset?.dv || slug(p.title), title: p.title, content: () => p.nodes, hidden: () => !!p.head.hidden, ...(extra[slug(p.title)] || {}),
+}));
+// the Pi's own screen (or ?device=1): its battery saver and rotation live under Device, not General
+const piOwnsScreen = () => !!((cachedInfo()?.pi && canWrite(cachedInfo())) || forcedDevice());
+const deviceShown = () => !!(cachedInfo()?.pi || forcedDevice());
+
+export function SettingsScreen(params = {}) {
+  ensureCss();
+  const el = h('div.settings.set-nav-screen');
+  let nav = null;
+
+  // ---------------------------------------------------------------- the categories
+  const general = {
+    id: 'general', title: 'General', icon: 'settings', summary: 'Display, keyboard', keywords: 'size start dim idle effects lite',
+    sub: () => (piOwnsScreen() ? 'Display, keyboard' : 'Display, rotation, battery saver, keyboard'),
+    children: () => {
+      // Screen rotation + Battery saver (phones, tablets, computers; on the Pi they're under Device)
+      const extras = once(() => splitSections(displayExtras()));
+      return [
+        { id: 'display', title: 'Display', icon: 'screen', summary: 'Control size, effects, dimming', keywords: 'ui size reduce effects pi start resume dim idle',
+          content: () => [
+            opt('Control size (Home, players, games)', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
+            toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
+            toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
+            opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
+            ...extras()[0].nodes,   // (the anchor that keeps their timers alive)
+          ] },
+        ...sectionPages(extras(), {}).map((p) => ({ ...p, icon: p.id === 'orientation' ? 'rotate' : 'battery', summary: p.id === 'orientation' ? 'Turn the round app with this device' : 'Save power on battery', keywords: 'rotation orientation turn motion sensor battery saver power',
+          hidden: () => piOwnsScreen() || p.hidden() })),
+        { id: 'keyboard', title: 'Keyboard', icon: 'keyboard', summary: 'On-screen keyboard, language', keywords: 'hebrew english typing',
+          content: () => [
+            opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
+            opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
+          ] },
+      ];
+    },
   };
-  const jump = h('div.set-jump', GROUPS.map(([id, title]) => h('button.chip.sm', {
-    type: 'button', dataset: { group: id }, onclick: (e) => { e.stopPropagation(); groupEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-  }, title)));
 
-  list.append(
-    jump,
+  // Raspberry Pi: Wi-Fi, Bluetooth, sound, power, screen, orientation, updates (hidden elsewhere)
+  const DEV_ICONS = { wifi: 'wifi', bluetooth: 'bluetooth', sound: 'speaker', battery: 'battery', screen: 'screen', orientation: 'rotate', updates: 'update', restart: 'restart' };
+  const DEV_SUBS = { wifi: 'Networks, setup hotspot', bluetooth: 'Speakers, headphones, controllers', sound: 'Outputs, volume, microphones', battery: 'Battery, battery saver',
+    screen: 'Screen off, night dimming', orientation: 'Motion sensor, turn the screen', updates: 'Versions, install updates', restart: 'Restart or shut down the Pi' };
+  const DEV_KEYS = { wifi: 'wifi network internet hotspot password', bluetooth: 'pair speaker headphones', sound: 'audio speaker volume microphone output', battery: 'power saver ups pisugar',
+    screen: 'display brightness off sleep night dim', orientation: 'rotation rotate turn screen sensor imu', updates: 'update version upgrade', restart: 'reboot shutdown power off' };
+  const device = {
+    id: 'device', title: 'Device', icon: 'devices', summary: 'Wi-Fi, Bluetooth, sound, battery', keywords: 'raspberry pi system',
+    hidden: () => !deviceShown(),
+    ready: () => systemInfo(),
+    content: () => {
+      device.parts = splitSections(deviceGroup(), (n) => n?.matches?.('.section[data-dv]'));
+      // deviceGroup shows its parts once the bridge answers: show their rows then
+      systemInfo().then(() => setTimeout(() => nav?.refresh(), 0));
+      return device.parts[0].nodes;   // the anchor, the ?device=1 note, "looking from another device"
+    },
+    children: () => sectionPages(device.parts || []).map((p) => ({ ...p, icon: DEV_ICONS[p.id] || 'settings', summary: DEV_SUBS[p.id] || '', keywords: DEV_KEYS[p.id] || '' })),
+  };
 
-    group('theme'),
-    ...themeSection(),
+  const music = {
+    id: 'music', title: 'Music', icon: 'note', summary: 'Player, lyrics, vinyl, video, visuals', keywords: 'song player',
+    children: () => [
+      { id: 'player', title: 'Player', icon: 'play', summary: 'Start view, auto-hide, controls', keywords: 'view controls buttons hide',
+        content: () => [
+          opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
+          toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
+          devicePillToggle(),
+          h('div.opt-hint', 'Show these controls (or hold the middle of the player)'),
+          ...partToggles('playerHide', PLAYER_PARTS),
+        ] },
+      { id: 'classic', title: 'Classic', icon: 'info', summary: 'Artwork, auto-hide', keywords: 'info view artwork',
+        content: () => [infoArtChips(), infoArtToggle(), infoAutoHideToggle()] },
+      { id: 'vinyl', title: 'Vinyl · Tape · CD', icon: 'vinyl', summary: 'Record, cassette, CD, tone arm', keywords: 'record turntable cassette tape cd arm speed',
+        content: () => deckOptions() },
+      { id: 'lyrics', title: 'Lyrics', icon: 'lyrics', summary: 'Style, kinetic type, timing', keywords: 'lyric karaoke text offset',
+        content: () => [
+          opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
+          opt('Kinetic type variant', chips(TYPO_VARIANTS, store.get('typoVariant'), (v) => store.set('typoVariant', v))),
+          (() => {
+            // Which variants Random may pick (stored as the ones left out, so new variants are in by default)
+            const opts = TYPO_VARIANTS.filter((x) => x.id !== 'random');
+            const ids = opts.map((x) => x.id);
+            const getOn = () => { const off = store.get('typoRandomOff') || []; return ids.filter((id) => !off.includes(id)); };
+            const setOn = (on) => store.set('typoRandomOff', ids.filter((id) => !on.includes(id)));
+            let row = multiChips(opts, getOn, setOn);
+            const all = h('button.pill.small', { type: 'button' }, 'Include all');
+            const box = h('div.opt', h('div.opt-label', 'Random includes'), row, h('div.center', all));
+            all.onclick = (e) => { e.stopPropagation(); store.set('typoRandomOff', []); const r = multiChips(opts, getOn, setOn); row.replaceWith(r); row = r; };
+            return box;
+          })(),
+          stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
+        ] },
+      { id: 'video', title: 'Video', icon: 'video', summary: 'Music videos, slideshow', keywords: 'clip youtube slideshow photos',
+        content: () => videoOpts() },
+      { id: 'tone', title: 'Tone Visual', icon: 'tone', summary: 'Style, sound source', keywords: 'visualizer visualiser microphone mic',
+        content: () => [
+          opt('Style', chips(TONE_VARIANTS, store.get('toneVariant'), (v) => store.set('toneVariant', v))),
+          opt('Sound', chips(TONE_SOURCES, store.get('toneSource'), (v) => sound().useMic(v === 'mic'))),
+          h('div.opt-hint', TONE_SOURCE_HINT),
+        ] },
+      { id: 'facts', title: 'Fun Facts', icon: 'sparkle', summary: 'Next fact every…', keywords: 'trivia',
+        content: () => [factChips()] },
+    ],
+  };
 
-    group('general'),
-    section('Display'),
-    toggle('Show only signed-in services', () => store.get('onlySignedIn'), (v) => store.set('onlySignedIn', v)),
-    toggle('Show the Demo service', () => store.get('showDemo'), (v) => store.set('showDemo', v)),
-    opt('Control size (Home, players, games)', chips(['XS', 'S', 'M', 'L', 'XL'].map((id) => ({ id, name: id })), store.get('uiSize'), (v) => store.set('uiSize', v))),
-    toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
-    toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
-    opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
-    ...displayExtras(),   // Screen rotation + Battery saver (phones, tablets, computers; on the Pi they're under Device)
-    section('Keyboard'),
-    opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
-    opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
+  const media = {
+    id: 'media', title: 'Movies & TV', icon: 'film', summary: 'Buttons, subtitles, library', keywords: 'movies shows tv plex jellyfin',
+    children: () => [
+      { id: 'look', title: 'Background', icon: 'image', summary: 'Poster, blur, slideshow', keywords: 'backdrop slideshow poster',
+        content: () => [
+          opt('Background', chips(MEDIA_BGS, store.get('mediaBg'), (v) => store.set('mediaBg', v))),
+          stepper('Slideshow: seconds per picture', () => store.get('mediaSlideSec'), (v) => store.set('mediaSlideSec', clamp(v, 4, 60)), { step: 2, fmt: (v) => `${v}s` }),
+        ] },
+      { id: 'buttons', title: 'Buttons', icon: 'remote', summary: 'Skip times, buttons on Now playing', keywords: 'skip seconds episodes cast stop',
+        content: () => [
+          opt('Skip back', chips([5, 10, 15, 30].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipBack'), (v) => store.set('mediaSkipBack', v))),
+          opt('Skip forward', chips([10, 15, 30, 60].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipFwd'), (v) => store.set('mediaSkipFwd', v))),
+          h('div.opt-hint', 'Buttons on the Now playing screen'),
+          ...[
+            ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes list'], ['mediaSkip', 'Skip back / forward'], ['mediaInfo', 'Movie / show / episode info'],
+            ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'Suggestions from your library'],
+            ['mediaCollection', 'More from the collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop'],
+          ].map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
+        ] },
+      { id: 'parts', title: 'Now playing', icon: 'eye', summary: 'Parts of the Now playing screen', keywords: 'hide show parts controls',
+        content: () => [h('div.opt-hint', 'Now playing — show these parts (or hold an empty part of the screen)'), ...partToggles('mediaHide', MEDIA_PARTS)] },
+      { id: 'subtitles', title: 'Subtitles', icon: 'subtitles', summary: 'Languages, downloads', keywords: 'captions language subs',
+        content: () => [
+          h('div.opt-hint', 'Subtitles from the internet'),
+          opt('Subtitle languages (first = default)', multiChips(SUB_LANGS.map((l) => ({ id: l.id, name: l.name })), () => preferredSubLangs(store.get('mediaSubLangs')), (on) => store.set('mediaSubLangs', on))),
+          toggle('Switch to downloaded subtitles', () => store.get('mediaSubAuto') !== false, (v) => store.set('mediaSubAuto', v)),
+        ] },
+      { id: 'watching', title: 'While watching', icon: 'clock', summary: 'Auto-hide, ends at, skip intro', keywords: 'intro credits recap clock hud',
+        content: () => [
+          toggle('Auto-hide controls', () => store.get('mediaAutoHide'), (v) => store.set('mediaAutoHide', v)),
+          toggle('“Ends at” time', () => store.get('mediaEndsAt'), (v) => store.set('mediaEndsAt', v)),
+          toggle('“Skip intro” / “Skip credits” button', () => store.get('mediaSkipPop') !== false, (v) => store.set('mediaSkipPop', v)),
+          toggle('Skip intros & recaps automatically', () => !!store.get('mediaAutoSkip'), (v) => store.set('mediaAutoSkip', v)),
+          toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),
+          toggle('Clock when hidden', () => store.get('mediaClock'), (v) => store.set('mediaClock', v)),
+          toggle('Fun facts when hidden', () => store.get('mediaIdleFacts'), (v) => store.set('mediaIdleFacts', v)),
+        ] },
+      { id: 'library', title: 'Library', icon: 'library', summary: 'View, resume, spoilers', keywords: 'watched posters grid cover flow',
+        content: () => [
+          opt('Library view', chips(LIB_VIEWS, store.get('mediaLibView') || 'list', (v) => store.set('mediaLibView', v))),
+          opt('Play button', chips([{ id: 'resume', name: 'Resume' }, { id: 'start', name: 'From start' }], store.get('mediaResume'), (v) => store.set('mediaResume', v))),
+          toggle('Hide what I’ve watched', () => store.get('mediaHideWatched'), (v) => store.set('mediaHideWatched', v)),
+          toggle('No spoilers (blur unwatched episodes)', () => store.get('mediaNoSpoilers'), (v) => store.set('mediaNoSpoilers', v)),
+        ] },
+    ],
+  };
 
-    group('device'),   // Raspberry Pi: Wi-Fi, Bluetooth, sound, power, screen, orientation, updates (hidden elsewhere)
-    ...deviceGroup({ header: groupEls.device, jump }),
-
-    group('music'),
-    section('Player'),
-    opt('Start in view', chips([{ id: 'info', name: 'Info' }, { id: 'vinyl', name: 'Vinyl' }, { id: 'lyrics', name: 'Lyrics' }, { id: 'video', name: 'Video' }, { id: 'tone', name: 'Tone Visual' }, { id: 'facts', name: 'Fun Facts' }], store.get('view'), (v) => store.set('view', v))),
-    toggle('Auto-hide controls', () => store.get('autoHideChrome'), (v) => store.set('autoHideChrome', v)),
-    devicePillToggle(),
-    h('div.opt-hint', 'Show these controls (or hold the middle of the player)'),
-    ...partToggles('playerHide', PLAYER_PARTS),
-
-    section('Classic'),
-    infoArtChips(),
-    infoArtToggle(),
-    infoAutoHideToggle(),
-
-    section('Vinyl · Tape · CD'),
-    ...deckOptions(),
-
-    section('Lyrics'),
-    opt('Style', chips(LYRIC_STYLES, store.get('lyricsStyle'), (v) => store.set('lyricsStyle', v))),
-    opt('Kinetic type variant', chips(TYPO_VARIANTS, store.get('typoVariant'), (v) => store.set('typoVariant', v))),
-    (() => {
-      // Which variants Random may pick (stored as the ones left out, so new variants are in by default)
-      const opts = TYPO_VARIANTS.filter((x) => x.id !== 'random');
-      const ids = opts.map((x) => x.id);
-      const getOn = () => { const off = store.get('typoRandomOff') || []; return ids.filter((id) => !off.includes(id)); };
-      const setOn = (on) => store.set('typoRandomOff', ids.filter((id) => !on.includes(id)));
-      let row = multiChips(opts, getOn, setOn);
-      const all = h('button.pill.small', { type: 'button' }, 'Include all');
-      const box = h('div.opt', h('div.opt-label', 'Random includes'), row, h('div.center', all));
-      all.onclick = (e) => { e.stopPropagation(); store.set('typoRandomOff', []); const r = multiChips(opts, getOn, setOn); row.replaceWith(r); row = r; };
-      return box;
-    })(),
-    stepper('Timing offset', () => store.get('lyricsOffsetMs'), (v) => store.set('lyricsOffsetMs', clamp(v, -5000, 5000)), { step: 250, fmt: (v) => `${v > 0 ? '+' : ''}${(v / 1000).toFixed(2)}s` }),
-
-    section('Video'),
-    ...videoOpts(),
-
-    section('Tone Visual'),
-    opt('Style', chips(TONE_VARIANTS, store.get('toneVariant'), (v) => store.set('toneVariant', v))),
-    opt('Sound', chips(TONE_SOURCES, store.get('toneSource'), (v) => sound().useMic(v === 'mic'))),
-    h('div.opt-hint', TONE_SOURCE_HINT),
-
-    section('Fun Facts'),
-    factChips(),
-
-    group('media'),
-    section('Movies & TV'),
-    opt('Background', chips(MEDIA_BGS, store.get('mediaBg'), (v) => store.set('mediaBg', v))),
-    stepper('Slideshow: seconds per picture', () => store.get('mediaSlideSec'), (v) => store.set('mediaSlideSec', clamp(v, 4, 60)), { step: 2, fmt: (v) => `${v}s` }),
-    opt('Skip back', chips([5, 10, 15, 30].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipBack'), (v) => store.set('mediaSkipBack', v))),
-    opt('Skip forward', chips([10, 15, 30, 60].map((id) => ({ id, name: `${id}s` })), store.get('mediaSkipFwd'), (v) => store.set('mediaSkipFwd', v))),
-    h('div.opt-hint', 'Buttons on the Now playing screen'),
-    ...[
-      ['mediaPrevNext', 'Previous / next episode'], ['mediaEpisodes', 'Seasons & episodes list'], ['mediaSkip', 'Skip back / forward'], ['mediaInfo', 'Movie / show / episode info'],
-      ['mediaCast', 'Cast'], ['mediaFacts', 'Fun facts'], ['mediaSuggest', 'Suggestions from your library'],
-      ['mediaCollection', 'More from the collection'], ['mediaTracks', 'Audio & subtitles'], ['mediaStop', 'Stop'],
-    ].map(([k, label]) => toggle(label, () => store.get(k), (v) => store.set(k, v))),
-    h('div.opt-hint', 'Now playing — show these parts (or hold an empty part of the screen)'),
-    ...partToggles('mediaHide', MEDIA_PARTS),
-    h('div.opt-hint', 'Subtitles from the internet'),
-    opt('Subtitle languages (first = default)', multiChips(SUB_LANGS.map((l) => ({ id: l.id, name: l.name })), () => preferredSubLangs(store.get('mediaSubLangs')), (on) => store.set('mediaSubLangs', on))),
-    toggle('Switch to downloaded subtitles', () => store.get('mediaSubAuto') !== false, (v) => store.set('mediaSubAuto', v)),
-    h('div.opt-hint', 'While watching'),
-    toggle('Auto-hide controls', () => store.get('mediaAutoHide'), (v) => store.set('mediaAutoHide', v)),
-    toggle('“Ends at” time', () => store.get('mediaEndsAt'), (v) => store.set('mediaEndsAt', v)),
-    toggle('“Skip intro” / “Skip credits” button', () => store.get('mediaSkipPop') !== false, (v) => store.set('mediaSkipPop', v)),
-    toggle('Skip intros & recaps automatically', () => !!store.get('mediaAutoSkip'), (v) => store.set('mediaAutoSkip', v)),
-    toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),
-    toggle('Clock when hidden', () => store.get('mediaClock'), (v) => store.set('mediaClock', v)),
-    toggle('Fun facts when hidden', () => store.get('mediaIdleFacts'), (v) => store.set('mediaIdleFacts', v)),
-    h('div.opt-hint', 'Library'),
-    opt('Library view', chips(LIB_VIEWS, store.get('mediaLibView') || 'list', (v) => store.set('mediaLibView', v))),
-    opt('Play button', chips([{ id: 'resume', name: 'Resume' }, { id: 'start', name: 'From start' }], store.get('mediaResume'), (v) => store.set('mediaResume', v))),
-    toggle('Hide what I’ve watched', () => store.get('mediaHideWatched'), (v) => store.set('mediaHideWatched', v)),
-    toggle('No spoilers (blur unwatched episodes)', () => store.get('mediaNoSpoilers'), (v) => store.set('mediaNoSpoilers', v)),
-
-    group('home'),
-    section('Smart home'),
-    ...['homeassistant', 'googlehome'].map((id) => SERVICES.find((x) => x.id === id)).filter(Boolean).map((s) => h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
+  const smart = {
+    id: 'home', title: 'Smart home', icon: 'house', summary: 'Home Assistant, Google Home', keywords: 'hass assistant lights',
+    content: () => ['homeassistant', 'googlehome'].map((id) => SERVICES.find((x) => x.id === id)).filter(Boolean).map((s) => h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
       badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', provider(s.id).isAuthed?.() ? 'Set up — tap to change' : 'Tap to set up')))),
+  };
 
-    group('alerts'),
-    ...alertsSection(),
+  const alerts = {
+    id: 'alerts', title: 'Alerts', icon: 'megaphone', summary: 'Lights, speaker, phone, quiet hours', keywords: 'notify notification alarm timer smart-home',
+    content: () => {
+      alerts.parts = splitSections(alertsSection());
+      // the master switch and its status stay on the Alerts page itself; the rest are pages of their own
+      return alerts.parts.slice(0, 2).flatMap((p) => p.nodes);
+    },
+    children: () => (alerts.parts || []).slice(2).filter((p) => p.head).map((p) => ({
+      id: slug(p.title), title: p.title, content: () => p.nodes,
+      ...({ lights: { icon: 'bulb', summary: 'Which lights, style, colours' }, speaker: { icon: 'speaker', summary: 'Chime, speech, volume' },
+        'phone-script-google': { icon: 'link', summary: 'Phone, script or scene, Google Home' }, 'what-each-level-does': { icon: 'sliders', summary: 'Info, warning, alarm' },
+        apps: { icon: 'apps', summary: 'Which apps may alert' }, 'quiet-hours': { icon: 'moon', summary: 'Silence at night' }, test: { icon: 'play', summary: 'Try each level, last results' } }[slug(p.title)] || {}),
+    })),
+  };
 
-    group('games'),
-    section('Games'),
-    toggle('Game sound', () => store.get('gameSound') !== false, (v) => store.set('gameSound', v)),
-    field({ label: 'Your name for the top 5', value: store.get('gamePlayer') || '', placeholder: 'asked after a new high score', onChange: (v) => store.set('gamePlayer', v.trim().slice(0, 16)) }),
-    (() => {
-      let armed = false;
-      const b = h('button.pill.small.danger', { type: 'button' }, 'Clear all game scores');
-      b.onclick = (e) => {
-        e.stopPropagation();
-        if (!armed) { armed = true; b.textContent = 'Tap again to clear'; setTimeout(() => { armed = false; b.textContent = 'Clear all game scores'; }, 3000); return; }
-        store.set('gameScores', {}); toast('Game scores cleared'); b.textContent = 'Clear all game scores'; armed = false;
-      };
-      return h('div.center', b);
-    })(),
+  const games = {
+    id: 'games', title: 'Games', icon: 'gamepad', summary: 'Sound, your name, top 5', keywords: 'scores high score',
+    content: () => [
+      toggle('Game sound', () => store.get('gameSound') !== false, (v) => store.set('gameSound', v)),
+      field({ label: 'Your name for the top 5', value: store.get('gamePlayer') || '', placeholder: 'asked after a new high score', onChange: (v) => store.set('gamePlayer', v.trim().slice(0, 16)) }),
+      (() => {
+        let armed = false;
+        const b = h('button.pill.small.danger', { type: 'button' }, 'Clear all game scores');
+        b.onclick = (e) => {
+          e.stopPropagation();
+          if (!armed) { armed = true; b.textContent = 'Tap again to clear'; setTimeout(() => { armed = false; b.textContent = 'Clear all game scores'; }, 3000); return; }
+          store.set('gameScores', {}); toast('Game scores cleared'); b.textContent = 'Clear all game scores'; armed = false;
+        };
+        return h('div.center', b);
+      })(),
+    ],
+  };
 
-    group('rhythm'),
-    ...rhythmSection(),
+  const rhythm = {
+    id: 'rhythm', title: 'Rhythm', icon: 'rhythm', summary: 'Latency, learning songs, Hitster', keywords: 'music games calibrate',
+    content: () => { rhythm.parts = splitSections(rhythmSection()); return []; },
+    children: () => sectionPages(rhythm.parts || []).map((p) => ({ ...p, icon: p.id === 'hitster' ? 'note' : 'rhythm',
+      summary: p.id === 'hitster' ? 'Language, song lists' : 'Audio latency, learning songs', keywords: p.id === 'hitster' ? 'wikidata songs' : 'latency calibrate offset learn chart' })),
+  };
 
-    group('connect'),
-    section('Connection'),
-    field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
-    opt('Refresh rate', chips([{ id: 1000, name: '1s' }, { id: 2000, name: '2s' }, { id: 4000, name: '4s' }], store.get('pollMs'), (v) => store.set('pollMs', v))),
+  const connect = {
+    id: 'connect', title: 'Connection', icon: 'link', summary: 'Bridge, service keys, accounts', keywords: 'network api',
+    children: () => [
+      { id: 'bridge', title: 'Bridge', icon: 'hub', summary: 'Address, refresh rate', keywords: 'bridge address server poll refresh',
+        content: () => [
+          field({ label: 'Bridge address', value: store.get('bridgeUrl'), placeholder: 'auto', onChange: (v) => { store.set('bridgeUrl', v.replace(/\/$/, '')); bridgeBase({ force: true }); } }),
+          opt('Refresh rate', chips([{ id: 1000, name: '1s' }, { id: 2000, name: '2s' }, { id: 4000, name: '4s' }], store.get('pollMs'), (v) => store.set('pollMs', v))),
+        ] },
+      { id: 'keys', title: 'Service keys', icon: 'key', summary: 'Spotify, YouTube, Google, Apple, Jellyfin', keywords: 'client id api key token developer',
+        content: () => [
+          field({ label: 'Spotify Client ID', value: store.get('spotifyClientId'), onChange: (v) => store.set('spotifyClientId', v) }),
+          toggle('Play Spotify on this display', () => store.get('spotifyWebPlayer'), (v) => store.set('spotifyWebPlayer', v)),
+          field({ label: 'YouTube Data API key', value: store.get('youtubeApiKey'), secret: true, placeholder: 'for YouTube + music videos', onChange: (v) => store.set('youtubeApiKey', v) }),
+          field({ label: 'Google OAuth Client ID', value: store.get('googleClientId'), placeholder: 'optional: your YouTube playlists', onChange: (v) => store.set('googleClientId', v) }),
+          field({ label: 'Apple developer token', value: store.get('appleDeveloperToken'), secret: true, onChange: (v) => store.set('appleDeveloperToken', v) }),
+          field({ label: 'Jellyfin server', value: store.get('jellyfinServer'), placeholder: 'http://192.168.1.20:8096', onChange: (v) => store.set('jellyfinServer', v.replace(/\/$/, '')) }),
+        ] },
+      { id: 'accounts', title: 'Accounts', icon: 'person', summary: 'Sign in or out of each service', keywords: 'sign in login logout',
+        content: () => SERVICES.filter((s) => s.kind === 'oauth' && !s.signIn).map((s) => {
+          const p = provider(s.id);
+          return h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
+            badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', p.isAuthed() ? 'Signed in' : 'Not signed in')));
+        }) },
+    ],
+  };
 
-    section('Service keys'),
-    field({ label: 'Spotify Client ID', value: store.get('spotifyClientId'), onChange: (v) => store.set('spotifyClientId', v) }),
-    toggle('Play Spotify on this display', () => store.get('spotifyWebPlayer'), (v) => store.set('spotifyWebPlayer', v)),
-    field({ label: 'YouTube Data API key', value: store.get('youtubeApiKey'), secret: true, placeholder: 'for YouTube + music videos', onChange: (v) => store.set('youtubeApiKey', v) }),
-    field({ label: 'Google OAuth Client ID', value: store.get('googleClientId'), placeholder: 'optional: your YouTube playlists', onChange: (v) => store.set('googleClientId', v) }),
-    field({ label: 'Apple developer token', value: store.get('appleDeveloperToken'), secret: true, onChange: (v) => store.set('appleDeveloperToken', v) }),
-    field({ label: 'Jellyfin server', value: store.get('jellyfinServer'), placeholder: 'http://192.168.1.20:8096', onChange: (v) => store.set('jellyfinServer', v.replace(/\/$/, '')) }),
+  const profiles = {
+    id: 'profiles', title: 'Profiles & about', icon: 'about', summary: 'Copy settings, version, reset', keywords: 'backup export import',
+    children: () => [
+      { id: 'profiles', title: 'Profiles', icon: 'stack', summary: 'Save or load all settings', keywords: 'backup export import copy file',
+        content: () => profilesSection() },
+      { id: 'about', title: 'About', icon: 'about', summary: `Round Remote ${VERSION}, reset`, keywords: 'version reset credits copyright',
+        content: () => [
+          h('div.about', `Round Remote ${VERSION}`, h('br'), 'Lyrics by LRCLIB · made for 720×720 round displays'),
+          (() => {
+            let armed = false;
+            const b = h('button.pill.danger', { type: 'button' }, 'Reset everything');
+            b.onclick = () => {
+              if (!armed) { armed = true; b.textContent = 'Tap again to confirm'; setTimeout(() => { armed = false; b.textContent = 'Reset everything'; }, 3000); return; }
+              try { Object.keys(localStorage).filter((k) => k.startsWith('rr.')).forEach((k) => localStorage.removeItem(k)); } catch {}
+              toast('Reset — reloading'); setTimeout(() => location.reload(), 600);
+            };
+            return h('div.center', b);
+          })(),
+          h('div.credit', '© 2026 Roy Borkin · All rights reserved'),
+        ] },
+    ],
+  };
 
-    section('Accounts'),
-    ...SERVICES.filter((s) => s.kind === 'oauth' && !s.signIn).map((s) => {
-      const p = provider(s.id);
-      return h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
-        badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', p.isAuthed() ? 'Signed in' : 'Not signed in')));
-    }),
+  const homescreen = {
+    id: 'homescreen', title: 'Home screen', icon: 'apps', summary: 'Services on the ring, battery level', keywords: 'ring tiles hide show order battery',
+    children: () => [
+      { id: 'services', title: 'Services', icon: 'apps', summary: 'Show, hide and order the services', keywords: 'hide show order tiles ring signed in demo',
+        sub: () => { const n = (store.get('homeHidden') || []).length + (store.get('showDemo') === false ? 1 : 0); return n ? `${n} hidden` : 'All shown'; },
+        content: () => homeServicesPage() },
+    ],
+    footer: () => homeBatteryOpts(),
+  };
 
-    group('profiles'),
-    section('Profiles'),
-    ...profilesSection(),
+  const theme = {
+    id: 'theme', title: 'Theme', icon: 'palette', summary: 'Look, mode, colours, background', keywords: 'dark light oled colour color wallpaper background',
+    sub: () => `${themeById(store.get('theme') || 'classic').name} · ${({ dark: 'Dark', oled: 'OLED', light: 'Light' })[themeConfig(store.get('theme') || 'classic').mode] || ''}`,
+    content: () => themeSection(),
+  };
 
-    section('About'),
-    h('div.about', `Round Remote ${VERSION}`, h('br'), 'Lyrics by LRCLIB · made for 720×720 round displays'),
-    (() => {
-      let armed = false;
-      const b = h('button.pill.danger', { type: 'button' }, 'Reset everything');
-      b.onclick = () => {
-        if (!armed) { armed = true; b.textContent = 'Tap again to confirm'; setTimeout(() => { armed = false; b.textContent = 'Reset everything'; }, 3000); return; }
-        try { Object.keys(localStorage).filter((k) => k.startsWith('rr.')).forEach((k) => localStorage.removeItem(k)); } catch {}
-        toast('Reset — reloading'); setTimeout(() => location.reload(), 600);
-      };
-      return h('div.center', b);
-    })(),
-    h('div.credit', '© 2026 Roy Borkin · All rights reserved'),
-    h('div.spacer'),
-  );
-  curve(list);
-  return { el };
+  // registered pages (settings-registry.js) join their category; groups without a built-in category get their own
+  const BUILT = [theme, homescreen, general, device, music, media, smart, alerts, games, rhythm, connect, profiles];
+  const ALIAS = { accounts: 'connect', connection: 'connect', about: 'profiles', smarthome: 'home', display: 'general', setup: 'general' };
+  const EXTRA_CATS = { apps: { title: 'Apps', icon: 'apps', summary: 'Settings of the apps' } };
+  const regFor = (id) => [id, ...Object.keys(ALIAS).filter((k) => ALIAS[k] === id)].flatMap((g) => settingsEntries(g)).map(fromEntry);
+  function fromEntry(e) {
+    return { id: e.id, title: e.title, icon: e.icon || 'settings', order: e.order ?? 50, summary: e.summary || '', keywords: e.keywords || '',
+      hidden: e.hidden, sub: e.sub, build: e.build, children: e.children, content: e.content };
+  }
+  for (const cat of BUILT) {
+    const own = cat.children;
+    cat.children = (ctx) => [...(own?.(ctx) || []), ...regFor(cat.id)];
+  }
+  const known = new Set([...BUILT.map((c) => c.id), ...Object.keys(ALIAS)]);
+  const extraCats = () => [...new Set(settingsEntries().map((e) => e.group).filter((g) => g && !known.has(g)))].map((g) => ({
+    id: g, title: EXTRA_CATS[g]?.title || g[0].toUpperCase() + g.slice(1), icon: EXTRA_CATS[g]?.icon || 'settings', summary: EXTRA_CATS[g]?.summary || '',
+    children: () => settingsEntries(g).map(fromEntry),
+  }));
+
+  const root = {
+    id: '', title: 'Settings', ready: () => systemInfo(),
+    content: () => [h('button.set-search', { type: 'button', 'aria-label': 'Search settings', onclick: (e) => { e.stopPropagation(); nav?.search(); } },
+      h('span.set-q-ic', { html: icon('search') }), h('span', 'Search settings'))],
+    children: () => [...BUILT, ...extraCats()],
+  };
+
+  const start = pendingPath ?? (params.path != null ? String(params.path) : null);
+  pendingPath = null;
+  nav = createNav({ el, root, onExit: () => go('home'), start });
+  // the Device category appears once the bridge says it runs on a Pi
+  systemInfo().then(() => { if (el.isConnected || nav) nav.refresh(); }).catch(() => {});
+  return { el, nav, destroy() { nav.destroy(); } };
 }
 
 // ---------------------------------------------------------------- Rhythm

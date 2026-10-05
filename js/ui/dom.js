@@ -89,7 +89,8 @@ const ICON_SOURCES = [
 const ICON_STORE = 'rr.icons.v1';
 const iconJobs = new Map();
 function iconCache() { try { return JSON.parse(localStorage.getItem(ICON_STORE) || '{}'); } catch { return {}; } }
-function loadIconPath(slug) {
+/** A Simple Icons logo's SVG path (cached in localStorage), or null. Also used by the TV apps grid. */
+export function loadIconPath(slug) {
   const cached = iconCache()[slug];
   if (cached) return Promise.resolve(cached);
   if (!iconJobs.has(slug)) {

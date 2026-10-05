@@ -235,3 +235,9 @@
 .dc-prow.on .dc-pcheck { background: var(--ac); color: #0a0a0b; border-color: transparent; }
 .dc-pdone { flex: none; align-self: center; margin-top: .6cqmin; min-width: 22cqmin; }
 .dc-picker.kbd-open .dc-ptabs, .dc-picker.kbd-open .dc-pdone { display: none; }
+
+/* Video game: which service a game is from (Steam / PlayStation) */
+.dc-plat { position: absolute; left: .4cqmin; top: .4cqmin; z-index: 2; padding: .15cqmin .7cqmin; border-radius: .8cqmin; font: 800 1.5cqmin/1.3 Inter, system-ui, sans-serif;
+  font-style: normal; letter-spacing: .02em; color: #fff; background: #1b2838; box-shadow: 0 .2cqmin .8cqmin rgb(0 0 0 / .35); }
+.dc-plat.psn { background: #0070d1; }
+.dc-th.big .dc-plat { left: 1cqmin; top: 1cqmin; font-size: 2cqmin; padding: .3cqmin 1cqmin; }

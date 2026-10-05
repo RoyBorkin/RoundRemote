@@ -16,7 +16,7 @@ import { store } from '../js/core/store.js';
 import { provider } from '../js/providers/registry.js';
 import { qrSvg } from './qr.js';
 import { GLYPH } from './decide-data.js';
-import { DECIDERS, CUISINE_LIST } from './decide-sources.js';
+import { DECIDERS, CUISINE_LIST, migrateFilters, platformKey } from './decide-sources.js';
 import { onItems as onCollection } from './collection-store.js';
 
 const TAU = Math.PI * 2;
@@ -36,6 +36,7 @@ export default {
     let cur = null;                       // the open decider
     let result = null, spinning = false, alive = true, raf = 0, wish = null;
     const filters = app.data('filters', {});
+    if (migrateFilters(filters)) app.save('filters', filters);   // "Steam & PlayStation" → Steam + PlayStation
     const lib = {};                        // decider id → { items, names, errors, loading, promise }
     const ideasCache = {};
     let eatCz = app.data('eatCz', null);
@@ -100,6 +101,15 @@ export default {
     const fval = (d, g) => fOf(d)[g.id] ?? g.def ?? 'any';
     const setF = (d, gid, v) => { fOf(d)[gid] = v; app.save('filters', filters); };
     const isDefault = (d, g) => fval(d, g) === (g.def ?? 'any');
+    // options that combine (g.multi — Video game's Steam + PlayStation): 'steam,psn' = both
+    const isOn = (g, v, val) => (g.multi?.includes(val) ? String(v).split(',').includes(val) : v === val);
+    function nextVal(g, v, val) {
+      if (!g.multi?.includes(val)) return val;
+      const parts = String(v).split(',').filter((x) => g.multi.includes(x));
+      const next = parts.includes(val) ? parts.filter((x) => x !== val) : [...parts, val];
+      return next.length ? g.multi.filter((x) => next.includes(x)).join(',') : (g.def ?? 'any');
+    }
+    const PLAT = { steam: 'Steam', psn: 'PlayStation' };
 
     // ---------------------------------------------------------------- items
     const mineOf = (d) => app.data('mine', {})[d.id] || [];
@@ -238,9 +248,10 @@ export default {
       for (const [gid, v, label, need] of d.quick) {
         if (need === 'lib' && !lib[d.id]?.items?.length) continue;
         if (need === 'coll' && !collOf(d).length) continue;
+        if (PLAT[need] && !(d.libSrcs?.() || []).some(([k]) => k === need)) continue;   // Steam / PlayStation: only when set up
         const g = d.groups.find((x) => x.id === gid);
-        const on = fval(d, g) === v;
-        out.push(h(`button.chip${on ? '.on' : ''}`, { type: 'button', onclick: () => { setF(d, gid, on ? (g.def ?? 'any') : v); app.sfx('tick'); drawChips(); if (!spinning && !result) idleReel(); } }, label));
+        const cv = fval(d, g), on = isOn(g, cv, v);
+        out.push(h(`button.chip${on ? '.on' : ''}`, { type: 'button', dataset: { q: `${gid}:${v}` }, onclick: () => { setF(d, gid, g.multi?.includes(v) ? nextVal(g, cv, v) : on ? (g.def ?? 'any') : v); app.sfx('tick'); drawChips(); if (!spinning && !result) idleReel(); } }, label));
       }
       chips.replaceChildren(...out);
       const n = d.groups.filter((g) => !isDefault(d, g) && !d.quick.some(([gid]) => gid === g.id)).length;
@@ -259,8 +270,9 @@ export default {
       else if (!n) countEl.textContent = 'Nothing matches — loosen the filters';
       else {
         const libN = st?.items?.length || 0;
-        const sv = fOf(d).src || 'smart', any = sv === 'smart' || sv === 'all';
-        const names = [...(collOf(d).length && (any || sv === 'coll') ? ['your collection'] : []), ...(libN && st.names.length && (any || sv === 'lib') ? st.names : [])];
+        const sv = fOf(d).src || 'smart', any = sv === 'smart' || sv === 'all', parts = String(sv).split(',');
+        const plat = parts.filter((x) => PLAT[x]).map((x) => PLAT[x]);   // Steam / PlayStation picked
+        const names = [...(collOf(d).length && (any || sv === 'coll') ? ['your collection'] : []), ...(libN && st.names.length && (any || sv === 'lib') ? st.names : plat.length ? st.names.filter((x) => plat.includes(x)) : [])];
         const from = names.length ? ` · ${names.join(' + ')}` : '';
         countEl.textContent = `${n} option${n === 1 ? '' : 's'}${from}`;
       }
@@ -281,6 +293,8 @@ export default {
         g.append(im);
       }
       if (it.src === 'coll') g.append(h('i.dc-mine', { title: 'In your collection', html: svg('M3 4h4v16H3zm5 2h4v14H8zm5-3h3v17h-3zm4.2 2.3l2.9-.8 3.6 13.6-2.9.8z', 'dc-mine-ic') }));
+      const pk = platformKey(it);   // which game service: a small Steam / PS badge
+      if (pk && (it.src === 'lib' || cur?.id === 'vgame')) g.append(h(`i.dc-plat.${pk}`, { title: PLAT[pk] }, pk === 'steam' ? 'Steam' : 'PS'));
       return g;
     }
     function rowEl(it) {
@@ -400,7 +414,7 @@ export default {
       result = it;
       const d = cur;
       const wide = it.shape === 'wide';
-      const kick = it.cuisine ? 'Cuisine' : listMode(d) && it.origin ? `★ ${listById(listIdOf(d))?.name || 'Your list'}${it.src === 'coll' ? ' · your collection' : ''}` : it.src === 'coll' ? `From your collection${it.ref?.platform ? ` · ${it.ref.platform}` : ''}` : it.src === 'lib' ? `From your ${it.srcName || 'library'}` : it.src === 'mine' ? 'Added by you' : fromList ? 'From your list' : d.id === 'eat' && it.ref?.cz ? CUISINE_LIST.find((c) => c.id === it.ref.cz)?.name || 'Idea' : 'Idea';
+      const kick = it.cuisine ? 'Cuisine' : listMode(d) && it.origin ? `★ ${listById(listIdOf(d))?.name || 'Your list'}${it.src === 'coll' ? ' · your collection' : ''}` : it.src === 'coll' ? `From your collection${it.ref?.platform ? ` · ${it.ref.platform}` : ''}` : it.src === 'lib' ? (PLAT[it.libSrc] ? `From your ${PLAT[it.libSrc]} library` : `From your ${it.srcName || 'library'}`) : it.src === 'mine' ? 'Added by you' : fromList ? 'From your list' : d.id === 'eat' && it.ref?.cz ? CUISINE_LIST.find((c) => c.id === it.ref.cz)?.name || 'Idea' : 'Idea';
       const title = h('div.dc-ctitle', { dir: 'auto' }, it.title);
       if (it.title.length > 34) title.classList.add('long');
       const he = it.he && !hasRtl(it.title) ? h('div.dc-che', { dir: 'rtl' }, it.he) : null;
@@ -788,7 +802,7 @@ export default {
               const v = fval(d, g);
               const opts = typeof g.opts === 'function' ? g.opts(d, ctxFor(d)) : g.opts;
               box.append(h('div.dc-fg', h('div.dc-fl', g.label),
-                h('div.dc-fopts', opts.map(([val, label]) => h(`button.chip${v === val ? '.on' : ''}`, { type: 'button', dir: 'auto', onclick: () => { setF(d, g.id, val); if (g.id === 'flow') { eatCz = null; app.save('eatCz', null); } app.sfx('tick'); draw(); } }, label)))));
+                h('div.dc-fopts', opts.map(([val, label]) => h(`button.chip${isOn(g, v, val) ? '.on' : ''}`, { type: 'button', dir: 'auto', dataset: { v: val }, onclick: () => { setF(d, g.id, nextVal(g, v, val)); if (g.id === 'flow') { eatCz = null; app.save('eatCz', null); } app.sfx('tick'); draw(); } }, label)))));
             }
             const n = pool().length;
             box.append(h('div.dc-fsum', `${n} option${n === 1 ? '' : 's'} match`),

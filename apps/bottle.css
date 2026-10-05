@@ -127,3 +127,5 @@
 #app[data-theme="bauhaus"] .bt-card.penalty { border-style: dashed; }
 #app[data-mode="light"] .bt-card { box-shadow: 0 2cqmin 6cqmin rgb(var(--shade) / .18); }
 #app[data-mode="light"] .bt-choose { box-shadow: 0 2cqmin 6cqmin rgb(var(--shade) / .16); }
+.bt-lists { --k: var(--accent); display: flex; justify-content: center; }
+.bt-lists .chip { font-size: 2.3cqmin; padding: 1.1cqmin 2.3cqmin; }

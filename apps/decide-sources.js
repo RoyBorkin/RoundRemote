@@ -25,11 +25,30 @@ export { fmtMins };
 // smart = your library / collection + your own items (+ the games on this screen) when you have enough, otherwise everything
 // apps = the games that have an app here (a Board Games companion, a party app, a rhythm game, a multiplayer screen game)
 // L:<id> = one of your draw lists (decide.js builds that pool from every decider's items)
-export const SRC = { id: 'src', label: 'Pick from', strict: true, def: 'smart',
-  opts: (d, ctx) => [['smart', 'Smart'], ['all', 'Everything'], ...(d.lib ? [['lib', d.libLabel]] : []), ...(ctx?.collCount ? [['coll', 'My collection']] : []), ...(d.appsSrc ? [['apps', 'Games with an app here']] : []),
+// steam / psn = one game service (Video game): its library, plus the games in your collection on that platform.
+//   They combine: 'steam,psn' = both (what the old combined "Steam & PlayStation" choice ('lib') became).
+export const PLATFORM_SRCS = ['steam', 'psn'];
+/** 'steam' | 'psn' | '' — which game service a (library or collection) game belongs to */
+export function platformKey(it) {
+  if (!it || (it.src !== 'lib' && it.src !== 'coll')) return '';
+  if (it.libSrc) return it.libSrc;
+  const p = String(it.ref?.platform || '');
+  return it.ref?.steam ? 'steam' : /^(PS\s?\d|PS Vita|PSP|PlayStation)/i.test(p) ? 'psn' : '';
+}
+export const SRC = { id: 'src', label: 'Pick from', strict: true, def: 'smart', multi: PLATFORM_SRCS,
+  opts: (d, ctx) => [['smart', 'Smart'], ['all', 'Everything'], ...(d.lib ? [['lib', d.libLabel]] : []), ...(d.libSrcs ? d.libSrcs() : []), ...(ctx?.collCount ? [['coll', 'My collection']] : []), ...(d.appsSrc ? [['apps', 'Games with an app here']] : []),
     ['idea', 'Ideas'], ['mine', 'Added by me'], ['fav', 'Favourites'], ...(d.listable ? (ctx?.lists || []).map((l) => [`L:${l.id}`, `★ ${l.name}`]) : [])],
-  test: (it, v, ctx) => v === 'all' ? true : v === 'fav' ? ctx.isFav(it.key) : v === 'apps' ? !!it.tags?.app : String(v).startsWith('L:') ? !!ctx.listKeys?.has(it.key)
+  test: (it, v, ctx) => String(v).includes(',') ? String(v).split(',').some((x) => SRC.test(it, x, ctx))
+    : PLATFORM_SRCS.includes(v) ? platformKey(it) === v
+    : v === 'all' ? true : v === 'fav' ? ctx.isFav(it.key) : v === 'apps' ? !!it.tags?.app : String(v).startsWith('L:') ? !!ctx.listKeys?.has(it.key)
     : v === 'smart' ? (ctx.libCount + (ctx.collCount || 0) >= (ctx.d.smartMin || 1) ? it.src !== 'idea' || !!it.ref?.go : true) : it.src === v };
+/** The old combined "Steam & PlayStation" choice (src 'lib' on Video game) → both services. */
+export function migrateFilters(filters) {
+  const f = filters?.vgame;
+  if (f && f.src === 'lib') { f.src = PLATFORM_SRCS.join(','); return true; }
+  return false;
+}
+const svcReady = (id) => { try { return !!provider(id)?.isAuthed?.(); } catch { return false; } };
 /** "Party / couples": 2 = a couple, 35 = a small group (3–5), 6 = a party (6+) */
 export const CROWD = { id: 'crowd', label: 'Party / couples', opts: [['any', 'Any'], ['2', 'Couple (2)'], ['35', 'Group (3–5)'], ['6', 'Party (6+)']],
   test: (it, v) => { const [lo, hi] = it.tags?.players || [1, 99]; return v === '2' ? lo <= 2 && hi >= 2 : v === '35' ? lo <= 5 && hi >= 3 : hi >= 6; } };
@@ -240,7 +259,7 @@ const PLAY_D = {
   ideas() {
     const out = [];
     for (const g of GAMES) {
-      if (g.app) continue;   // Drinking Games / Trivia Night sit on the Games ring but are apps — listed once, below
+      if (g.app) continue;   // Truth or Dare / Drinking Games / Trivia Night sit on the Games ring but are apps — listed once, below
       const two = TWO_PLAYER[g.id];
       if (g.party) {
         const [players, mins] = Array.isArray(g.players) ? [g.players, g.mins || 30] : PARTY_SIZE[g.id] || [[3, 12], 30];
@@ -304,7 +323,9 @@ const GO_D = {
 
 // ---------------------------------------------------------------- 5 · what video game to play
 const VG_D = {
-  id: 'vgame', name: 'Video game', color: '#3b82f6', glyph: 'pad', lib: true, libLabel: 'Steam & PlayStation', smartMin: 6, coll: () => collVideo(), listable: true,
+  id: 'vgame', name: 'Video game', color: '#3b82f6', glyph: 'pad', smartMin: 6, coll: () => collVideo(), listable: true,
+  // one "Pick from" choice per game service that's set up (Home → Steam / PlayStation)
+  libSrcs: () => [...(svcReady('steam') ? [['steam', 'Steam']] : []), ...(svcReady('playstation') ? [['psn', 'PlayStation']] : [])],
   blurb: 'Your collection, Steam and PlayStation games (and our picks) — by time, mood and players.',
   add: { title: 'Add a game', placeholder: 'A game you own (any platform)' },
   groups: [
@@ -313,7 +334,7 @@ const VG_D = {
     { id: 'mood', label: 'Mood', opts: [any, ...VMOODS], test: (it, v) => !it.tags.moods || has(it.tags.moods, v) },
     SRC,
   ],
-  quick: [['src', 'coll', 'My collection', 'coll'], ['mode', 's', 'Solo'], ['mode', 'c', 'Co-op'], ['mode', 'v', 'Versus'], ['time', '30', 'Quick'], ['mood', 'chill', 'Chill']],
+  quick: [['src', 'coll', 'My collection', 'coll'], ['src', 'steam', 'Steam', 'steam'], ['src', 'psn', 'PlayStation', 'psn'], ['mode', 's', 'Solo'], ['mode', 'c', 'Co-op'], ['mode', 'v', 'Versus'], ['time', '30', 'Quick'], ['mood', 'chill', 'Chill']],
   ideas() {
     return VGAMES.map(([appid, name, modes, mins, moods]) => vgItem({ appid, name, src: 'idea' }));
   },
@@ -322,7 +343,7 @@ const VG_D = {
 const VG_BY_ID = new Map(VGAMES.map((g) => [g[0], g]));
 const VG_BY_NAME = new Map(VGAMES.map((g) => [norm(g[1]), g]));
 function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
-function vgItem({ appid, name, art, src, platform, hours, srcName }) {
+function vgItem({ appid, name, art, src, platform, hours, srcName, libSrc }) {
   const known = VG_BY_ID.get(+appid) || VG_BY_NAME.get(norm(name));
   const modes = known?.[2].split(','), mins = known?.[3], moods = known?.[4].split(',');
   const id = appid || known?.[0] || null;
@@ -331,7 +352,7 @@ function vgItem({ appid, name, art, src, platform, hours, srcName }) {
     key: id ? `v:${id}` : `v:${norm(name)}`, title: name, srcName,
     sub: [platform || (id ? 'Steam' : ''), hours ? `${hours} h played` : '', modeTxt, mins ? `~${fmtMins(mins)} a session` : ''].filter(Boolean).join(' · '),
     info: moods ? `Good for: ${moods.map((m) => VMOODS.find((x) => x[0] === m)?.[1]).join(', ')}.` : '',
-    art: art || (id ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg` : ''), shape: 'wide', glyph: 'pad', color: '#3b82f6', src,
+    art: art || (id ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg` : ''), shape: 'wide', glyph: 'pad', color: '#3b82f6', src, ...(libSrc ? { libSrc } : {}),
     tags: { modes, mins, moods }, ref: { appid: platform && platform !== 'Steam' ? null : id, kind: 'game', platform: platform || 'Steam' },
   };
 }
@@ -352,8 +373,8 @@ export async function loadGameLibrary({ force = false } = {}) {
     } catch (e) { errors.push(`${name}: ${e?.message || e}`); }
   };
   await Promise.all([
-    read('steam', 'Steam', (g) => g?.name ? vgItem({ appid: g.appid, name: g.name, art: g.header || g.capsule, src: 'lib', platform: 'Steam', hours: g.hours, srcName: 'Steam' }) : null),
-    read('playstation', 'PlayStation', (g) => g?.name ? vgItem({ name: g.name, art: g.art, src: 'lib', platform: g.platform || 'PlayStation', hours: g.playtimeMin ? Math.round(g.playtimeMin / 6) / 10 : 0, srcName: 'PlayStation' }) : null),
+    read('steam', 'Steam', (g) => g?.name ? vgItem({ appid: g.appid, name: g.name, art: g.header || g.capsule, src: 'lib', libSrc: 'steam', platform: 'Steam', hours: g.hours, srcName: 'Steam' }) : null),
+    read('playstation', 'PlayStation', (g) => g?.name ? vgItem({ name: g.name, art: g.art, src: 'lib', platform: g.platform || 'PlayStation', hours: g.playtimeMin ? Math.round(g.playtimeMin / 6) / 10 : 0, srcName: 'PlayStation', libSrc: 'psn' }) : null),
   ]);
   const seen = new Set();
   const res = { items: items.filter((x) => (seen.has(x.key) ? false : seen.add(x.key))), errors, names };

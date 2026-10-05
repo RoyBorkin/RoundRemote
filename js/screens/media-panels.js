@@ -9,6 +9,7 @@ import { store } from '../core/store.js';
 import { mediaFacts } from '../core/mediainfo.js';
 import { mediaRow, castStrip, runtimeOf } from '../views/media-library.js';
 import { chips, toggle, stepper, openCustomizeControls } from './panels.js';
+import { openOnTvButton } from './open-on-tv.js';
 import { SUB_LANGS, langById, preferredSubLangs } from '../core/languages.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
@@ -158,6 +159,7 @@ export function openMediaOptions({ onRemote } = {}) {
     build(body, panel) {
       const c = player.caps;
       body.append(
+        openOnTvButton(),
         h('div.opt', h('div.opt-label', 'Background'), chips(MEDIA_BGS, store.get('mediaBg'), (v) => store.set('mediaBg', v))),
         stepper('Slideshow speed', () => store.get('mediaSlideSec'), (v) => store.set('mediaSlideSec', Math.max(4, Math.min(60, v))), { step: 2, fmt: (v) => `${v}s` }),
         toggle('Title & time left when hidden', () => store.get('mediaHud'), (v) => store.set('mediaHud', v)),

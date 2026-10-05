@@ -86,6 +86,7 @@ export const DEFAULTS = Object.freeze({
   mediaAutoSkip: false,        // skip intros and recaps by themselves
   plexAskWho: false,           // Plex Movies & TV: "Who's watching?" (Plex Home users) every time it opens (js/screens/users.js)
   jellyfinAskWho: false,       // Jellyfin Movies & TV: the same for the Jellyfin users signed in here
+  streamRegion: 'IL',          // streaming library (Netflix, Disney+ … from TMDB): the country whose catalogue it shows (js/core/stream-library.js)
   // Home (smart home)
   haUrl: '',                   // Home Assistant address, e.g. http://homeassistant.local:8123
   haFavorites: [],             // entity ids on the Favourites tab (empty = suggestions)

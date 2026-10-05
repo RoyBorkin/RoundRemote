@@ -3,17 +3,22 @@
 //   Plex (music + Movies & TV): Plex Home users, PIN pad for protected users   → js/providers/plex-users.js
 //   Jellyfin (music + Movies & TV): server users, password or Quick Connect    → js/providers/jellyfin-users.js
 //   Spotify: several saved accounts (Spotify has no sub-users)                 → js/providers/spotify-accounts.js
+//   Netflix, Disney+, Prime Video, Apple TV+, HBO Max, YouTube (Movies & TV): local profiles made here (their APIs give no
+//   access to the app's own profiles) — My list, Recently opened and a kids filter in the streaming library, plus
+//   which TV-app profile to pick, shown as a reminder                        → js/core/service-profiles.js
 // UI: userChip() (avatar + name in the service headers), openUserPicker() (the round picker / "Who's watching?"
 // screen), tileUserBadge() (tiny avatar on Home's tiles), askWhoIsWatching() (Movies & TV opened), and the
-// Settings pages "Plex users", "Jellyfin users", "Spotify accounts" (settings-registry.js).
+// Settings pages "Plex users", "Jellyfin users", "Spotify accounts", "Profiles per service" (settings-registry.js).
+// Long lists (8+ people) scroll inside the round picker; ← → / the knob step through them, Enter picks.
 import { h, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { openPanel, toast, spinner, emptyNote } from '../ui/overlay.js';
+import { openPanel, toast, spinner, emptyNote, topPanel } from '../ui/overlay.js';
 import { editText } from '../ui/keyboard.js';
 import { store } from '../core/store.js';
 import { provider, getService } from '../providers/registry.js';
 import { registerSettings } from './settings-registry.js';
 import { toggle } from './panels.js';
+import * as SP from '../core/service-profiles.js';
 import { cachedHome, activePlexUser, plexHomeUsers, plexUserCount, switchPlexUser } from '../providers/plex-users.js';
 import {
   activeJellyfinUser, jellyfinAvatar, jellyfinUsers, jellyfinUserCount, switchJellyfinUser, signInJellyfinUser,
@@ -90,12 +95,44 @@ function plexView(u, activeUuid) {
 function jfView(u) {
   return { key: u.userId, name: u.name, avatar: jellyfinAvatar(u), locked: !u.saved && u.hasPassword !== false, saved: !!u.saved, tags: u.admin ? ['Admin'] : [], active: !!u.active, raw: u };
 }
+function localView(p, activeId) {
+  return { key: p.id, name: p.name, hue: p.hue, avatar: '', locked: false, tags: [p.kids ? 'Kids' : '', p.tv ? `TV: ${p.tv}` : ''].filter(Boolean), active: p.id === activeId, saved: true, raw: p };
+}
+// local profiles: one kind per service ('local:netflix' …), made on first use
+const localKinds = new Map();
+function localKind(svc) {
+  if (!localKinds.has(svc)) {
+    localKinds.set(svc, {
+      ids: [svc], label: getService(svc)?.name || svc, local: true, minChip: 1,
+      authed: () => true,
+      count: () => SP.profilesOf(svc).length,
+      stale: () => false, warm: async () => [],
+      active: () => { const p = SP.activeProfile(svc); return p ? localView(p, p.id) : null; },
+      async list() { const a = SP.activeProfile(svc)?.id; return SP.profilesOf(svc).map((p) => localView(p, a)); },
+      async pick(u) { SP.setActiveProfile(svc, u.key); return true; },
+      forget: (u) => SP.removeProfile(svc, u.key),
+      add: () => newLocalProfile(svc),
+      addLabel: 'Add a profile',
+      askOn: () => SP.askWho(svc),
+    });
+  }
+  return localKinds.get(svc);
+}
+/** A kind's adapter: Plex / Jellyfin / Spotify, or a service's local profiles. */
+const kdef = (kind) => KINDS[kind] || (String(kind).startsWith('local:') ? localKind(kind.slice(6)) : null);
+async function newLocalProfile(svc) {
+  const name = await editText({ title: `New ${getService(svc)?.name || ''} profile`.replace(/\s+/g, ' '), placeholder: 'Name — e.g. Noa', okLabel: 'Add' });
+  if (!name) return null;
+  const p = SP.addProfile(svc, { name });
+  if (p) toast(`Added ${p.name}`);
+  return p;
+}
 function spView(a) { return { key: a.id, name: a.name, avatar: a.image || '', locked: false, tags: a.product && a.product !== 'premium' ? ['Free'] : [], active: !!a.active, saved: true, raw: a }; }
 
 /** The kind of users a service has (null = none). */
 export function userKind(serviceId) {
   for (const [k, v] of Object.entries(KINDS)) if (v.ids.includes(serviceId)) return k;
-  return null;
+  return SP.hasProfiles(serviceId) ? `local:${serviceId}` : null;
 }
 const isVideo = (serviceId) => getService(serviceId)?.section === 'media';
 
@@ -104,7 +141,7 @@ const hue = (s = '') => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360
 const initials = (n = '') => n.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
 /** Round avatar: the picture, or the initials on a colour of their own. */
 export function avatarEl(u, cls = '') {
-  const el = h(`span.uav${cls ? '.' + cls : ''}`, { '--h': hue(u?.name || '') }, h('span.uav-i', initials(u?.name || '')));
+  const el = h(`span.uav${cls ? '.' + cls : ''}`, { '--h': Number.isFinite(u?.hue) ? u.hue : hue(u?.name || '') }, h('span.uav-i', initials(u?.name || '')));
   const set = (url) => {
     if (!url) return;
     const img = new Image();
@@ -125,14 +162,26 @@ export function userChip(serviceId, { compact = false, short = false, className 
   const kind = userKind(serviceId);
   const el = h(`button.uchip${compact ? '.compact' : ''}${className ? '.' + className : ''}`, { type: 'button', hidden: true, onclick: (e) => { e.stopPropagation(); openUserPicker(serviceId); } });
   if (!kind) return el;
-  const k = KINDS[kind];
+  const k = kdef(kind);
   let last = '';
   const paint = () => {
+    // local profiles (Netflix & co.): with none made yet, a small "who's watching?" person button invites you to
+    if (k.local && !k.count()) {
+      el.hidden = false;
+      if (last === 'none') return;
+      last = 'none';
+      clear(el).append(h('span.uav.none', { html: icon('person') }));
+      el.classList.add('compact');
+      el.setAttribute('aria-label', 'Who’s watching? — make profiles');
+      el.title = 'Who’s watching? — make profiles';
+      return;
+    }
+    el.classList.toggle('compact', compact);
     const u = k.authed() ? k.active() : null;
-    const show = !!u && k.count() > 1;
+    const show = !!u && k.count() >= (k.minChip || 2);
     el.hidden = !show;
     if (!show) { last = ''; return; }
-    const sig = `${u.key}|${u.name}|${typeof u.avatar === 'string' ? u.avatar : 'p'}`;
+    const sig = `${u.key}|${u.name}|${u.hue ?? ''}|${typeof u.avatar === 'string' ? u.avatar : 'p'}`;
     if (sig === last) return;
     last = sig;
     clear(el).append(...[avatarEl(u), compact ? null : h('span.uchip-name', short ? u.name.split(/\s+/)[0] : u.name)].filter(Boolean));
@@ -156,7 +205,7 @@ export function tileUserBadge(btn, serviceId) {
   const kind = userKind(serviceId);
   if (!kind) return;
   loadCss();
-  const k = KINDS[kind];
+  const k = kdef(kind);
   const paint = () => {
     const u = k.authed() ? k.active() : null;
     if (!u || k.count() < 2) return;
@@ -262,6 +311,45 @@ function flowUi(panel, body, { back }) {
 }
 
 // ---------------------------------------------------------------- the picker
+/** A thin arc along the right rim showing where you are in a long list (it follows the scrolling). */
+function scrollArc(grid) {
+  const R = 46.5, A0 = -32, A1 = 32;   // degrees from 3 o'clock, clockwise
+  const pt = (a) => { const r = (a * Math.PI) / 180; return `${(50 + R * Math.cos(r)).toFixed(2)} ${(50 + R * Math.sin(r)).toFixed(2)}`; };
+  const arc = (a, b) => `M${pt(a)} A${R} ${R} 0 0 1 ${pt(b)}`;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('aria-hidden', 'true'); svg.classList.add('ups-scroll');
+  svg.innerHTML = `<path class="ups-sc-track" d="${arc(A0, A1)}"/><path class="ups-sc-thumb" d=""/>`;
+  const thumb = svg.lastChild;
+  let raf = 0;
+  const paint = () => {
+    raf = 0;
+    const max = grid.scrollHeight - grid.clientHeight;
+    svg.style.opacity = max > 4 ? '' : '0';
+    const frac = Math.min(1, grid.clientHeight / (grid.scrollHeight || 1)), pos = max > 0 ? grid.scrollTop / max : 0;
+    const len = Math.max(8, (A1 - A0) * frac), a = A0 + (A1 - A0 - len) * pos;
+    thumb.setAttribute('d', arc(a, a + len));
+  };
+  grid.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+  requestAnimationFrame(paint);
+  return svg;
+}
+/** ← → ↑ ↓ (and the knob) step through the picker's people, Enter / Space picks — while this grid is on screen. */
+function keyNav(grid, panel) {
+  const onKey = (e) => {
+    if (!grid.isConnected || panel.closed) { window.removeEventListener('keydown', onKey, true); return; }
+    if (topPanel() !== panel) return;
+    const list = [...grid.querySelectorAll('.ups-user')];
+    let i = list.indexOf(document.activeElement);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = i < 0 ? Math.max(0, list.findIndex((x) => x.classList.contains('on'))) : (i + 1) % list.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = i < 0 ? Math.max(0, list.findIndex((x) => x.classList.contains('on'))) : (i - 1 + list.length) % list.length;
+    else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); e.stopPropagation(); list[i].click(); return; }
+    else return;
+    e.preventDefault(); e.stopPropagation();
+    list[i]?.focus({ preventScroll: true });
+    list[i]?.scrollIntoView({ block: 'nearest', behavior: document.getElementById('app')?.classList.contains('lite') ? 'auto' : 'smooth' });
+  };
+  window.addEventListener('keydown', onKey, true);
+}
 /**
  * The round user picker. whos: the "Who's watching?" screen shown when Movies & TV opens (bigger avatars).
  * only: go straight to one user (Settings rows). Resolves true when a user was picked, false when closed.
@@ -270,7 +358,7 @@ export function openUserPicker(serviceId, { whos = false, only = null } = {}) {
   loadCss();
   const kind = userKind(serviceId);
   if (!kind) return Promise.resolve(false);
-  const k = KINDS[kind];
+  const k = kdef(kind);
   const verb = isVideo(serviceId) ? 'watching' : 'listening';
   const title = only ? only.name : kind === 'spotify' ? 'Spotify account' : `Who’s ${verb}?`;
   return new Promise((resolve) => {
@@ -285,7 +373,8 @@ export function openUserPicker(serviceId, { whos = false, only = null } = {}) {
             if (!(await k.pick(u, ui))) return;
             result = true;
             const now = k.active();
-            toast(kind === 'spotify' ? `Spotify: ${now?.name || u.name}` : `${verb[0].toUpperCase() + verb.slice(1)} as ${now?.name || u.name}`);
+            const tvp = k.local && now?.raw?.tv ? ` — pick “${now.raw.tv}” in ${k.label} on the TV` : '';
+            toast(kind === 'spotify' ? `Spotify: ${now?.name || u.name}` : `${verb[0].toUpperCase() + verb.slice(1)} as ${now?.name || u.name}${tvp}`, { ms: tvp ? 4500 : 2400 });
             panel.close();
           } catch (e) { toast(errMsg(e), { kind: 'error' }); back(); }
         }
@@ -303,12 +392,17 @@ export function openUserPicker(serviceId, { whos = false, only = null } = {}) {
           catch (e) { clear(body).append(emptyNote(errMsg(e), { label: 'Retry', onClick: () => showList(true) })); return; }
           if (panel.closed) return;
           const n = list.length + (k.add ? 1 : 0);
-          const grid = h(`div.ups-grid.n${Math.min(n, 7)}`, list.map(tile));
-          if (k.add) grid.append(h('button.ups-user.add', { type: 'button', onclick: (e) => { e.stopPropagation(); k.add().catch((er) => toast(errMsg(er), { kind: 'error' })); } },
+          const many = n > 7;   // more than fit: a scrolling round list (top fades, ← → / the knob, Enter)
+          panel.el.classList.toggle('many', many);
+          const grid = h(`div.ups-grid.n${Math.min(n, 7)}${many ? '.many' : ''}`, list.map(tile));
+          if (k.add) grid.append(h('button.ups-user.add', { type: 'button', onclick: (e) => { e.stopPropagation(); k.add().then((r) => { if (r && k.local && !panel.closed) showList(); }).catch((er) => toast(errMsg(er), { kind: 'error' })); } },
             h('span.ups-av', h('span.uav.lg.add', { html: icon('plus') })), h('span.ups-name', k.addLabel)));
           clear(body).append(grid);
-          if (!list.length) body.append(emptyNote('No users found'));
+          if (!list.length) body.append(h('div.ups-note', k.local ? `Make a profile for each person who watches ${k.label} here: My list, Recently opened and a kids filter are theirs` : 'No users found'));
           else if (list.length === 1 && kind === 'plex') body.append(h('div.ups-note', 'Add people to your Plex Home at plex.tv → Settings → Plex Home'));
+          panel.el.querySelector('.ups-scroll')?.remove();
+          if (many) { panel.el.append(scrollArc(grid)); requestAnimationFrame(() => grid.querySelector('.ups-user.on')?.scrollIntoView({ block: 'center' })); }
+          keyNav(grid, panel);
         }
         if (only) tap(only); else showList();
       },
@@ -318,8 +412,8 @@ export function openUserPicker(serviceId, { whos = false, only = null } = {}) {
 
 /** Movies & TV just opened: ask who's watching, if that's switched on and there is a choice. */
 export async function askWhoIsWatching(serviceId) {
-  const kind = userKind(serviceId), k = KINDS[kind];
-  if (!k?.ask || !store.get(k.ask) || !k.authed()) return;
+  const kind = userKind(serviceId), k = kind ? kdef(kind) : null;
+  if (!k || !(k.askOn ? k.askOn() : k.ask && store.get(k.ask)) || !k.authed()) return;
   if (k.count() < 2) await k.warm();
   if (k.count() < 2) return;
   await openUserPicker(serviceId, { whos: true });
@@ -372,3 +466,68 @@ function settingsPage(kind) {
 registerSettings({ group: 'accounts', id: 'plex-users', title: 'Plex users', icon: 'people', order: 30, summary: 'Who’s watching: Plex Home users and PINs', keywords: 'profile home user pin managed kids switch who', build: settingsPage('plex') });
 registerSettings({ group: 'accounts', id: 'jellyfin-users', title: 'Jellyfin users', icon: 'people', order: 31, summary: 'Switch between people on your server', keywords: 'profile user password quick connect switch who', build: settingsPage('jellyfin') });
 registerSettings({ group: 'accounts', id: 'spotify-accounts', title: 'Spotify accounts', icon: 'person', order: 32, summary: 'Save several accounts and switch', keywords: 'account switch family profile', build: settingsPage('spotify') });
+
+// ---------------------------------------------------------------- Settings → Accounts → Profiles per service (local profiles)
+const HUES = [0, 28, 48, 140, 175, 205, 235, 270, 300, 330];
+/** Edit one local profile: name, colour, kids, the TV-app profile to pick, use now, delete. */
+function editLocalProfile(svc, id, onDone) {
+  loadCss();
+  const label = getService(svc)?.name || svc;
+  openPanel({
+    title: 'Profile', className: 'opts-panel.ups-edit',
+    build(body, panel) {
+      const draw = () => {
+        const p = SP.profilesOf(svc).find((x) => x.id === id);
+        if (!p) { panel.close(); return; }
+        const active = SP.activeProfile(svc)?.id === p.id;
+        clear(body).append(
+          h('div.ups-edit-head', avatarEl({ name: p.name, hue: p.hue }, 'lg'), h('div.ups-name', p.name)),
+          h('div.ups-hues', HUES.map((hh) => h(`button.ups-hue${Math.abs(((p.hue - hh + 540) % 360) - 180) < 8 ? '.on' : ''}`, { type: 'button', 'aria-label': `Colour ${hh}`, '--h': hh,
+            onclick: (e) => { e.stopPropagation(); SP.updateProfile(svc, p.id, { hue: hh }); draw(); } }))),
+          h('div.ups-actions',
+            h('button.pill', { type: 'button', onclick: async (e) => { e.stopPropagation(); const n = await editText({ title: 'Name', value: p.name, okLabel: 'Save' }); if (n) { SP.updateProfile(svc, p.id, { name: n }); draw(); } } }, 'Rename'),
+            active ? null : h('button.pill.primary', { type: 'button', onclick: (e) => { e.stopPropagation(); SP.setActiveProfile(svc, p.id); toast(`${label}: watching as ${p.name}`); draw(); } }, 'Use now')),
+          toggle('Kids — PG and family titles only', () => !!SP.profilesOf(svc).find((x) => x.id === id)?.kids, (v) => SP.updateProfile(svc, p.id, { kids: v })),
+          h('button.row.ups-row', { type: 'button', onclick: async (e) => {
+            e.stopPropagation();
+            const v = await editText({ title: `Profile in ${label} on the TV`, value: p.tv || '', placeholder: 'e.g. Kids (leave empty for none)', okLabel: 'Save' });
+            if (v !== null) { SP.updateProfile(svc, p.id, { tv: v }); draw(); }
+          } }, h('div.row-text', h('div.row-title', 'TV profile reminder'), h('div.row-sub', p.tv ? `“${p.tv}” — shown when ${p.name} is picked` : 'Which profile to choose in the TV app (a reminder only)')),
+            h('span.ups-row-right.ups-edit-ic', { html: icon('edit') })),
+          h('div.center', h('button.pill.danger', { type: 'button', onclick: (e) => { e.stopPropagation(); SP.removeProfile(svc, p.id); toast(`Removed ${p.name}`); panel.close(); } }, 'Delete profile')),
+        );
+      };
+      draw();
+      panel.onDestroy = () => onDone?.();
+    },
+  });
+}
+
+function profilesPage(el) {
+  loadCss();
+  // rows go straight into the settings list (its curved scrolling works per row)
+  let nodes = [];
+  const box = { append: (...n) => { const list = n.filter(Boolean); nodes.push(...list); el.append(...list); } };
+  const render = () => {
+    nodes.forEach((n) => n.remove()); nodes = [];
+    box.append(h('div.opt-hint', 'Netflix, Disney+, Prime Video, Apple TV+, HBO Max and YouTube don’t let other apps see their profiles, so make Round Remote profiles here. Each one keeps its own My list and Recently opened in the streaming library, can be a Kids profile (PG and family titles only), and can remind you which profile to pick in the TV app. Pick who’s watching from the avatar at the top of the service’s screen.'));
+    for (const svc of SP.PROFILE_SERVICES) {
+      const meta = getService(svc);
+      if (!meta) continue;
+      const list = SP.profilesOf(svc), act = SP.activeProfile(svc)?.id;
+      box.append(h('div.section', meta.name));
+      const rows = h('div.ups-rows');
+      for (const p of list) {
+        const u = localView(p, act);
+        rows.append(h(`button.row.ups-row${u.active ? '.active' : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); editLocalProfile(svc, p.id, render); } },
+          avatarEl(u, 'rw'),
+          h('div.row-text', h('div.row-title', p.name), h('div.row-sub', [u.active ? 'Active' : '', ...u.tags].filter(Boolean).join(' · ') || ' ')),
+          h('span.ups-row-right', u.active ? h('span.check', { html: icon('check') }) : null)));
+      }
+      box.append(rows, h('div.center.ups-acts', h('button.pill', { type: 'button', onclick: async (e) => { e.stopPropagation(); if (await newLocalProfile(svc)) render(); } }, list.length ? 'Add a profile' : `Make a ${meta.short || meta.name} profile`)));
+      if (list.length > 1) box.append(toggle(`Ask who’s watching when opening ${meta.short || meta.name}`, () => SP.askWho(svc), (v) => SP.setAskWho(svc, v)));
+    }
+  };
+  render();
+}
+registerSettings({ group: 'accounts', id: 'service-profiles', title: 'Profiles per service', icon: 'people', order: 33, summary: 'Who’s watching on Netflix, Disney+, Prime Video…', keywords: 'profile who watching netflix disney prime apple tv max youtube kids my list favourites', build: profilesPage });

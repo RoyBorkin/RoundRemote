@@ -1518,6 +1518,9 @@ code.uri.atv-pre { text-align: left; white-space: pre-wrap; word-break: break-wo
 .mdet-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.6cqmin; margin: 2.6cqmin 0 1cqmin; }
 .mdet-actions .pill { font-size: 2.7cqmin; padding: 1.8cqmin 3.8cqmin; }
 .mdet-actions .pill.on { color: var(--accent); }
+.mdet-avail { font-size: 2.2cqmin; font-weight: 700; color: var(--muted); margin-top: 1cqmin; padding: 0 8%; }   /* streaming library: on the service in your country? */
+.mdet-avail.ok { color: color-mix(in srgb, var(--accent) 55%, var(--fg)); }
+.mdet-playnote { font-size: 2.15cqmin; color: var(--dim); line-height: 1.4; padding: 0 10%; margin-top: -.2cqmin; }
 .mdet-tagline { font-style: italic; font-size: 2.8cqmin; color: var(--fg); opacity: .8; margin-top: 1.6cqmin; padding: 0 6%; }
 .mdet-summary { font-size: 2.6cqmin; line-height: 1.5; color: var(--muted); margin-top: 1.6cqmin; padding: 0 5%; text-align: center; }
 .mdet-summary.spoiler { filter: blur(1.2cqmin); cursor: pointer; }

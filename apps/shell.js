@@ -27,7 +27,7 @@ export function AppScreen({ id }) {
   function back() {
     if (topPanel()) { topPanel().close(); return; }
     try { if (inst?.back?.()) return; } catch (e) { console.error(`[app ${id}] back`, e); }
-    go(meta.home || 'apps');   // apps on the Games ring (Drinking Games, Trivia Night) go back there
+    go(meta.home || 'apps');   // apps on the Games ring (Truth or Dare, Drinking Games, Trivia Night) go back there
   }
   const app = {
     id, meta, el: body, store, player, go, toast, editText, openPanel, sfx, vibrate, h, icon, iconBtn,

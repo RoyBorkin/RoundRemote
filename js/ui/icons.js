@@ -40,6 +40,10 @@ const P = {
   note: 'M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z',
   tone: 'M2 11h2v2H2zm4-4h2v10H6zm4-4h2v18h-2zm4 6h2v6h-2zm4-3h2v12h-2zm4 4h2v4h-2z',
   tv: 'M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18v12z',
+  // the TV's own Home key: a TV screen with a little house on it (not the app's Home / Services button)
+  tvHome: 'M4 3.5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2zM3.8 5.3v10.4h16.4V5.3zM8 19.2h8v1.6H8zM12 6.6l4.6 4h-1.4v4H8.8v-4H7.4zM11.1 12v2.6h1.8V12z',
+  // Open on TV: a TV screen with a play mark
+  toTv: 'M4 3.5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2zM3.8 5.3v10.4h16.4V5.3zM8 19.2h8v1.6H8zM10.2 7.7v6.2l5-3.1z',
   remote: 'M15 1H9a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3zm-3 2.5A3.5 3.5 0 1 1 12 10.5 3.5 3.5 0 0 1 12 3.5zm0 2A1.5 1.5 0 1 0 12 8.5 1.5 1.5 0 0 0 12 5.5zM10 13h1.5v1.5H10zm2.5 0H14v1.5h-1.5zM10 16h1.5v1.5H10zm2.5 0H14v1.5h-1.5z',
   power: 'M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z',
   apps: 'M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z',

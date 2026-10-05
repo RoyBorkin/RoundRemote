@@ -5,6 +5,7 @@ import { icon } from '../ui/icons.js';
 import { openPanel, curve, listRow, spinner, emptyNote, toast } from '../ui/overlay.js';
 import { createKeyboard, wantsKeyboard, editText } from '../ui/keyboard.js';
 import { directType, directAssistant } from '../core/tvapp.js';
+import { openOnTvButton } from './open-on-tv.js';
 import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { angleFromCenter, clamp, debounce, throttle } from '../core/util.js';
@@ -22,6 +23,8 @@ const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 export function openLibrary() {
   if (!player.caps.playlists) return toast('Playlists are not available here');
   const tv = player.caps.remote;
+  // a TV remote (Google TV / Android TV, Apple TV): the round apps grid with icons (js/screens/tvapps.js)
+  if (tv && ['androidtv', 'appletv'].includes(player.provider?.zone?.adapter)) { import('./tvapps.js').then((m) => m.openTvApps()).catch((e) => toast(errMsg(e), { kind: 'error' })); return; }
   openPanel({
     title: tv ? 'Apps' : 'Playlists', className: 'list-panel',
     build(body, panel) {
@@ -239,6 +242,7 @@ export function openLyricStyles() {
   openPanel({
     title: 'Lyrics', className: 'opts-panel',
     build(body) {
+      body.append(openOnTvButton());
       const variants = h('div.opt', h('div.opt-label', 'Kinetic type variant'), chips(TYPO_VARIANTS, store.get('typoVariant'), (id) => store.set('typoVariant', id)));
       variants.hidden = store.get('lyricsStyle') !== 'typo';
       body.append(
@@ -259,6 +263,7 @@ export function openToneStyles() {
   openPanel({
     title: 'Tone Visual', className: 'opts-panel',
     build(body) {
+      body.append(openOnTvButton());
       body.append(
         h('div.opt', h('div.opt-label', 'Style'), chips(TONE_VARIANTS, store.get('toneVariant'), (id) => store.set('toneVariant', id))),
         h('div.opt', h('div.opt-label', 'Sound'), chips(TONE_SOURCES, store.get('toneSource'), (id) => sound().useMic(id === 'mic'))),
@@ -364,6 +369,7 @@ export function openFactsOptions() {
   openPanel({
     title: 'Fun Facts', className: 'opts-panel',
     build(body) {
+      body.append(openOnTvButton());
       body.append(factChips(), h('div.opt-hint', 'Facts about the song, album and artist from Wikipedia and MusicBrainz. Tap a fact to skip to the next one.'));
     },
   });
@@ -374,6 +380,7 @@ export function openMore(view = 'info') {
     title: view === 'vinyl' ? deckName() : view === 'info' ? 'Classic' : view === 'video' ? 'Video' : 'Playback', className: 'opts-panel',
     build(body) {
       const c = player.caps, s = player.state;
+      body.append(openOnTvButton());   // "Play on <TV>" / "Open <app> on <TV>" when a TV is set up (js/screens/open-on-tv.js)
       const deckOpts = view === 'vinyl' ? deckOptions() : [];
       const deckSpeed = deckOpts.pop();   // the speed chips go at the end, as before
       if (view === 'vinyl') body.append(...deckOpts);
@@ -473,7 +480,7 @@ export function buildTvRemote(body, { showApps = true } = {}) {
     key('mute', 'Mute', 'mute', 'tv-mute'),
     showApps ? iconBtn('apps', 'Apps', () => openLibrary(), 'tvk tv-apps') : null,
     key('back', 'Back', 'back', 'tv-back'),
-    key('home', 'Home', 'home', 'tv-home'),
+    key('tvHome', 'TV home', 'home', 'tv-home'),   // the TV's Home key — its own icon, not the app's Home button
     key('minus', 'Volume down', 'voldown', 'tv-vdown', true),
     key('play', 'Play / pause', 'playpause', 'tv-pp'),
     key('plus', 'Volume up', 'volup', 'tv-vup', true),

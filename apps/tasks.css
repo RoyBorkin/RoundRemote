@@ -1,27 +1,41 @@
 /* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Tasks Manager (apps/tasks.js) */
-.tk .tk-page { position: absolute; inset: 0; transition: opacity .3s var(--ease), transform .35s var(--ease); }
-.tk[data-page="list"] .tk-qrpage, .tk[data-page="qr"] .tk-listpage { opacity: 0; pointer-events: none; transform: scale(.96); }
 .tk-code { font-family: var(--mono); font-weight: 700; letter-spacing: .06em; }
 
+/* game switcher */
+.tk-groups { position: absolute; left: 50%; top: 15.6%; transform: translateX(-50%); display: flex; gap: .6cqmin; padding: .6cqmin;
+  border-radius: 99px; background: var(--glass); border: 1px solid var(--line); white-space: nowrap; }
+.tk-group { padding: 1.1cqmin 2.3cqmin; border-radius: 99px; font-size: 2.35cqmin; font-weight: 700; color: var(--muted); transition: background .25s, color .25s; }
+.tk-group.on { background: var(--fg); color: var(--on-fg); }
+
 /* type tabs */
-.tk-tabs { position: absolute; left: 50%; top: 16.8%; transform: translateX(-50%); display: flex; gap: .8cqmin; padding: .8cqmin;
+.tk-tabs { position: absolute; left: 50%; top: 22.6%; transform: translateX(-50%); display: flex; gap: .8cqmin; padding: .8cqmin;
   border-radius: 99px; background: var(--glass); border: 1px solid var(--line); }
-.tk-tab { display: flex; align-items: baseline; gap: 1.2cqmin; padding: 1.6cqmin 3cqmin; border-radius: 99px; font-size: 2.9cqmin; font-weight: 700; color: var(--muted);
+.tk-tab { display: flex; align-items: baseline; gap: 1cqmin; padding: 1.4cqmin 2.4cqmin; border-radius: 99px; font-size: 2.6cqmin; font-weight: 700; color: var(--muted);
   transition: background .25s, color .25s; white-space: nowrap; }
-.tk-tab-c { font-size: 2.1cqmin; font-weight: 800; opacity: .7; font-variant-numeric: tabular-nums; }
+.tk-tab-c { font-size: 1.9cqmin; font-weight: 800; opacity: .7; font-variant-numeric: tabular-nums; }
 .tk-tab.on { background: var(--k); color: #14101c; box-shadow: 0 .8cqmin 3cqmin color-mix(in srgb, var(--k) 35%, transparent); }
+/* trivia: a scrolling strip of topics */
+.tk-tabs.tk-topics { left: 13%; right: 13%; transform: none; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; background: none; border: 0; padding: .4cqmin 0;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.tk-tabs.tk-topics::-webkit-scrollbar { display: none; }
+.tk-topic { flex: none; display: flex; align-items: baseline; gap: .9cqmin; padding: 1.3cqmin 2.3cqmin; border-radius: 99px; font-size: 2.4cqmin; font-weight: 700; white-space: nowrap;
+  color: var(--muted); background: var(--glass); border: 1px solid var(--line); }
+.tk-topic:first-child { margin-inline-start: 4cqmin; } .tk-topic:last-child { margin-inline-end: 4cqmin; }
+.tk-topic.on { background: var(--k); color: #14101c; border-color: transparent; }
 
 /* filter */
-.tk-filter { position: absolute; left: 50%; top: 25.4%; transform: translateX(-50%); display: flex; align-items: center; gap: 1.2cqmin; white-space: nowrap; }
-.tk-filter .chip { font-size: 2.4cqmin; padding: 1.2cqmin 2.6cqmin; }
+.tk-filter { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); display: flex; align-items: center; gap: 1cqmin; white-space: nowrap; }
+.tk-filter .chip { font-size: 2.2cqmin; padding: 1.1cqmin 2.3cqmin; }
 .tk-filter .chip.on { background: var(--fg); color: var(--on-fg); }
+.tk-filter .tk-ic { display: grid; place-items: center; width: 5.4cqmin; height: 5.4cqmin; padding: 0; font-size: 2.8cqmin; }
+.tk-filter .tk-q { max-width: 26cqmin; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
 .tk-live { width: 1.8cqmin; height: 1.8cqmin; border-radius: 50%; background: var(--dim); margin-inline-start: .6cqmin; transition: background .3s; }
 .tk-live.ok { background: var(--ok); box-shadow: 0 0 1.4cqmin color-mix(in srgb, var(--ok) 70%, transparent); animation: tk-live 2.4s ease-in-out infinite; }
 @keyframes tk-live { 50% { opacity: .45; } }
 
 /* list */
-.tk-list { position: absolute; left: 11%; right: 11%; top: 30.5%; bottom: 22%; padding: 5% 0 12%; }
+.tk-list { position: absolute; left: 11%; right: 11%; top: 34.5%; bottom: 22%; padding: 5% 0 12%; }
 .tk-row { position: relative; margin: 0 0 1.2cqmin; border-radius: 3cqmin; overflow: hidden;
   background: var(--glass); border: 1px solid var(--line); border-inline-start: .8cqmin solid var(--k); transform-origin: 50% 50%; transition: background .2s; }
 .tk-row:has(.tk-row-b:active) { background: var(--glass-2); }
@@ -30,9 +44,21 @@
 .tk-row-m { margin-top: .6cqmin; font-size: 2.05cqmin; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
 .tk-row.new { animation: tk-new 2.4s var(--ease); }
 @keyframes tk-new { 0% { background: color-mix(in srgb, var(--k) 55%, transparent); } 100% { background: var(--glass); } }
+.tk-more-btn { display: block; margin: 1.6cqmin auto 0; font-size: 2.4cqmin; }
 .tk-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.8cqmin; padding: 6cqmin 4cqmin; }
 .tk-empty-t { font-family: var(--display); font-size: 3.6cqmin; font-weight: 700; }
 .tk-empty-m { font-size: 2.5cqmin; color: var(--muted); max-width: 52cqmin; line-height: 1.35; }
+
+/* More games: their own managers */
+.tk[data-group="more"] .tk-list { top: 22%; bottom: 10%; }
+.tk-more-h { text-align: center; font-size: 2.3cqmin; color: var(--muted); margin: 0 4cqmin 2cqmin; line-height: 1.35; }
+.tk-game { margin: 0 0 1.6cqmin; padding: 2.2cqmin 3.4cqmin; border-radius: 3.4cqmin; background: var(--glass); border: 1px solid var(--line); border-inline-start: .8cqmin solid var(--k);
+  display: flex; flex-direction: column; align-items: flex-start; gap: .8cqmin; }
+.tk-game-h { display: flex; align-items: baseline; gap: 1.6cqmin; width: 100%; font-family: var(--display); font-size: 3.4cqmin; }
+.tk-game-n { margin-inline-start: auto; font-family: var(--mono); font-size: 2.6cqmin; color: var(--k); font-weight: 700; }
+.tk-game-s { font-size: 2.2cqmin; color: var(--muted); line-height: 1.35; }
+.tk-game-note { font-size: 2cqmin; color: var(--dim); }
+.tk-game .pill { margin-top: .6cqmin; font-size: 2.3cqmin; }
 
 /* bottom bar */
 .tk-bar { position: absolute; left: 50%; top: 86%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6cqmin; }
@@ -43,25 +69,6 @@
 .tk-add { width: 13.5cqmin; height: 13.5cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 6.4cqmin; color: #14101c;
   background: var(--ac); box-shadow: 0 1.2cqmin 4.5cqmin color-mix(in srgb, var(--ac) 45%, transparent); transition: transform .18s var(--spring); margin-top: -2.6cqmin; }
 .tk-add:active { transform: scale(.92); }
-
-/* QR page */
-.tk-qr-h { position: absolute; left: 50%; top: 18.6%; transform: translateX(-50%); font-family: var(--display); font-size: 3.9cqmin; font-weight: 700; white-space: nowrap; }
-.tk-qr-code { position: absolute; left: 50%; top: 49.5%; width: 47cqmin; transform: translate(-50%, -50%); border-radius: 3.2cqmin; overflow: hidden; background: #fff;
-  box-shadow: 0 1.6cqmin 6cqmin rgb(var(--shade) / .35), 0 0 0 .6cqmin color-mix(in srgb, var(--ac) 70%, transparent); animation: tk-qr-in .45s var(--spring); }
-.tk-qr-code svg { display: block; width: 100%; height: auto; }
-@keyframes tk-qr-in { from { transform: translate(-50%, -50%) scale(.85); opacity: 0; } }
-.tk-qr-ses { position: absolute; left: 50%; top: 76%; transform: translateX(-50%); font-size: 2.6cqmin; color: var(--muted); white-space: nowrap; }
-.tk-qr-ses .tk-code { color: var(--fg); }
-.tk-qr-url { position: absolute; left: 50%; top: 80.4%; transform: translateX(-50%); font-family: var(--mono); font-size: 1.9cqmin; color: var(--dim); white-space: nowrap; max-width: 60cqmin; overflow: hidden; text-overflow: ellipsis; }
-.tk-qr-new { position: absolute; left: 50%; top: 88%; transform: translate(-50%, -50%); font-size: 2.6cqmin; padding: 1.8cqmin 4cqmin; }
-.tk-qr-new:active { transform: translate(-50%, -50%) scale(.94); }
-.tk-qr-wait { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqmin; color: var(--muted); font-size: 2.8cqmin; }
-.tk-qr-off { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: 64cqmin; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2cqmin; }
-.tk-qr-off-ic { width: 16cqmin; height: 16cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 8cqmin; color: var(--dim); background: var(--glass); border: 1px dashed var(--line); position: relative; }
-.tk-qr-off-ic::after { content: ''; position: absolute; width: 1px; height: 120%; background: var(--danger); transform: rotate(45deg); opacity: .8; }
-.tk-qr-off-t { font-family: var(--display); font-size: 4cqmin; font-weight: 700; }
-.tk-qr-off-m { font-size: 2.6cqmin; line-height: 1.4; color: var(--muted); }
-.tk-qr-off-b { display: flex; gap: 2cqmin; margin-top: 1cqmin; }
 
 /* item added from a phone */
 .tk-pop { position: absolute; left: 50%; top: 52%; width: 64cqmin; z-index: 40; padding: 3cqmin 4cqmin; border-radius: 4cqmin; pointer-events: none; text-align: center;
@@ -100,32 +107,16 @@
 
 /* themes */
 #app[data-theme="bauhaus"] .tk-row { border-radius: 0; border: .35cqmin solid rgb(var(--ink)); border-inline-start-width: 1.4cqmin; border-inline-start-color: var(--k); background: var(--surface); }
-#app[data-theme="bauhaus"] .tk-tabs { border: .35cqmin solid rgb(var(--ink)); background: var(--surface); }
+#app[data-theme="bauhaus"] .tk-tabs:not(.tk-topics), #app[data-theme="bauhaus"] .tk-groups { border: .35cqmin solid rgb(var(--ink)); background: var(--surface); }
+#app[data-theme="bauhaus"] .tk-game { border-radius: 0; border: .35cqmin solid rgb(var(--ink)); border-inline-start: 1.4cqmin solid var(--k); background: var(--surface); }
 #app[data-theme="bauhaus"] .tk-add { box-shadow: none; }
 #app[data-theme="bauhaus"] .tk-btn > i { background: rgb(var(--ink)); color: var(--bg); border: 0; }
-#app[data-theme="bauhaus"] .tk-qr-code { border-radius: 0; box-shadow: 0 0 0 .6cqmin rgb(var(--ink)); }
 #app[data-theme="bauhaus"] .tk-pop { border-radius: 0; box-shadow: none; background: var(--bg); }
-#app[data-mode="light"] .tk-qr-code { box-shadow: 0 1.2cqmin 4cqmin rgb(var(--shade) / .18), 0 0 0 .6cqmin color-mix(in srgb, var(--ac) 70%, transparent); }
-.tk[data-page="qr"] .tk-pop { top: 84%; width: 54cqmin; padding: 2cqmin 3cqmin; border-radius: 99px; }
-.tk[data-page="qr"] .tk-pop-h { margin-bottom: .4cqmin; font-size: 2.1cqmin; }
-.tk[data-page="qr"] .tk-pop-t { font-size: 2.7cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 18+ per entry: the chip on each row (tap to mark / unmark), the add sheet toggle and the item sheet switch */
-.tk-x18 { display: inline-grid; place-items: center; min-width: 7.4cqmin; height: 5cqmin; padding: 0 1.4cqmin; border-radius: 99px; font-size: 2cqmin; font-weight: 800;
-  letter-spacing: -.01em; color: var(--dim); border: .3cqmin dashed color-mix(in srgb, var(--dim) 80%, transparent); background: transparent;
-  transition: background .2s, color .2s, border-color .2s, transform .18s var(--spring); }
-.tk-x18.on, .tk-x18.static { color: #fff; background: var(--danger); border: .3cqmin solid var(--danger); }
-.tk-x18:active { transform: scale(.9); }
 .tk-row > .tk-x18 { position: absolute; inset-inline-end: 2cqmin; top: 50%; translate: 0 -50%; }
 .tk-row > .tk-x18::before { content: ''; position: absolute; inset: -1.6cqmin -1.6cqmin; }
 .tk-row:not(.x) > .tk-x18 { color: var(--muted); opacity: .7; }
-.tk-x18.lg { height: 7.6cqmin; min-width: 11cqmin; padding: 0 2.8cqmin 0 2.2cqmin; font-size: 2.8cqmin; display: inline-flex; gap: 1.4cqmin; color: var(--muted); }
-.tk-x18.lg::before { content: ''; width: 2.8cqmin; height: 2.8cqmin; border-radius: .8cqmin; border: .35cqmin solid currentColor; box-sizing: border-box; }
-.tk-x18.lg.on { color: #fff; }
-.tk-x18.lg.on::before { background: #fff; border-color: #fff;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%; }
-.tk-add-row { display: flex; align-items: center; justify-content: center; gap: 2.4cqmin; }
 .tk-item-x18 { width: 100%; display: flex; align-items: center; gap: 2.2cqmin; padding: 1.2cqmin 2.6cqmin; border-radius: 3cqmin; text-align: start;
   background: var(--glass); border: 1px solid transparent; font-size: 2.7cqmin; font-weight: 700; }
 .tk-item-x18.on { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--glass)); }
@@ -133,4 +124,18 @@
 .tk-item-x18 .tk-set-sub { font-size: 2cqmin; }
 .tk-item-x18 .tk-x18 { height: 4.6cqmin; min-width: 7cqmin; }
 .tk-item-x18:not(.on) .tk-x18.static { background: transparent; color: var(--dim); border-style: dashed; border-color: var(--dim); }
-#app[data-theme="bauhaus"] .tk-x18, #app[data-theme="bauhaus"] .tk-item-x18 { border-radius: 0; }
+#app[data-theme="bauhaus"] .tk-item-x18 { border-radius: 0; }
+
+/* item sheet extras */
+.tk-item-panel .panel-body { overflow-y: auto; scrollbar-width: none; justify-content: safe center; gap: 1.6cqmin; padding: 1cqmin 0 3cqmin; }
+.tk-item-panel .panel-body > * { flex: none; }
+.tk-item-ans { font-size: 3cqmin; font-weight: 700; color: var(--ok); unicode-bidi: plaintext; }
+.tk-item-wr { font-size: 2.4cqmin; color: var(--muted); unicode-bidi: plaintext; margin-top: -1.4cqmin; }
+.tk-item-lists { width: 100%; }
+.tk-item-lists .tkf-chips .chip { font-size: 2.2cqmin; padding: 1cqmin 2.2cqmin; }
+.tk-set-btns { display: flex; gap: 1.2cqmin; justify-content: center; flex: none; }
+.tk-set-row .tk-set-btns .pill { padding: 1.2cqmin 2.4cqmin; font-size: 2.2cqmin; }
+.tk-set-panel .chips { justify-content: center; }
+.tk-exp-qr { width: 34cqmin; border-radius: 2cqmin; overflow: hidden; background: #fff; }
+.tk-exp-qr svg { display: block; width: 100%; height: auto; }
+.tk-set-panel .panel-body { overflow-y: auto; scrollbar-width: none; }

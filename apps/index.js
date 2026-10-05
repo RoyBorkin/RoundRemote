@@ -18,9 +18,7 @@ export const APPS = [
     icon: 'M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 2.5v4h10v-4zM7 11v2h2v-2zm4 0v2h2v-2zm4 0v2h2v-2zM7 15v2h2v-2zm4 0v2h2v-2zm4 0v5h2v-5zM7 19v1.5h6V19z' },
   { id: 'timer', file: './timer.js', name: 'Timer', color: '#34d399', blurb: 'Stopwatch, countdown timer and an hourglass. When time is up, your music plays.',
     icon: 'M9 1h6v2H9zM12 4a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm-1 2h2v5h-2zM18.5 4.1l1.4 1.4-1.6 1.6-1.4-1.4z' },
-  { id: 'bottle', file: './bottle.js', name: 'Truth or Dare', color: '#f472b6', blurb: 'Spin the bottle — just spin, or play truth or dare with your own tasks.',
-    icon: 'M10 2h4v3l1.5 2.5V20a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7.5L10 5zm-.5 9v6h5v-6z' },
-  { id: 'tasks', file: './tasks.js', name: 'Tasks', color: '#a78bfa', blurb: 'Truths, dares and tasks for your games — players add their own by scanning a QR code.',
+  { id: 'tasks', file: './tasks.js', name: 'Task manager', color: '#a78bfa', blurb: 'All the games’ truths, dares, tasks and questions in one place — players add their own by QR code.',
     icon: 'M3 3h8v8H3zm2 2v4h4V5zM13 3h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zM13 13h3v3h-3zm5 0h3v3h-3zm-5 5h3v3h-3zm5 0h3v3h-3z' },
   { id: 'random', file: './random.js', name: 'Randomizer', color: '#22d3ee', blurb: 'Random numbers, colours, letters, who goes first, yes / no and more.',
     icon: 'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z' + c(8, 8, 1.6, true) + c(16, 16, 1.6, true) + c(12, 12, 1.6, true) },
@@ -50,9 +48,11 @@ export const APPS = [
     icon: 'M3 10h2v4H3zm4-4h2v12H7zm4-3h2v18h-2zm4 5h2v8h-2zm4 2h2v4h-2z' },
 ];
 
-// Apps that sit on the Games ring instead (games/index.js lists them after the party games): they open in the app
-// screen like any app, and Back returns to the Games ring (`home`).
+// Apps that sit on the Games ring instead (games/index.js lists them after the party games: Truth or Dare, Drinking
+// Games, Trivia Night): they open in the app screen like any app, and Back returns to the Games ring (`home`).
 export const GAME_APPS = [
+  { id: 'bottle', file: './bottle.js', name: 'Truth or Dare', color: '#f472b6', home: 'games', blurb: 'Spin the bottle — just spin, or play truth or dare with your own tasks.',
+    icon: 'M10 2h4v3l1.5 2.5V20a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7.5L10 5zm-.5 9v6h5v-6z' },
   { id: 'drinks', file: './drinks.js', name: 'Drinking Games', color: '#f97316', adult: true, home: 'games', blurb: 'Six party drinking games — 18+, play responsibly (any drink works).',
     icon: 'M5 3h14l-1.6 16.2A2 2 0 0 1 15.4 21H8.6a2 2 0 0 1-2-1.8zm2.2 2l.5 5h8.6l.5-5z' },
   { id: 'trivia', file: './trivia.js', name: 'Trivia Night', color: '#3b82f6', home: 'games', blurb: 'Quiz night with phone buzzers, teams and categories — English and Hebrew.',

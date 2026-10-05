@@ -19,6 +19,7 @@
 // still needs the bridge (or Chromecast / Plex / Jellyfin for the video itself).
 import { store } from './store.js';
 import { lanOpts } from './util.js';
+import { TV_APP_CATALOG, catalogApp, appFromActivity } from './tv-apps.js';
 
 export const TV_APP_PORT = 8080;
 export const TV_APP_URL = 'https://play.google.com/store/apps/details?id=com.porter.tvremote';
@@ -33,43 +34,22 @@ export const KEYCODES = {
   settings: 176, input: 178, guide: 172, captions: 175, search: 84, enter: 66, del: 67,
 };
 
-// Apps the TV Remote app knows by name, plus a few common ones by package name
-export const DIRECT_APPS = [
-  { id: 'youtube', name: 'YouTube' },
-  { id: 'netflix', name: 'Netflix' },
-  { id: 'disney', name: 'Disney+' },
-  { id: 'prime', name: 'Prime Video' },
-  { id: 'spotify', name: 'Spotify' },
-  { id: 'com.google.android.youtube.tvmusic', name: 'YouTube Music' },
-  { id: 'com.plexapp.android', name: 'Plex' },
-  { id: 'org.jellyfin.androidtv', name: 'Jellyfin' },
-  { id: 'org.xbmc.kodi', name: 'Kodi' },
-  { id: 'com.apple.atve.androidtv.appletv', name: 'Apple TV' },
-  { id: 'settings', name: 'Settings' },
-];
-// what the streaming tiles ask for → the TV Remote app's names
-const APP_ALIASES = { ytvideo: 'youtube', ytmusic: 'com.google.android.youtube.tvmusic', plex: 'com.plexapp.android', jellyfin: 'org.jellyfin.androidtv' };
-// Home Assistant opens apps with app links (launching by package name doesn't work for most apps there)
-export const HA_APPS = [
-  { id: 'youtube', name: 'YouTube', link: 'https://www.youtube.com' },
-  { id: 'ytmusic', name: 'YouTube Music', link: 'https://music.youtube.com' },
-  { id: 'netflix', name: 'Netflix', link: 'https://www.netflix.com/title' },
-  { id: 'disney', name: 'Disney+', link: 'https://www.disneyplus.com' },
-  { id: 'prime', name: 'Prime Video', link: 'https://app.primevideo.com' },
-  { id: 'spotify', name: 'Spotify', link: 'spotify://' },
-  { id: 'plex', name: 'Plex', link: 'plex://' },
-  { id: 'twitch', name: 'Twitch', link: 'twitch://home' },
-];
-/** A link or app id → the TV Remote app's app name (it can only open apps, not links). */
-function appName(app) {
-  if (!String(app).includes('://')) return APP_ALIASES[app] || app;
-  const l = String(app).toLowerCase();
-  if (/music\.youtube/.test(l)) return APP_ALIASES.ytmusic;
-  for (const k of ['youtube', 'netflix', 'disney', 'spotify', 'plex']) if (l.includes(k)) return APP_ALIASES[k] || k;
-  if (/prime|amazon/.test(l)) return 'prime';
-  return app;
+// The apps grid comes from the shared catalog (js/core/tv-apps.js — the user's choice in js/core/tv-apps-prefs.js).
+// These two lists stay for older callers: what the "TV Remote" app opens by name, and the apps Home Assistant opens by link.
+export const DIRECT_APPS = TV_APP_CATALOG.filter((a) => a.alias).map((a) => ({ id: a.alias, name: a.name }));
+export const HA_APPS = TV_APP_CATALOG.filter((a) => a.link).map((a) => ({ id: a.id, name: a.name, link: a.link }));
+/** What was asked for (a catalog app, its id, a package name or a link) → the catalog app, or a bare { pkg } / { link }. */
+function resolveApp(app) {
+  if (app && typeof app === 'object') return app;
+  const s = String(app || '');
+  if (s.includes('://')) { const c = appFromActivity(s); return { ...(c ? { pkg: c.pkg, alias: c.alias, name: c.name } : {}), link: s }; }
+  return catalogApp(s) || { pkg: s };
 }
-const haLink = (app) => (String(app).includes('://') ? app : HA_APPS.find((a) => a.id === (app === 'ytvideo' ? 'youtube' : app))?.link || null);
+/** The "TV Remote" app's name for an app (it can only open apps — by its short name or the package). */
+function appName(app) {
+  const a = resolveApp(app);
+  return a.alias || a.pkg || '';
+}
 
 // ---------------------------------------------------------------- Home Assistant
 let ha = null;
@@ -93,11 +73,14 @@ export function haTvZones() {
     const mp = mpId ? ha.entity(mpId) : null;
     const on = r.state === 'on';
     const app = mp?.attributes?.app_name || r.attributes?.current_activity || '';
+    // the open app's package (media_player app_id) and the apps set up in the integration's options (activity_list)
+    const appId = mp?.attributes?.app_id || '';
+    const activities = Array.isArray(r.attributes?.activity_list) ? r.attributes.activity_list : [];
     const vol = mp?.attributes?.volume_level;
     return {
       id: `ha:${rid}`, name: r.attributes?.friendly_name || obj, adapter: 'androidtv', direct: true, via: 'ha', remoteId: rid, mpId,
       caps: { remote: true, next: true, prev: true, stop: true, playlists: true, volume: !!mp && vol != null, seek: false, search: false },
-      sourceApp: on ? app : '', unavailable: r.state === 'unavailable',
+      sourceApp: on ? app : '', appId: on ? appId : '', activities, unavailable: r.state === 'unavailable',
       state: { isPlaying: mp?.state === 'playing', track: on && app ? { title: app, artist: '', notSong: true } : null, volume: vol != null ? Math.round(vol * 100) : null, muted: !!mp?.attributes?.is_volume_muted },
     };
   });
@@ -173,14 +156,19 @@ export function directKey(zone, key) {
   if (code == null) return Promise.reject(Object.assign(new Error('Unknown key'), { userMessage: `The TV can’t do “${key}”` }));
   return post(tvOf(zone), `/api/key/${code}`);
 }
-/** Open an app: a name the TV Remote app knows (youtube, netflix…), a package name, or 'home'. */
+/** Open an app: a catalog app (js/core/tv-apps.js) or its id, a package name, or an app link. */
 export function directLaunch(zone, app) {
+  const a = resolveApp(app);
+  if (a.key) return directKey(zone, a.key);   // Settings: the remote's own key
   if (zone?.via === 'ha') {
-    const link = haLink(app);
-    if (!link) return Promise.reject(Object.assign(new Error('No link'), { userMessage: 'Home Assistant can only open apps it has a link for' }));
-    return ha.call('remote', 'turn_on', zone.remoteId, { activity: link }).catch((e) => { throw haErr(e); });
+    // Home Assistant opens a link as is, and a bare package as market://launch?id=<package> (androidtvremote2)
+    const activity = a.link || a.pkg;
+    if (!activity) return Promise.reject(Object.assign(new Error('No link'), { userMessage: 'Home Assistant needs a link or a package name for this app' }));
+    return ha.call('remote', 'turn_on', zone.remoteId, { activity }).catch((e) => { throw haErr(e); });
   }
-  return post(tvOf(zone), `/api/launch/${encodeURIComponent(appName(app))}`);
+  const name = appName(a);
+  if (!name) return Promise.reject(Object.assign(new Error('No app'), { userMessage: 'The TV Remote app opens apps by package name — this one has none' }));
+  return post(tvOf(zone), `/api/launch/${encodeURIComponent(name)}`);
 }
 export async function directAssistant(zone) {
   if (zone?.via === 'ha') { try { return await haKey(zone, 'ASSIST'); } catch { return haKey(zone, 'SEARCH'); } }

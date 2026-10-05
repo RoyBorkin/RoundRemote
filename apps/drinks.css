@@ -319,3 +319,9 @@
 
 .dk-set .dk-sect { margin: .8cqmin 0 0; }
 .dk-set .switch { transform: scale(.85); }
+/* prompts from the shared content store: lists, counts, add from phones */
+.dk-lists { --k: var(--accent); display: flex; flex-direction: column; align-items: center; gap: .8cqmin; width: 100%; }
+.dk-lists .chip { font-size: 2.3cqmin; padding: 1.1cqmin 2.3cqmin; }
+.dk-set .dk-counts { font-size: 2cqmin; text-align: center; }
+.dk-set-acts { display: flex; gap: 1.4cqmin; justify-content: center; flex-wrap: wrap; }
+.dk-ru-acts { display: flex; gap: 1.4cqmin; justify-content: center; margin-top: 1cqmin; }

@@ -24,7 +24,7 @@ export async function openService(id, { forceSetup = false } = {}) {
   const svc = getService(id);
   if (svc.section === 'media') store.set('homeMode', 'media');
   go(svc.section === 'media' ? 'media' : 'player');
-  // Movies & TV: "Who's watching?" first, when that's switched on (Settings → Plex users / Jellyfin users)
-  if (id === 'plexvideo' || id === 'jellyfinvideo') import('../screens/users.js').then((m) => m.askWhoIsWatching(id)).catch(() => {});
+  // Movies & TV: "Who's watching?" first, when that's switched on (Settings → Plex users / Jellyfin users / Profiles per service)
+  if (svc.section === 'media') import('../screens/users.js').then((m) => m.askWhoIsWatching(id)).catch(() => {});
   await ready;
 }

@@ -3,16 +3,22 @@
 //  never:  tap everyone who has done it → Next counts their sips.
 //  likely: Count down 3-2-1, everyone points, tap the most-pointed-at player(s) → they sip.
 import { h, IC, rbtn, bag, tableRing } from './drinks-ui.js';
-import { NEVER, LIKELY, WORDS } from './drinks-data.js';
+import { WORDS } from './drinks-data.js';
+import { isAdult } from './tasks-store.js';
+
+// prompts typed with their lead-in ("Never have I ever …") lose it — the page shows it above the prompt
+const LEAD = /^\s*(never\s+have\s+i\s+ever|who(?:['’]s| is)\s+(?:the\s+)?most\s+likely\s+to|אף\s+פעם\s+לא|מי\s+הכי\s+סביר\s+ש)[\s.…:,-]*/i;
 
 export function mountPrompt(el, ctx, mode) {
   const { app, settings } = ctx;
   const likely = mode === 'likely';
-  const src = likely ? LIKELY : NEVER;
   const lang = settings.lang === 'he' ? 'he' : 'en';
   const words = WORDS[lang];
-  const deck = [...src[lang].mild.map((t) => ({ t })), ...(settings.spicy ? src[lang].spicy.map((t) => ({ t, spicy: true })) : [])];
+  // the deck: built-in + added prompts from the shared store (language, spicy and lists from the hub's Settings)
+  const build = () => ctx.content(mode).map((it) => ({ t: it.text.replace(LEAD, '') || it.text, spicy: isAdult(it), id: it.id }));
+  let deck = build();
   const cards = bag(deck);
+  const offC = ctx.onContent(() => { const d = build(); if (d.length !== deck.length) { deck = d; cards.reset(deck); } });
   const tally = new Map();          // sips in this game, by player id
   const marked = new Set();         // tapped for the current prompt
   let cur = null, phase = 'ready', timer = 0, count = 0;
@@ -48,7 +54,7 @@ export function mountPrompt(el, ctx, mode) {
     cur = cards.next();
     marked.clear();
     phase = 'ready';
-    if (!cur) { text.textContent = 'No prompts here.'; return render(); }
+    if (!cur) { text.textContent = 'No prompts here — add some from phones (QR) or in the Task manager, or pick other lists.'; return render(); }
     text.textContent = cur.t;
     promptEl.classList.toggle('spicy', !!cur.spicy);
     promptEl.classList.toggle('long', cur.t.length > 70);
@@ -117,7 +123,7 @@ export function mountPrompt(el, ctx, mode) {
 
   next();
   return {
-    destroy() { clearTimeout(timer); offP(); },
+    destroy() { clearTimeout(timer); offP(); offC(); },
     key(e) {
       if (e.key === 'Enter' || e.key === ' ') { mainAction(); return true; }
       if (e.key === 'ArrowRight') { next(); return true; }

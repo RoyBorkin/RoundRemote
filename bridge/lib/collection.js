@@ -12,6 +12,8 @@
 //   GET  /api/collection/discogs         Discogs collection (folder 0, 100 a page, every page; ≤ 60 requests a minute) — your token
 //   GET  /api/collection/search?src=rawg|bgg|discogs|musicbrainz|openlibrary|tmdb&kind=…&q=…   search to add by hand (with covers)
 //   GET  /api/collection/tmdb?id=…&type=movie|tv   runtime, director and genres of a movie / show
+//   GET  /api/collection/tmdbapi?path=/discover/movie&…   TMDB with this bridge's key for the streaming library (allow-listed paths, cached)
+//   GET  /api/collection/wikidata?kind=movie|tv&id=<tmdb id>[&qid=Q…]   { netflix, disneyMovie, disneySeries } (Wikidata, cached 7 days)
 //   GET  /api/collection/upc?code=…      barcode → product: ISBNs → Open Library; other codes → UPCitemdb's free trial endpoint
 //                                        (rate-limited), then Discogs (with a token) / MusicBrainz for records and CDs
 //   POST /api/collection/parse           { text, preset, map } → what the file holds (the phone page's preview)
@@ -27,7 +29,7 @@
 //
 // config.json → "collection": { file, publicUrl, bgg: { username, token }, pricecharting: { token }, rawg: { username, key },
 //   discogs: { username, token }, tmdb: { key }, watchFile, watchPreset, upcLookup, userAgent, bggBase, pricechartingBase, rawgBase,
-//   upcBase, discogsBase, openLibraryBase, musicBrainzBase, tmdbBase, tmdbImageBase, bggRetryMs, discogsGapMs, discogsRetryMs, mbGapMs }
+//   upcBase, discogsBase, openLibraryBase, musicBrainzBase, tmdbBase, wikidataBase, tmdbImageBase, bggRetryMs, discogsGapMs, discogsRetryMs, mbGapMs }
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -135,7 +137,7 @@ let st = null, file = null, conf = null;
 function load(cfg, dir) {
   conf = { publicUrl: '', upcLookup: true, watchPreset: 'auto', bggBase: 'https://boardgamegeek.com', pricechartingBase: 'https://www.pricecharting.com', rawgBase: 'https://api.rawg.io',
     upcBase: 'https://api.upcitemdb.com', discogsBase: 'https://api.discogs.com', openLibraryBase: 'https://openlibrary.org', musicBrainzBase: 'https://musicbrainz.org',
-    tmdbBase: 'https://api.themoviedb.org', tmdbImageBase: 'https://image.tmdb.org/t/p/w500', bggRetryMs: 2000, discogsGapMs: 1050, discogsRetryMs: 61000, mbGapMs: 1150,
+    tmdbBase: 'https://api.themoviedb.org', wikidataBase: 'https://query.wikidata.org', tmdbImageBase: 'https://image.tmdb.org/t/p/w500', bggRetryMs: 2000, discogsGapMs: 1050, discogsRetryMs: 61000, mbGapMs: 1150,
     userAgent: 'RoundRemote-Collection/1.0 ( https://github.com/royborkin/RoundSpotify )', ...(cfg.collection || {}) };
   if (st) return;
   file = path.resolve(dir, conf.file || 'collection.json');
@@ -438,6 +440,26 @@ async function tmdbDetails(id, type) {
   return { id: String(j.id), type: t, runtime: +j.runtime || (j.episode_run_time || [])[0] || null, by: director, genres: S.genresOf('movie', (j.genres || []).map((g) => g.name)), year: S.yearOf(j.release_date || j.first_air_date) };
 }
 
+// the streaming library's proxy: only these TMDB paths
+const TMDB_PATHS = /^\/(discover\/(movie|tv)|search\/multi|(movie|tv)\/\d{1,9}(\/(watch\/providers|recommendations|external_ids))?|genre\/(movie|tv)\/list|watch\/providers\/(movie|tv))$/;
+/** cached() for the proxy, keeping at most ~600 of its answers */
+async function cachedCapped(key, ttl, fn) {
+  const data = await cached(key, ttl, fn);
+  const mine = [...cache.keys()].filter((k) => /^(tmdbapi|wd):/.test(k));
+  for (const k of mine.slice(0, Math.max(0, mine.length - 600))) cache.delete(k);
+  return data;
+}
+// Wikidata: TMDb movie ID P4947 / TMDb TV series ID P4983 → Netflix ID P1874, Disney+ movie ID P7595, Disney+ series ID P7596
+async function wikidataIds(kind, id, qid = '') {
+  const by = `{ ?i wdt:${kind === 'tv' ? 'P4983' : 'P4947'} "${id}" . }${qid ? ` UNION { VALUES ?i { wd:${qid} } }` : ''}`;
+  const q = `SELECT ?nf ?dm ?ds WHERE { ${by} OPTIONAL { ?i wdt:P1874 ?nf . } OPTIONAL { ?i wdt:P7595 ?dm . } OPTIONAL { ?i wdt:P7596 ?ds . } } LIMIT 5`;
+  const r = await get(`${baseOf('wikidataBase')}/sparql?${new URLSearchParams({ format: 'json', query: q })}`, { headers: { Accept: 'application/sparql-results+json' }, timeout: 15000, what: 'Wikidata' });
+  if (r.status !== 200) throw fail(`Wikidata error ${r.status}`, 502);
+  const rows = jsonOf(r, 'Wikidata')?.results?.bindings || [];
+  const v = (k) => rows.map((x) => x[k]?.value).find(Boolean) || '';
+  return { netflix: v('nf'), disneyMovie: v('dm'), disneySeries: v('ds') };
+}
+
 // UPCitemdb's free trial: 100 lookups a day, a few a minute. Fails often → the phone falls back to typing.
 const PLAT_RE = [[/\bps5\b|playstation\s*5/i, 'PlayStation 5'], [/\bps4\b|playstation\s*4/i, 'PlayStation 4'], [/\bps3\b|playstation\s*3/i, 'PlayStation 3'], [/switch\s*2/i, 'Nintendo Switch 2'],
   [/nintendo\s*switch|\bswitch\b/i, 'Nintendo Switch'], [/xbox\s*series/i, 'Xbox Series X|S'], [/xbox\s*one/i, 'Xbox One'], [/xbox\s*360/i, 'Xbox 360'], [/\bwii\s*u\b/i, 'Wii U'], [/\bwii\b/i, 'Wii'],
@@ -604,6 +626,23 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
       const user = url.searchParams.get('username') || st.discogs.username || conf.discogs?.username || '';
       if (url.searchParams.get('force') === '1') cache.delete(`discogs:${user}`);
       return send(200, await cached(`discogs:${user}`, 10 * 60e3, () => discogsSync(user)));
+    }
+    // the streaming library (js/core/stream-library.js): TMDB with this bridge's key (allow-listed paths, cached) and
+    // the Netflix / Disney+ ids of a title from Wikidata
+    if (p === '/api/collection/tmdbapi') {
+      const tp = String(url.searchParams.get('path') || '');
+      if (!TMDB_PATHS.test(tp)) return send(400, { error: 'path not allowed' });
+      const params = {};
+      for (const [k, v] of url.searchParams) if (k !== 'path' && k !== 'api_key' && /^[\w.]{1,40}$/.test(k)) params[k] = clean(v, 200);
+      const ttl = /^\/search\//.test(tp) ? 30 * 60e3 : /^\/discover\//.test(tp) ? 3 * 3600e3 : 12 * 3600e3;
+      return send(200, await cachedCapped(`tmdbapi:${tp}?${new URLSearchParams(params)}`, ttl, () => tmdbGet(tp, params)));
+    }
+    if (p === '/api/collection/wikidata') {
+      const kind = url.searchParams.get('kind') === 'tv' ? 'tv' : 'movie';
+      const id = String(url.searchParams.get('id') || '').replace(/\D/g, '').slice(0, 10);
+      const qid = /^Q\d{1,12}$/.test(url.searchParams.get('qid') || '') ? url.searchParams.get('qid') : '';
+      if (!id) return send(400, { error: 'id needed' });
+      return send(200, await cachedCapped(`wd:${kind}:${id}:${qid}`, 7 * 86400e3, () => wikidataIds(kind, id, qid)));
     }
     if (p === '/api/collection/tmdb') return send(200, await cached(`tmdbd:${url.searchParams.get('type')}:${url.searchParams.get('id')}`, 24 * 3600e3, () => tmdbDetails(clean(url.searchParams.get('id'), 20), url.searchParams.get('type'))));
     if (p === '/api/collection/search') {

@@ -2,7 +2,8 @@
 // Party Cards (drink-roulette style): a stream of mixed cards naming random players — group calls, dares for one,
 // pairs, mini-games, votes and rules that last a few cards. Mild / spicy decks, English and Hebrew.
 import { h, clear, IC, svgIcon, rbtn, bag, fillNames, shuffle } from './drinks-ui.js';
-import { PARTY, WORDS } from './drinks-data.js';
+import { WORDS } from './drinks-data.js';
+import { isAdult } from './tasks-store.js';
 
 const TYPE_IC = { e: IC.people, p: IC.likely, d: IC.link, g: IC.party, v: IC.never, r: IC.virus, x: IC.virus };
 
@@ -10,9 +11,11 @@ export function mount(el, ctx) {
   const { app, settings } = ctx;
   const lang = settings.lang === 'he' ? 'he' : 'en';
   const W = WORDS[lang];
-  const parse = (s, spicy) => { const [type, text, end] = s.split('|'); return { type, text, end, spicy }; };
-  const deck = [...PARTY[lang].mild.map((s) => parse(s, false)), ...(settings.spicy ? PARTY[lang].spicy.map((s) => parse(s, true)) : [])];
+  // the deck: built-in + added cards from the shared store (language, spicy and lists from the hub's Settings)
+  const build = () => ctx.content('party').map((it) => ({ type: it.kind || 'e', text: it.text, end: it.end || '', turns: it.turns || 0, spicy: isAdult(it) }));
+  let deck = build();
   const cards = bag(deck);
+  const offC = ctx.onContent(() => { const d = build(); if (d.length !== deck.length) { deck = d; cards.reset(deck); } });
   const named = new Map();        // how often each player was named as {A} — keeps it fair
   let active = [];                // rules in play: { text, end, map, left }
   let n = 0, busy = false;
@@ -65,10 +68,10 @@ export function mount(el, ctx) {
       return;
     }
     const card = cards.next();
-    if (!card) return;
+    if (!card) { show('e', 'No cards here — add some from phones (QR) or in the Task manager, or pick other lists.', {}, false); return; }
     const map = cast(card);
     if (card.type === 'r') {
-      const left = 4 + Math.floor(Math.random() * 4);
+      const left = card.turns || 4 + Math.floor(Math.random() * 4);
       active.push({ text: card.text, end: card.end, map, left: left + 1 });
       show('r', card.text, map, card.spicy, h('span.dk-pa-left', lang === 'he' ? `ל-${left} הקלפים הבאים` : `for the next ${left} cards`));
       ctx.sfx('pop');
@@ -109,6 +112,7 @@ export function mount(el, ctx) {
   foot.append(h('span.dk-pa-left', 'Tap to start'));
 
   return {
+    destroy() { offC(); },
     key(e) { if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { next(); return true; } return false; },
   };
 }

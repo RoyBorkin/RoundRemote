@@ -19,7 +19,8 @@
 //          GET  /api/adapters/androidtv/list               → paired TVs
 //          POST /api/adapters/androidtv/unpair {host}
 //          POST /api/adapters/androidtv/key    {id,key}    → up/down/left/right/ok/back/home/power/mute/…
-//          POST /api/adapters/androidtv/app    {id,link}   → open an app by its link
+//          POST /api/adapters/androidtv/app    {id,link,pkg} → open an app by its link (or market://launch?id=<pkg>)
+//          POST /api/adapters/androidtv/text   {id,text}   → type into the app on screen (key presses; letters, digits, basic symbols)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +40,7 @@ const KEYS = {
   volup: ['KEYCODE_VOLUME_UP', 24], voldown: ['KEYCODE_VOLUME_DOWN', 25], menu: ['KEYCODE_MENU', 82], settings: ['KEYCODE_SETTINGS', 176],
   input: ['KEYCODE_TV_INPUT', 178], guide: ['KEYCODE_GUIDE', 172], captions: ['KEYCODE_CAPTIONS', 175],
 };
-// Apps the round screen can open (the links Google TV understands)
+// Apps for older displays (the round screen now builds its apps grid from js/core/tv-apps.js and sends the link)
 export const TV_APPS = [
   { id: 'youtube', name: 'YouTube', link: 'https://www.youtube.com' },
   { id: 'ytmusic', name: 'YouTube Music', link: 'https://music.youtube.com' },
@@ -55,7 +56,24 @@ const APP_NAMES = [
   [/amazonvideo|primevideo/i, 'Prime Video'], [/disney/i, 'Disney+'], [/plexapp|plex/i, 'Plex'], [/twitch/i, 'Twitch'], [/appletv|apple\.atve/i, 'Apple TV'],
   [/tidal/i, 'TIDAL'], [/deezer/i, 'Deezer'], [/kodi/i, 'Kodi'], [/hbo|max/i, 'Max'], [/launcher|tvlauncher|leanbacklauncher/i, 'Home screen'],
   [/tv\.settings|android\.settings/i, 'Settings'], [/tunerframework|tv\.tuner|livetv/i, 'Live TV'],
+  [/keshet\.mako/i, '12+'], [/applicaster\.il\.ch1/i, 'Kan'], [/applicaster\.ireshet/i, '13+'], [/channelfourteen|channel\.fourteen/i, 'Now 14'],
+  [/i24news/i, 'i24NEWS'], [/yes\.yesgo/i, 'yes+'], [/stingtv/i, 'STING+'], [/hotnext/i, 'NEXT TV'], [/partnertv/i, 'Partner tv+'],
+  [/cellcom/i, 'Cellcom tv'], [/freetv/i, 'FreeTV'], [/android\.vending/i, 'Google Play'],
 ];
+// Android key codes for typing (KEYCODE_A = 29 … Z = 54, 0 = 7 … 9 = 16)
+const CHAR_KEYS = { ' ': 62, '.': 56, ',': 55, '-': 69, '=': 70, '/': 76, '@': 77, "'": 75, ';': 74, '[': 71, ']': 72, '\\': 73, '`': 68, '+': 81, '#': 18, '*': 17 };
+export function charKeyCode(ch) {
+  const c = String(ch).toLowerCase();
+  if (c >= 'a' && c <= 'z') return 29 + c.charCodeAt(0) - 97;
+  if (c >= '0' && c <= '9') return 7 + c.charCodeAt(0) - 48;
+  return CHAR_KEYS[c] ?? null;
+}
+/** A deep link as given, else "launch this package" (what Google's own remote sends for an app id). */
+export function appLinkOf({ link, pkg } = {}) {
+  if (link && /^[a-z][\w+.-]*:/i.test(String(link))) return String(link);
+  if (pkg && /^[A-Za-z][\w]*(\.[\w]+)+$/.test(String(pkg))) return `market://launch?id=${pkg}`;
+  return '';
+}
 export const appName = (pkg = '') => { for (const [re, n] of APP_NAMES) if (re.test(pkg)) return n; return pkg ? pkg.split('.').filter((x) => !/^(com|tv|android|app|google)$/.test(x)).pop() || pkg : ''; };
 
 let stateFile = STATE;   // "androidtv": { "file": … } in config.json moves it
@@ -222,11 +240,28 @@ export function create({ hub, cfg = {}, setStatus }) {
       if (key === 'power' && tv.remote.sendPower) tv.remote.sendPower(); else tv.remote.sendKey(keyOf(key), SHORT());
       return { ok: true };
     },
-    async app({ id, link }) {
+    // typing into the app on screen (a search box): one key press per character — letters, digits, space and basic
+    // symbols (the Remote protocol's IME text needs more than this library offers)
+    async text({ id, text }) {
       const tv = tvs.get(String(id).replace(/^androidtv:/, ''));
       if (!tv?.remote) throw new Error('TV not connected');
-      tv.remote.sendAppLink(link);
-      return { ok: true };
+      const chars = [...String(text || '').slice(0, 80)];
+      let skipped = 0;
+      for (const ch of chars) {
+        const code = charKeyCode(ch);
+        if (code == null) { skipped++; continue; }
+        try { tv.remote.sendKey(code, SHORT()); } catch {}
+        await new Promise((r) => setTimeout(r, 90));
+      }
+      return { ok: true, typed: chars.length - skipped, skipped };
+    },
+    async app({ id, link, pkg }) {
+      const tv = tvs.get(String(id).replace(/^androidtv:/, ''));
+      if (!tv?.remote) throw new Error('TV not connected');
+      const to = appLinkOf({ link, pkg });
+      if (!to) throw new Error('Which app? Send a link or a package name');
+      tv.remote.sendAppLink(to);
+      return { ok: true, link: to };
     },
   };
 
@@ -262,7 +297,8 @@ export function create({ hub, cfg = {}, setStatus }) {
     async play(host, item) {
       const tv = tvs.get(host);
       const app = TV_APPS.find((a) => a.id === item.id);
-      if (tv?.remote && (item.link || app)) tv.remote.sendAppLink(item.link || app.link);
+      const to = appLinkOf({ link: item.link || app?.link, pkg: item.pkg });
+      if (tv?.remote && to) tv.remote.sendAppLink(to);
     },
   };
 }

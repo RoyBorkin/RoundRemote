@@ -10,6 +10,7 @@ import { toLocal, localRect } from '../js/core/util.js';
 import { themeEvents } from '../js/core/theme.js';
 import { THEME, TAU, clamp } from '../games/kit.js';
 import * as T from './tasks-store.js';
+import { listChips, ensureCss } from './tasks-ui.js';
 
 const { TYPE_META } = T;
 const MIN_SPIN = 12, MAX_SPIN = 30;        // rad/s right after a counted spin
@@ -40,6 +41,7 @@ export default {
     const { h, icon } = app;
     app.hideTitle();
     el.classList.add('bt');
+    ensureCss();
 
     // ------------------------------------------------------------ state
     let players = app.data('players', DEFAULT_PLAYERS).slice(0, 12);
@@ -547,6 +549,9 @@ export default {
                 const set = new Set(s.tags); set.has(t) ? set.delete(t) : set.add(t); set.delete('18+'); T.setSettings({ tags: [...set] }); drawSet();
               }))),
               h('div.bt-row-sub.bt-center', s.tags.length ? `Only cards with these tags${s.adult && s.tags.includes('family') ? ' (Family hides 18+)' : ''}` : 'None picked = any tag'),
+              h('div.bt-sh', 'Lists'),
+              h('div.bt-lists', listChips(app, s.lists.filter((id) => T.listById(id)), (ids) => { T.setSettings({ lists: ids }); drawSet(); })),
+              h('div.bt-row-sub.bt-center', s.lists.some((id) => T.listById(id)) ? 'Only cards on these lists' : T.lists().length ? 'None picked = every card' : 'Your own collections, e.g. “Family night” — put cards on them in the Tasks app'),
               h('div.bt-sh', 'Grown-ups'),
               h(`div.bt-row${s.adult ? '.bt-x18' : ''}`, h('span.bt-18.lg', '18+'), h('div.bt-row-l', h('div', '18+ mode'), h('div.bt-row-sub', s.adult ? 'Flirty, party & drinking cards' : 'Off — family friendly')),
                 sw(s.adult, async () => {
@@ -592,7 +597,7 @@ export default {
     const offs = [
       themeEvents.on('change', () => { dirty = true; render(); }),
       T.events.on('change', () => renderMode()),
-      T.events.on('fresh', (items) => { const it = items[items.length - 1]; app.toast(`${it.author || 'Someone'} added a ${TYPE_META[it.type]?.name.toLowerCase() || 'task'}`); }),
+      T.events.on('fresh', (items) => { items = items.filter((i) => T.TOD.includes(i.type)); const it = items[items.length - 1]; if (it) app.toast(`${it.author || 'Someone'} added a ${TYPE_META[it.type]?.name.toLowerCase() || 'task'}`); }),
       T.startSync({ every: 4000, passive: true }),
     ];
     app.raf((dt) => tick(dt));

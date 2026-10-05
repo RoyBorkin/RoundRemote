@@ -6,13 +6,16 @@
 //   • Multiple choice — everyone answers A–D on their phone before the timer runs out; faster correct answers score
 //     more (team score = the average of its players).
 //   • Pass the remote — no phones: teams take turns answering A–D on the display (tap or knob).
-// Questions: the built-in bank (English and Hebrew, 10 categories, three difficulties), Open Trivia DB (online), and
-// your own (typed here, or from a phone in host mode). Rounds, a timer ring, a scoreboard and a final podium with
-// confetti — and, optionally, Home Assistant lights flashing in the winning team's colour.
+// Questions come from the shared content store (apps/tasks-store.js — the Tasks app manages them): the built-in bank
+// (English and Hebrew, 10 topics, three difficulties) and your own (typed here, or added from phones with the QR code
+// → bridge/lib/tasks.js), by topics (built-in + your own topics, multi-select) and/or your lists, plus Open Trivia DB
+// (online). Rounds, a timer ring, a scoreboard and a final podium with confetti — and, optionally, Home Assistant lights
+// flashing in the winning team's colour.
 import { clear } from '../js/ui/dom.js';
 import { curve, listRow, spinner } from '../js/ui/overlay.js';
-import { CATS, EN } from './trivia-bank.js';
-import { HE } from './trivia-bank-he.js';
+import { CATS } from './trivia-bank.js';
+import * as T from './tasks-store.js';
+import { itemForm, phonesPanel, listChips, ensureCss, qrGlyph } from './tasks-ui.js';
 import { partyLink, qrBox, linkProblem, confetti, haReady, haEntities, haCall } from './party-link.js';
 
 const TEAMS = [
@@ -27,22 +30,11 @@ const DIFF = ['', 'Easy', 'Medium', 'Hard'];
 const hasHe = (s) => /[֐-׿]/.test(s || '');
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const hash = (s) => { let x = 7; for (const c of String(s)) x = (x * 31 + c.charCodeAt(0)) | 0; return (x >>> 0).toString(36); };
-const catOf = (id) => CATS.find((c) => c.id === id);
+const catOf = (id) => T.topicOf(id);
+/** Store entries → the quiz's question shape. */
+const asQ = (it) => ({ id: it.id, q: it.text, a: it.answer, w: it.wrong || [], cat: it.cat || 'general', d: it.d || 2, lang: T.langOf(it), src: it.builtin ? 'builtin' : 'mine' });
 
-function parseBank(src, lang) {
-  const out = [];
-  for (const [cat, txt] of Object.entries(src)) {
-    txt.trim().split('\n').forEach((line, i) => {
-      const [d, q, a, ...w] = line.split('|');
-      out.push({ id: `${lang}:${cat}:${i}`, cat, d: +d, q, a, w, lang, src: 'builtin' });
-    });
-  }
-  return out;
-}
-let BANK = null;
-const bank = () => (BANK ||= [...parseBank(EN, 'en'), ...parseBank(HE, 'he')]);
-
-const DEF_SETUP = { mode: 'mc', teams: ['red', 'blue'], names: {}, lang: 'en', cats: [], diff: 0, rounds: 3, per: 5, timer: 20, buzzWin: 30, answerSecs: 10,
+const DEF_SETUP = { mode: 'mc', teams: ['red', 'blue'], names: {}, lang: 'en', cats: [], lists: [], diff: 0, rounds: 3, per: 5, timer: 20, buzzWin: 30, answerSecs: 10,
   src: { builtin: true, mine: true, otdb: false }, otdbCats: [], catPerRound: false, flash: { on: false, ids: [] }, sounds: true };
 
 export default {
@@ -52,7 +44,12 @@ export default {
     el.classList.add('tv');
     const setup = () => { const s = { ...DEF_SETUP, ...app.data('setup', {}) }; s.src = { ...DEF_SETUP.src, ...(s.src || {}) }; s.flash = { ...DEF_SETUP.flash, ...(s.flash || {}) }; return s; };
     const putSetup = (p) => { app.save('setup', { ...app.data('setup', {}), ...p }); };
-    const mine = () => app.data('mine', []);
+    ensureCss();
+    // the store's trivia entries for the current setup: language, picked lists, 18+ mode; `source` = all | builtin | custom
+    const lists = (s = setup()) => (s.lists || []).filter((id) => T.listById(id));
+    const store = (s = setup(), source = 'all', extra = {}) => T.pool({ type: 'trivia', filter: 'all', tags: [], lang: s.lang === 'both' ? null : s.lang, lists: lists(s), source, packs: false, ...extra });
+    const mine = () => store(setup(), 'custom').map(asQ);
+    const srcOf = (s) => (s.src.builtin && s.src.mine ? 'all' : s.src.builtin ? 'builtin' : s.src.mine ? 'custom' : null);
     let players = app.data('players', {});      // device → { name, team }
     let G = app.data('game', null);             // the running game (kept so a reload can resume)
     let page = null, sel = 0, tickT = 0, offs = [], leaveAsk = 0;
@@ -73,10 +70,9 @@ export default {
         if (page === 'setup') drawSetup();
         publish(); return;
       }
-      if (a.type === 'addq') {
-        const list = mine();
-        list.push({ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), q: a.q, a: a.a, w: a.wrong || [], cat: CATS.some((c) => c.id === a.cat) ? a.cat : 'general', lang: a.lang, d: a.d || 2 });
-        app.save('mine', list); app.toast(`Question added from ${a.name || 'a phone'}`); sfx('coin'); return;
+      if (a.type === 'addq') {   // host mode on the Trivia phone page (older QR codes) → the shared store
+        T.addItem({ type: 'trivia', text: a.q, answer: a.a, wrong: a.wrong || [], cat: a.cat || 'general', lang: a.lang, d: a.d || 2, author: a.name || '' });
+        app.toast(`Question added from ${a.name || 'a phone'}`); sfx('coin'); return;
       }
       if (!G) return;
       if (a.type === 'buzz' && G.phase === 'question' && G.mode === 'buzzer' && G.buzz?.open && a.bid === G.buzz.id && a.rank === 1 && !(G.buzz.locked || []).includes(a.team)) {
@@ -141,13 +137,15 @@ export default {
       const teams = h('div.tv-teams', ...teamList().map((t) => h('button.tv-team', { type: 'button', '--t': t.color, onclick: () => teamMenu(t) },
         h('span.tv-team-sw'), h('span.tv-team-n', { dir: 'auto' }, t.name), counts[t.id] ? h('span.tv-team-c', String(counts[t.id])) : null)),
       s.teams.length < TEAMS.length ? h('button.tv-team.tv-team-add', { type: 'button', 'aria-label': 'Add a team', onclick: () => { const next = TEAMS.find((x) => !s.teams.includes(x.id)); putSetup({ teams: [...s.teams, next.id] }); sfx('pop'); drawSetup(); publish(); }, html: icon('plus') }) : null);
-      const srcN = [s.src.builtin && 'Built-in', s.src.otdb && 'Open Trivia DB', s.src.mine && `Mine (${mine().length})`].filter(Boolean);
+      const nl = lists(s).length;
+      const srcN = [s.src.builtin && 'Built-in', s.src.mine && `Mine (${mine().length})`, s.src.otdb && 'Open Trivia DB'].filter(Boolean);
+      const nTop = T.topics().length;
       const tile = (k, v, fn) => h('button.tv-tile', { type: 'button', onclick: fn }, h('span.tv-tile-k', k), h('span.tv-tile-v', { dir: 'auto' }, v));
       const nCats = s.cats.length;
       const tiles = h('div.tv-tiles',
-        tile('Questions', srcN.join(' + ') || 'None', () => openSources()),
+        tile('Questions', `${srcN.join(' + ') || 'None'}${nl ? ` · ${nl} list${nl === 1 ? '' : 's'}` : ''}`, () => openSources()),
         tile('Language', { en: 'English', he: 'עברית', both: 'Both' }[s.lang], () => { const order = ['en', 'he', 'both']; putSetup({ lang: order[(order.indexOf(s.lang) + 1) % 3] }); sfx('tap'); drawSetup(); publish(); }),
-        tile('Categories', !nCats ? 'All 10' : nCats === 1 ? catOf(s.cats[0])?.name : `${nCats} picked${s.catPerRound ? ' · 1 per round' : ''}`, () => openCats()),
+        tile('Topics', !nCats ? `All ${nTop}` : nCats === 1 ? catOf(s.cats[0])?.name : `${nCats} picked${s.catPerRound ? ' · 1 per round' : ''}`, () => openCats()),
         tile('Rounds', `${s.rounds} × ${s.per} questions`, () => openRounds()),
         tile('Timer', s.mode === 'buzzer' ? `${s.buzzWin} s to buzz` : `${s.timer} s`, () => openRounds()),
         tile('Difficulty', s.diff ? DIFF[s.diff] : 'Any', () => { putSetup({ diff: (s.diff + 1) % 4 }); sfx('tap'); drawSetup(); }));
@@ -160,7 +158,7 @@ export default {
       clear(bar);
       const s = setup();
       bar.append(
-        h('button.tv-btn', { type: 'button', 'aria-label': 'My questions', onclick: () => openMine() }, h('i', { html: icon('edit') }), h('span', 'My questions')),
+        h('button.tv-btn', { type: 'button', 'aria-label': 'Add questions (QR code for phones)', onclick: () => addMore() }, qrGlyph(), h('span', 'Add')),
         h('button.pill.primary.tv-go', { type: 'button', onclick: () => startGame() }, h('i', { html: icon('play') }), s.mode === 'remote' ? 'Start' : 'Next: join'),
         h('button.tv-btn', { type: 'button', 'aria-label': 'Options', onclick: () => openOptions() }, h('i', { html: icon('settings') }), h('span', 'Options')));
     }
@@ -179,40 +177,61 @@ export default {
         },
       });
     }
+    function addMore() { phonesPanel(app, { type: 'trivia', title: 'Add questions', onAdded: () => drawSetup() }); }
     function openSources() {
       app.openPanel({
         title: 'Questions from', className: 'tvq-panel',
-        build(body) {
+        build(body, panel) {
           const box = h('div.tv-set'); body.append(box);
           const draw = () => {
             clear(box);
             const s = setup();
             const sw = (on, fn) => h(`button.switch${on ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(on), onclick: fn });
             const row = (l, sub, r) => { if (r?.classList?.contains('switch') && !r.hasAttribute('aria-label')) r.setAttribute('aria-label', l); return h('div.tv-set-row', h('div', h('div', l), h('div.tv-set-sub', sub)), r); };
-            const nb = bank().filter((q) => s.lang === 'both' || q.lang === s.lang).length;
+            const langName = s.lang === 'he' ? 'Hebrew' : s.lang === 'en' ? 'English' : 'English and Hebrew';
+            const nb = store(s, 'builtin').length, nm = store(s, 'custom').length, nl = lists(s).length;
+            const lc = T.listCounts(['trivia']);
             box.append(
-              row('Built-in questions', `${nb} in ${s.lang === 'he' ? 'Hebrew' : s.lang === 'en' ? 'English' : 'English and Hebrew'}`, sw(s.src.builtin, () => { putSetup({ src: { ...s.src, builtin: !s.src.builtin } }); draw(); drawSetup(); })),
+              row('Built-in questions', `${nb} in ${langName}${nl ? ' on the picked lists' : ''}`, sw(s.src.builtin, () => { putSetup({ src: { ...s.src, builtin: !s.src.builtin } }); draw(); drawSetup(); })),
+              row('My questions', `${nm} added${nl ? ' on the picked lists' : ''} · typed here or from phones`, sw(s.src.mine, () => { putSetup({ src: { ...s.src, mine: !s.src.mine } }); draw(); drawSetup(); })),
               row('Open Trivia DB', 'Online, English · opentdb.com', sw(s.src.otdb, () => { putSetup({ src: { ...s.src, otdb: !s.src.otdb } }); draw(); drawSetup(); })),
-              row('My questions', `${mine().length} saved`, sw(s.src.mine, () => { putSetup({ src: { ...s.src, mine: !s.src.mine } }); draw(); drawSetup(); })),
-              ...(s.src.otdb ? [h('button.pill.small', { type: 'button', onclick: () => openOtdbCats() }, s.otdbCats.length ? `Open Trivia DB categories: ${s.otdbCats.length}` : 'Open Trivia DB categories: any')] : []));
+              ...(s.src.otdb ? [h('button.pill.small', { type: 'button', onclick: () => openOtdbCats() }, s.otdbCats.length ? `Open Trivia DB categories: ${s.otdbCats.length}` : 'Open Trivia DB categories: any')] : []),
+              h('div.tv-sh', 'Lists'),
+              h('div.tv-set-sub.tv-note', T.lists().length ? 'Only questions on these lists (none picked = all):' : 'Lists are your own collections (e.g. “Family night”) — make one here or in the Task manager.'),
+              h('div.tv-lists', listChips(app, lists(s), (ids) => { putSetup({ lists: ids }); draw(); drawSetup(); })),
+              ...(T.lists().length ? [h('div.tv-set-sub.tv-note', { dir: 'auto' }, T.lists().map((l) => `${l.text}: ${lc[l.id] || 0}`).join(' · '))] : []),
+              h('div.tv-sh', 'Grown-ups'),
+              row('18+ questions', T.settings().adult ? 'Included — shared 18+ mode is on' : 'Left out (shared 18+ mode)', sw(T.settings().adult, async () => {
+                const on = T.settings().adult;
+                if (!on && !(await T.confirmAdult(app))) return;
+                T.setSettings({ adult: !on }); draw(); drawSetup();
+              })),
+              h('div.tv-mine-acts',
+                h('button.pill.small', { type: 'button', onclick: () => openMine() }, `My questions (${nm})`),
+                h('button.pill.small', { type: 'button', onclick: () => { panel.close(); addMore(); } }, 'Add from phones'),
+                h('button.pill.small', { type: 'button', onclick: () => app.go('app', { id: 'tasks' }) }, 'Task manager')));
           };
           draw();
+          panel.onDestroy = T.events.on('change', () => { if (!panel.closed) draw(); });
         },
       });
     }
     function openCats() {
       app.openPanel({
-        title: 'Categories', className: 'tvq-panel',
+        title: 'Topics', className: 'tvq-panel',
         build(body) {
           const grid = h('div.tv-catgrid'); body.append(grid);
           const draw = () => {
             clear(grid);
             const s = setup(), set = new Set(s.cats);
-            grid.append(h(`button.tv-cat${!set.size ? '.on' : ''}`, { type: 'button', '--k': '#94a3b8', onclick: () => { putSetup({ cats: [] }); draw(); drawSetup(); } }, h('span', '✦'), h('b', 'All')));
-            for (const c of CATS) grid.append(h(`button.tv-cat${set.has(c.id) ? '.on' : ''}`, { type: 'button', '--k': c.color, onclick: () => { set.has(c.id) ? set.delete(c.id) : set.add(c.id); putSetup({ cats: CATS.map((x) => x.id).filter((x) => set.has(x)) }); sfx('tick'); draw(); drawSetup(); } },
-              h('span', c.icon), h('b', s.lang === 'he' ? c.he : c.name)));
-            grid.append(h('div.tv-set-row.tv-wide', h('div', h('div', 'One category per round'), h('div.tv-set-sub', 'Round 1 = first category, round 2 = the next…')),
-              h(`button.switch${s.catPerRound ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(s.catPerRound), 'aria-label': 'One category per round', onclick: () => { putSetup({ catPerRound: !s.catPerRound }); draw(); drawSetup(); } })));
+            const src = srcOf(s), n = {};
+            if (src) for (const q of store(s, src)) n[q.cat] = (n[q.cat] || 0) + 1;
+            const tps = T.topics().filter((c) => !c.custom || n[c.id]);
+            grid.append(h(`button.tv-cat${!set.size ? '.on' : ''}`, { type: 'button', '--k': '#94a3b8', onclick: () => { putSetup({ cats: [] }); draw(); drawSetup(); } }, h('span', '✦'), h('b', 'All'), h('small', String(Object.values(n).reduce((a, b) => a + b, 0)))));
+            for (const c of tps) grid.append(h(`button.tv-cat${set.has(c.id) ? '.on' : ''}`, { type: 'button', '--k': c.color, onclick: () => { set.has(c.id) ? set.delete(c.id) : set.add(c.id); putSetup({ cats: tps.map((x) => x.id).filter((x) => set.has(x)) }); sfx('tick'); draw(); drawSetup(); } },
+              h('span', c.icon), h('b', { dir: 'auto' }, s.lang === 'he' ? c.he : c.name), h('small', String(n[c.id] || 0))));
+            grid.append(h('div.tv-set-row.tv-wide', h('div', h('div', 'One topic per round'), h('div.tv-set-sub', 'Round 1 = first topic, round 2 = the next…')),
+              h(`button.switch${s.catPerRound ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(s.catPerRound), 'aria-label': 'One topic per round', onclick: () => { putSetup({ catPerRound: !s.catPerRound }); draw(); drawSetup(); } })));
           };
           draw();
         },
@@ -301,7 +320,7 @@ export default {
       });
     }
 
-    // ---------------- your own questions
+    // ---------------- your own questions (the store's added trivia entries)
     function openMine() {
       app.openPanel({
         title: 'My questions', className: 'tvq-panel',
@@ -309,60 +328,41 @@ export default {
           const top = h('div.tv-mine-top'); const box = h('div.list'); body.append(top, box); curve(box);
           const draw = () => {
             clear(top); clear(box);
-            top.append(h('button.pill.small.primary', { type: 'button', onclick: () => addMine(draw) }, '+ Add'), h('button.pill.small', { type: 'button', onclick: () => { panel.close(); hostQr(); } }, 'Add from a phone'));
-            const list = mine();
+            top.append(h('button.pill.small.primary', { type: 'button', onclick: () => addMine() }, '+ Add'), h('button.pill.small', { type: 'button', onclick: () => { panel.close(); addMore(); } }, 'Add from a phone'));
+            const list = T.pool({ type: 'trivia', source: 'custom', filter: 'all', tags: [], packs: false });
             if (!list.length) box.append(h('div.empty', 'Add your own questions — with three wrong answers they work in every mode; without, in Buzzers mode.'));
-            for (const q of list.slice().reverse()) {
-              box.append(listRow({ title: q.q, subtitle: `${q.a}${q.w.length >= 3 ? ' · A–D' : ' · buzzers only'} · ${catOf(q.cat)?.name || ''}`, mono: q.lang === 'he' ? 'ע' : 'Q', color: catOf(q.cat)?.color,
+            for (const it of list.slice().sort((a, b) => (b.created || 0) - (a.created || 0))) {
+              const q = asQ(it);
+              box.append(listRow({ title: q.q, subtitle: `${q.a}${q.w.length >= 3 ? ' · A–D' : ' · buzzers only'} · ${catOf(q.cat)?.name || ''}${T.isAdult(it) ? ' · 18+' : ''}`, mono: q.lang === 'he' ? 'ע' : 'Q', color: catOf(q.cat)?.color,
                 onClick: () => app.openPanel({ title: 'Your question', className: 'tvq-panel tv-qpanel', build(b2, p2) {
                   b2.append(h('div.tv-qp-q', { dir: 'auto' }, q.q), h('div.tv-qp-a', { dir: 'auto' }, `✓ ${q.a}`), ...q.w.map((w) => h('div.tv-qp-w', { dir: 'auto' }, `✗ ${w}`)),
-                    h('button.pill.danger', { type: 'button', onclick: () => { app.save('mine', mine().filter((x) => x.id !== q.id)); p2.close(); draw(); drawSetup(); } }, 'Delete'));
+                    h('div.tv-mine-acts',
+                      h('button.pill', { type: 'button', onclick: async () => { p2.close(); const r = await itemForm(app, { type: 'trivia', item: T.getItem(it.id) }); if (r) T.updateItem(it.id, r); } }, 'Edit'),
+                      h('button.pill.danger', { type: 'button', onclick: () => { T.removeItem(it.id); p2.close(); } }, 'Delete')));
                 } }) }));
             }
           };
           draw();
+          panel.onDestroy = T.events.on('change', () => { if (!panel.closed) draw(); });
         },
       });
     }
-    async function addMine(after) {
-      const q = await app.editText({ title: 'Question', placeholder: 'Your question', okLabel: 'Next' });
-      if (!q) return;
-      const a = await app.editText({ title: 'Correct answer', placeholder: 'The answer', okLabel: 'Next' });
-      if (!a) return;
-      const w = [];
-      for (let i = 1; i <= 3; i++) {
-        const x = await app.editText({ title: `Wrong answer ${i} of 3 (optional)`, placeholder: i === 1 ? 'Leave empty for buzzer-only' : 'Another wrong answer', okLabel: i < 3 ? 'Next' : 'Save' });
-        if (!x) break;
-        w.push(x);
-      }
+    async function addMine() {
       const s = setup();
-      const list = mine();
-      list.push({ id: 'm' + Date.now().toString(36), q, a, w: w.length === 3 ? w : [], cat: s.cats.length === 1 ? s.cats[0] : 'general', lang: hasHe(q) ? 'he' : 'en', d: 2 });
-      app.save('mine', list); sfx('coin'); app.toast('Question saved');
-      after?.(); drawSetup();
-    }
-    async function hostQr() {
-      const r = await link.phoneUrl();
-      app.openPanel({
-        title: 'Add from a phone', className: 'tvq-panel tv-hostqr',
-        build(body) {
-          if (!r.url) { body.append(h('div.empty', linkProblem(r.reason))); return; }
-          body.append(qrBox(`${r.url}&host=${encodeURIComponent(link.key)}`, 'tv-hostqr-code'), h('div.tv-set-sub', 'Host only — this link can add questions. Don’t share it with players.'));
-        },
-      });
+      const r = await itemForm(app, { type: 'trivia', defaults: { cat: s.cats.length === 1 ? s.cats[0] : 'general', lists: lists(s), d: s.diff || 2 } });
+      if (!r) return;
+      if (T.addItem({ type: 'trivia', ...r })) { sfx('coin'); app.toast('Question saved'); }
+      drawSetup();
     }
 
     // ---------------- building a game
     async function buildQuestions(s) {
       const total = s.rounds * s.per;
-      const langOk = (q) => s.lang === 'both' || q.lang === s.lang;
-      const catOk = (q) => !s.cats.length || s.cats.includes(q.cat);
-      const diffOk = (q) => !s.diff || !q.d || q.d === s.diff;
       const needOpts = s.mode !== 'buzzer';
       const seen = new Set(app.data('seen', []));
-      let pool = [];
-      if (s.src.builtin) pool.push(...bank().filter((q) => langOk(q) && catOk(q) && diffOk(q)));
-      if (s.src.mine) pool.push(...mine().filter((q) => langOk(q) && catOk(q) && (!needOpts || q.w.length >= 3)).map((q) => ({ ...q, src: 'mine' })));
+      const src = srcOf(s);
+      // the store does language, lists, topics, difficulty and 18+; questions without 3 wrong answers only for buzzers
+      let pool = src ? store(s, src, { cats: s.cats.length ? s.cats : null, diff: s.diff }).map(asQ).filter((q) => !needOpts || q.w.length >= 3) : [];
       let online = [];
       if (s.src.otdb && s.lang !== 'he') {
         try { online = await fetchOtdb(s, Math.min(50, total)); } catch (e) { app.toast(`Open Trivia DB: ${e.message}`, { kind: 'error' }); }
@@ -408,6 +408,7 @@ export default {
     async function startGame() {
       const s = setup();
       if (!s.src.builtin && !s.src.otdb && !s.src.mine) { app.toast('Turn on a question source'); return openSources(); }
+      if (!s.src.otdb && !store(s, srcOf(s), { cats: s.cats.length ? s.cats : null, diff: s.diff }).length) { app.toast('No questions match — try other topics, lists, language or difficulty', { kind: 'error', ms: 3600 }); return openSources(); }
       if (s.mode !== 'remote' && link.status !== 'ok') {
         app.toast('Phones need the bridge — playing “pass the remote”', { ms: 3200 });
         putSetup({ mode: 'remote' });
@@ -712,6 +713,8 @@ export default {
       else if (G.phase === 'scores') show('scores');
       else { if (G.phase === 'question' || G.phase === 'buzzed') { G.qStart = Date.now(); G.ansStart = Date.now(); if (G.mode === 'buzzer' && G.phase === 'question') G.buzz.open = true; } show('question'); }
     } else { G = null; show('setup'); }
+    offs.push(T.startSync({ every: 4000, passive: true }));   // questions added from phones arrive while Trivia is open
+    offs.push(T.events.on('change', () => { if (page === 'setup') drawSetup(); }));
     link.start(); publish();
     return {
       destroy() { link.stop(); for (const off of offs) off(); clearTimeout(tickT); },

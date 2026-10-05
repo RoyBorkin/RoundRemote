@@ -184,3 +184,9 @@
 .tv-qp-q { font-family: var(--display); font-size: 3.4cqmin; font-weight: 700; max-width: 58cqmin; unicode-bidi: plaintext; }
 .tv-qp-a { font-size: 2.6cqmin; color: var(--ok); font-weight: 700; unicode-bidi: plaintext; }
 .tv-qp-w { font-size: 2.3cqmin; color: var(--muted); unicode-bidi: plaintext; }
+/* questions from the shared content store: topics with counts, lists, add from phones */
+.tv-cat small { font-size: 1.8cqmin; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tv-cat b { overflow-wrap: anywhere; }
+.tv-lists { --k: var(--accent); display: flex; justify-content: center; }
+.tv-lists .chip { font-size: 2.3cqmin; padding: 1.1cqmin 2.3cqmin; }
+.tv-mine-acts { display: flex; gap: 1.2cqmin; justify-content: center; flex-wrap: wrap; margin-top: 1.6cqmin; }

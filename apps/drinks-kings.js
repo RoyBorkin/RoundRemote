@@ -1,15 +1,33 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Kings Cup (Ring of Fire): draw from a virtual 52-card deck; each rank has a rule (editable). Tracks whose turn
-// it is, the Question Master, the Thumb Master, mates, the rules in play and the four Kings.
+// it is, the Question Master, the Thumb Master, mates, the rules in play and the four Kings. The rules come from the
+// shared content store (Tasks app → Drinking games → Kings): the classic rule of each rank (edits kept as overrides),
+// replaced by the newest custom rule for that rank (on the picked lists, when lists are picked).
 import { openPanel, curve } from '../js/ui/overlay.js';
 import { h, clear, IC, svgIcon, rbtn, cardEl, newDeck, tableRing, confirm } from './drinks-ui.js';
 import { KINGS_RULES } from './drinks-data.js';
+import * as T from './tasks-store.js';
 
 const ORDER = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 export function mount(el, ctx) {
   const { app } = ctx;
-  let rules = { ...KINGS_RULES, ...app.data('kingsRules', {}) };
+  const lang = ctx.settings.lang === 'he' ? 'he' : 'en';
+  /** rank → { t, d, id, custom, edited } */
+  function loadRules() {
+    const all = ctx.content('kings', { lists: false, anyLang: true });
+    const picked = (ctx.settings.lists || []).filter((id) => T.listById(id));
+    const out = {};
+    for (const r of ORDER) {
+      const mine = all.filter((i) => i.rank === r && !i.builtin && (!picked.length || (i.lists || []).some((l) => picked.includes(l))))
+        .sort((a, b) => (T.langOf(b) === lang) - (T.langOf(a) === lang) || (b.updated || 0) - (a.updated || 0));
+      const it = mine[0] || all.find((i) => i.rank === r && i.builtin) || T.builtinById(`b:en:r:${r}`);
+      out[r] = { t: it?.title || KINGS_RULES[r].t, d: it?.text || KINGS_RULES[r].d, id: it?.id, custom: !!mine[0], edited: !mine[0] && !!it?.updated };
+    }
+    return out;
+  }
+  let rules = loadRules();
+  const offC = ctx.onContent(() => { rules = loadRules(); render(); });
   let g = app.data('kingsGame', null);
   if (!g || !Array.isArray(g.deck) || g.deck.length !== 52) g = fresh();
   function fresh() { return { deck: newDeck(), pos: 0, turn: 0, kings: 0, mates: [], rules: [], qm: null, tm: null, last: null, lastBy: null, over: false }; }
@@ -150,29 +168,30 @@ export function mount(el, ctx) {
   function editRules() {
     openPanel({
       title: 'Card rules', className: 'dk-rules',
-      build(body) {
+      build(body, panel) {
         const list = h('div.list.dk-ru-list');
         const fill = () => {
           clear(list);
           for (const r of ORDER) {
-            const custom = app.data('kingsRules', {})[r];
+            const cur = rules[r];
             list.append(h('button.row.dk-ru-row', { type: 'button', onclick: async () => {
-              const t = await app.editText({ title: `${r} — name`, value: rules[r].t });
+              const t = await app.editText({ title: `${r} — name`, value: cur.t });
               if (t === null) return;
-              const d = await app.editText({ title: `${r} — what to do`, value: rules[r].d });
+              const d = await app.editText({ title: `${r} — what to do`, value: cur.d });
               if (d === null) return;
-              const saved = app.data('kingsRules', {});
-              saved[r] = { t: (t || rules[r].t).slice(0, 30), d: (d || rules[r].d).slice(0, 180) };
-              app.save('kingsRules', saved);
-              rules = { ...KINGS_RULES, ...saved };
-              fill(); render();
+              const id = cur.id || `b:en:r:${r}`;
+              T.updateItem(id, { title: (t || cur.t).slice(0, 40), text: (d || cur.d).slice(0, 300) });
+              rules = loadRules(); fill(); render();
             } },
             h('span.dk-ru-rank', r),
-            h('div.row-text', h('div.row-title', rules[r].t, custom ? h('span.dk-ru-mod', ' · edited') : ''), h('div.row-sub', rules[r].d))));
+            h('div.row-text', h('div.row-title', h('bdi', cur.t), cur.custom ? h('span.dk-ru-mod', ' · custom') : cur.edited ? h('span.dk-ru-mod', ' · edited') : ''), h('div.row-sub', { dir: 'auto' }, cur.d))));
           }
         };
         fill();
-        body.append(list, h('button.pill.small.dk-ru-reset', { type: 'button', onclick: () => { app.save('kingsRules', {}); rules = { ...KINGS_RULES }; fill(); render(); app.toast('Classic rules restored'); } }, 'Reset to classic'));
+        panel.onDestroy = T.events.on('change', () => { if (!panel.closed) fill(); });
+        body.append(list, h('div.dk-ru-acts',
+          h('button.pill.small', { type: 'button', onclick: () => { T.resetPacks(['kings']); rules = loadRules(); fill(); render(); app.toast(Object.values(rules).some((x) => x.custom) ? 'Classic rules restored — custom rules stay (Task manager)' : 'Classic rules restored'); } }, 'Reset to classic'),
+          h('button.pill.small', { type: 'button', onclick: () => ctx.addMore('kings') }, '+ Custom rule')));
         curve(list);
       },
     });
@@ -182,7 +201,7 @@ export function mount(el, ctx) {
   render();
 
   return {
-    destroy() { offP(); },
+    destroy() { offP(); offC(); },
     back() { if (pendingMate) { pendingMate = null; render(); return true; } return false; },
     key(e) {
       if (e.key === 'Enter' || e.key === ' ') { draw(); return true; }

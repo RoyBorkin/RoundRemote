@@ -5,3 +5,5 @@ import './settings-startup.js';   // Startup animation (logo splash) · Mouse po
 import './setup-remote.js';   // Set up from phone or computer (pair a phone: QR + code; js/core/remote-setup.js)
 import './settings-diagnostics.js';   // Profiles & about → Diagnostics (bridge report /api/diag + QR to /diag)
 import './settings-server.js';   // Connection → Server: this Pi's own bridge or a Round Remote server (companion mode, js/core/companion.js)
+import './tvapps.js';   // TV apps: the TV remote's apps grid + Settings → Movies & shows → TV apps (js/core/tv-apps.js)
+import './stream-settings.js';   // Movies & TV → Streaming library (Netflix, Disney+ & co. from TMDB: country, TMDB key — js/core/stream-library.js)

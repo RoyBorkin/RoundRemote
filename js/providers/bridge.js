@@ -210,11 +210,16 @@ export class BridgeProvider extends Provider {
 
   async getPlaylists() {
     if (!this.zone) return [];
+    if (this.zone.adapter === 'androidtv') {   // Google TV (bridge, Home Assistant, TV Remote app): the apps you chose (js/core/tv-apps-prefs.js)
+      const m = await import('../core/tv-apps-prefs.js');
+      return m.shownApps().map((a) => ({ kind: 'app', id: a.id, name: a.name, subtitle: 'Open on the TV', mono: a.mono || a.name.slice(0, 2), app: a }));
+    }
     if (this.zone.direct) return directApps(this.zone).map((a) => ({ kind: 'app', id: a.id, name: a.name, subtitle: 'Open on the TV', mono: a.name.slice(0, 2) }));
     const list = await bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/playlists`);
     return (list || []).map((p) => ({ ...p, art: p.art && p.art.startsWith('/') ? this.base + p.art : p.art }));
   }
   playPlaylist(pl) {
+    if (pl?.app && this.zone?.adapter === 'androidtv') return import('../core/tv-apps-prefs.js').then((m) => m.launchTvApp(this.zone, pl.app));
     if (this.zone?.direct) return directLaunch(this.zone, pl.id);
     return bridgeFetch(`/api/zones/${encodeURIComponent(this.zone.id)}/play`, { method: 'POST', json: { item: pl } });
   }

@@ -1,0 +1,41 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* "Open on TV" (js/screens/open-on-tv.js): the button in options panels / item details, the TV picker, the hand-over offer */
+
+.ontv { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.2cqmin; flex: none; }
+.ontv[hidden] { display: none; }
+.ontv-btn { display: inline-flex; align-items: center; gap: 1.2cqmin; max-width: 62cqmin; font-size: 2.8cqmin; font-weight: 700; padding: 1.6cqmin 3.4cqmin; }
+.ontv-ic { display: grid; place-items: center; font-size: 3.6cqmin; flex: none; }
+.ontv-ic .ic { width: 1em; height: 1em; }
+.ontv-lbl { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ontv-other { padding: 1.2cqmin 2.4cqmin; font-size: 2.3cqmin; color: var(--muted); }
+/* in an item's actions row (Movies & TV details): sits beside Play / Mark watched */
+.ontv.ontv-inline { display: contents; }
+.ontv.ontv-inline[hidden] { display: none; }
+.mdet-actions .ontv-btn .ontv-ic { color: var(--accent); }
+.mdet-actions .ontv-other { padding: 1.4cqmin 2.6cqmin; }
+
+/* the small TV button on a library row */
+.mrow-tv { flex: none; display: grid; place-items: center; width: 6.4cqmin; height: 6.4cqmin; border-radius: 50%; font-size: 3.4cqmin; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); cursor: pointer; transition: transform .15s; }
+.mrow-tv[hidden] { display: none; }
+.mrow-tv:active { transform: scale(.88); }
+.mrow-tv .ic { width: 1em; height: 1em; }
+.mrow-tv:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* the TV picker */
+.ontv-picker .list { padding: 8% 0; display: flex; flex-direction: column; justify-content: safe center; }
+.ontv-row { gap: 2.2cqmin; }
+.ontv-art { --c: var(--accent); font-size: 4.4cqmin; }
+.ontv-art .ic { width: 1em; height: 1em; }
+.ontv-row .row-sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ontv-row .ontv-paths { font-size: 2cqmin; color: var(--dim); white-space: nowrap; }
+.ontv-row.off { opacity: .45; }
+
+/* "Spotify is open on the TV — play there?" */
+.ontv-offer .panel-body { align-items: center; gap: 2.4cqmin; }
+.ontv-offer-ic { font-size: 9cqmin; color: var(--accent); display: grid; place-items: center; }
+.ontv-offer-ic .ic { width: 1em; height: 1em; }
+.ontv-offer-txt { font-size: 3cqmin; font-weight: 650; text-align: center; max-width: 70%; }
+.ontv-go { display: inline-flex; align-items: center; gap: 1.2cqmin; font-size: 2.9cqmin; }
+.ontv-later { font-size: 2.5cqmin; background: var(--glass); }
+.ontv-picker .list > * { flex: none; }

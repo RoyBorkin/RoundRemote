@@ -2,11 +2,16 @@
 // Drinking Games: a ring of six party games — Kings Cup, Never Have I Ever, Most Likely To, Power Hour,
 // Ride the Bus and Party Cards. One players list is shared by every game; an 18+ notice shows the first time;
 // a gentle water-break reminder runs while the app is open. Each game is a page module (apps/drinks-*.js).
+// The prompts (Never Have I Ever, Most Likely To, Party Cards) and the Kings Cup rules come from the shared content
+// store (apps/tasks-store.js — managed in the Tasks app): built-in decks + everything players add, by language,
+// spicy (18+) and the lists picked in Settings. The hub's QR button lets phones add more (bridge/lib/tasks.js).
 import { h, clear } from '../js/ui/dom.js';
 import { openPanel } from '../js/ui/overlay.js';
 import { store } from '../js/core/store.js';
 import { notify, stopAlert } from '../js/core/alerts.js';
 import { ringMenu, IC, svgIcon, COLORS, uid, seg, switchRow } from './drinks-ui.js';
+import * as T from './tasks-store.js';
+import { phonesPanel, listChips, ensureCss } from './tasks-ui.js';
 
 export const GAMES = [
   { id: 'kings', name: 'Kings Cup', short: 'Kings', color: '#eab308', icon: IC.crown, file: './drinks-kings.js', blurb: 'Ring of Fire — draw a card, follow its rule. Beware the fourth King.' },
@@ -17,7 +22,8 @@ export const GAMES = [
   { id: 'party', name: 'Party Cards', short: 'Party', color: '#ef4444', icon: IC.party, file: './drinks-party.js', blurb: 'A stream of challenges, mini-games, votes and silly rules naming your players.' },
 ];
 
-const DEF_SETTINGS = { lang: 'en', spicy: false, waterMin: 20, sound: true };
+const DEF_SETTINGS = { lang: 'en', spicy: false, waterMin: 20, sound: true, lists: [] };
+const CONTENT = { never: 'never', likely: 'likely', party: 'party', kings: 'kings' };   // games → content types
 const PACE = 15;          // every this many sips, a friendly “water?” nudge
 
 export default {
@@ -63,12 +69,23 @@ export default {
       hideTitle: (v = true) => { const top = stack[stack.length - 1]; if (top) top.hideTitle = v; app.hideTitle(v); },
       pop: () => pop(),
       words: null,
+      /** The live entries of a content type for the current language, spicy setting and lists. */
+      content(type, { lists = true, anyLang = false } = {}) {
+        return T.pool({ type, filter: 'all', tags: [], adult: !!settings.spicy, lang: anyLang ? null : settings.lang === 'he' ? 'he' : 'en', lists: lists ? (settings.lists || []).filter((id) => T.listById(id)) : null, packs: false });
+      },
+      onContent: (fn) => T.events.on('change', fn),
+      addMore: (type) => phonesPanel(app, { type }),
     };
+    ensureCss();
+    const stopSync = T.startSync({ every: 4000, passive: true });   // phones' additions arrive while the app is open
 
     // ---------------- home: the ring
     const playersBtn = h('button.dk-hub-btn', { type: 'button', onclick: (e) => { e.stopPropagation(); editPlayers(); } });
     const setBtn = h('button.dk-hub-btn.icon', { type: 'button', 'aria-label': 'Settings', html: svgIcon(IC.tune), onclick: (e) => { e.stopPropagation(); openSettings(); } });
-    const extra = h('div.dk-hub-extra', playersBtn, setBtn);
+    const qrBtn = h('button.dk-hub-btn.icon', { type: 'button', 'aria-label': 'Add prompts from phones (QR code)', title: 'Add prompts from phones',
+      html: '<svg class="dki" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm2 2v4h4V5zM13 3h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zM13 13h3v3h-3zm5 0h3v3h-3zm-5 5h3v3h-3zm5 0h3v3h-3zM6 6h2v2H6zm10 0h2v2h-2zM6 16h2v2H6z"/></svg>',
+      onclick: (e) => { e.stopPropagation(); ctx.addMore(CONTENT[GAMES[menu?.sel ?? 0]?.id] || 'never'); } });
+    const extra = h('div.dk-hub-extra', playersBtn, qrBtn, setBtn);
     function refreshHub() { playersBtn.innerHTML = `${svgIcon(IC.people)}<span>${players.length} players</span>`; }
 
     function showMenu() {
@@ -162,12 +179,30 @@ export default {
     function openSettings() {
       openPanel({
         title: 'Settings', className: 'dk-settings',
-        build(body) {
+        build(body, panel) {
           const sc = h('div.dk-set');
+          const listsBox = h('div.dk-lists'), counts = h('div.dk-note.dk-counts');
+          const drawCounts = () => {
+            const c = Object.fromEntries(['never', 'likely', 'party'].map((t) => [t, ctx.content(t).length]));
+            counts.textContent = `${c.never} Never Have I Ever · ${c.likely} Most Likely To · ${c.party} Party Cards${(settings.lists || []).some((id) => T.listById(id)) ? ' — from the picked lists' : ''}`;
+          };
+          const drawLists = () => {
+            clear(listsBox);
+            if (!T.lists().length) listsBox.append(h('div.dk-note', 'All prompts. Make lists (e.g. “Work party”) in the Task manager to play just those.'));
+            listsBox.append(listChips(app, (settings.lists || []).filter((id) => T.listById(id)), (ids) => { settings.lists = ids; saveSettings(); drawLists(); drawCounts(); }));
+          };
+          drawLists(); drawCounts();
+          panel.onDestroy = T.events.on('change', () => { if (!panel.closed) { drawLists(); drawCounts(); } });
           sc.append(
             h('div.dk-sect', 'Prompts language'),
-            seg([{ v: 'en', label: 'English' }, { v: 'he', label: 'עברית' }], settings.lang, (v) => { settings.lang = v; saveSettings(); }),
-            switchRow('Spicy cards', settings.spicy, (v) => { settings.spicy = v; saveSettings(); }, 'Flirty and cheeky prompts, mixed in'),
+            seg([{ v: 'en', label: 'English' }, { v: 'he', label: 'עברית' }], settings.lang, (v) => { settings.lang = v; saveSettings(); drawCounts(); }),
+            switchRow('Spicy cards', settings.spicy, (v) => { settings.spicy = v; saveSettings(); drawCounts(); }, 'Flirty and cheeky prompts (18+ entries), mixed in'),
+            h('div.dk-sect', 'Prompts from lists'),
+            listsBox,
+            counts,
+            h('div.dk-set-acts',
+              h('button.pill.small', { type: 'button', onclick: () => ctx.addMore('never') }, 'Add from phones'),
+              h('button.pill.small', { type: 'button', onclick: () => app.go('app', { id: 'tasks' }) }, 'Task manager')),
             h('div.dk-sect', 'Water break reminder'),
             seg([{ v: 0, label: 'Off' }, { v: 15, label: '15m' }, { v: 20, label: '20m' }, { v: 30, label: '30m' }, { v: 45, label: '45m' }], settings.waterMin, (v) => { settings.waterMin = v; saveSettings(); lastBreak = Date.now(); }),
             switchRow('Sounds', settings.sound, (v) => { settings.sound = v; saveSettings(); }),
@@ -246,6 +281,7 @@ export default {
       destroy() {
         alive = false;
         clearTimeout(warm);
+        stopSync();
         try { stopAlert(waterAlert); } catch {}
         while (stack.length) { const p = stack.pop(); try { p.inst?.destroy?.(); } catch {} }
         clear(host);

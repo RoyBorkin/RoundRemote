@@ -1,6 +1,8 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
-// Movies & shows library browser (Plex / Jellyfin): libraries → items → details, collections,
-// search, and "play on the TV". Lives in the media screen's Library tab.
+// Movies & shows library browser (Plex / Jellyfin, YouTube, and the TMDB streaming library of Netflix, Disney+ & co.):
+// libraries → items → details, collections, search, and "play on the TV". Lives in the media screen's Library tab.
+// Entries may carry `action` (a row that does something instead of opening), and details may set playLabel,
+// playNote, metaExtra, availability, noOpenOnTv and wishSource; provider.detailActions(d) adds buttons.
 import { h, iconBtn, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { openPanel, curve, spinner, emptyNote, toast } from '../ui/overlay.js';
@@ -9,6 +11,8 @@ import { store } from '../core/store.js';
 import { fmtTime, debounce } from '../core/util.js';
 import { createItemsView, LIB_VIEWS } from './media-views.js';
 import { wishPill } from '../../apps/wishlist-store.js';
+import { openOnTvButton, openOnTvRowButton } from '../screens/open-on-tv.js';
+import { forEntry } from '../core/open-on-tv.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 const TYPE_ICON = { movie: 'film', show: 'tv', season: 'tv', episode: 'play', collection: 'stack', folder: 'library' };
@@ -81,6 +85,12 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
   const pages = h('div.mlib-pages');
   const el = h('div.mlib', h('div.mlib-head', backBtn, titleEl, viewBtn, searchBtn), pages);
   const stack = [];
+  // library rows get a small "Open on TV" button (movies, episodes, videos) when a TV is set up
+  const row = (e, onClick) => {
+    const r = mediaRow(e, onClick);
+    if (['movie', 'episode', 'video'].includes(e.type)) r.append(openOnTvRowButton(provider, e));
+    return r;
+  };
 
   function show() {
     const top = stack[stack.length - 1];
@@ -93,14 +103,16 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
   function push(page) { stack.push(page); pages.append(page.el); show(); }
   function pop() {
     if (stack.length <= 1) return;
-    const p = stack.pop(); p.el.remove(); p.destroy?.(); show();
+    const p = stack.pop(); p.el.remove(); p.destroy?.();
+    if (stack.length === 1 && provider.liveRoot) { refreshRoot(); return; }   // My list / Recently opened may have changed
+    show();
   }
 
   // ---------- list pages (drawn in the chosen library view) ----------
   function openNode(node, title = '') {
     const view = node.kind === 'root' ? 'list' : (store.get('mediaLibView') || 'list');
     let start = 0, busy = false, done = false;
-    const v = createItemsView(view, { onPick: pick, onNeedMore: () => load(), row: mediaRow });
+    const v = createItemsView(view, { onPick: pick, onNeedMore: () => load(), row });
     const page = { el: v.el, title, view, node, destroy: () => v.destroy() };
     push(page);
     async function load() {
@@ -145,6 +157,7 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
     });
   }
   function pick(e) {
+    if (e.action) return e.action({ refresh: refreshRoot });
     if (e.type === 'folder') return openNode(e.node, e.title);
     openDetail(e);
   }
@@ -163,7 +176,8 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
   }
   async function play(d, fromStart) {
     try {
-      await provider.playMedia(d, { fromStart });
+      const r = await provider.playMedia(d, { fromStart });
+      if (r?.handled) return;   // the provider said what happened itself (the streaming library's "Play on TV")
       toast(`Playing ${d.type === 'episode' && d.show ? `${d.show} · S${d.season}E${d.episode}` : d.title}`);
       setTimeout(() => provider.refresh().catch(() => {}), 900);
       onPlayed?.();
@@ -175,7 +189,7 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
   function renderDetail(box, d) {
     clear(box);
     const spoiler = d.type === 'episode' && !d.watched && store.get('mediaNoSpoilers');
-    const meta = [d.year, d.durationMs ? runtimeOf(d.durationMs) : '', d.contentRating, d.rating ? `★ ${d.rating}` : ''].filter(Boolean).join('  ·  ');
+    const meta = [d.year, d.durationMs ? runtimeOf(d.durationMs) : '', d.metaExtra, d.contentRating, d.rating ? `★ ${d.rating}` : ''].filter(Boolean).join('  ·  ');
     const resumable = d.viewOffset > 30000 && !d.watched && ['movie', 'episode'].includes(d.type);
     const pref = store.get('mediaResume');
     const actions = h('div.mdet-actions');
@@ -184,9 +198,11 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
       const beg = h(`button.pill${pref === 'start' ? '.primary' : ''}`, { type: 'button', onclick: (e) => { e.stopPropagation(); play(d, true); } }, 'From start');
       actions.append(...(pref === 'start' ? [beg, res] : [res, beg]));
     } else {
-      const label = d.type === 'show' ? '▶ Play next episode' : d.type === 'season' ? '▶ Play season' : d.type === 'collection' ? '▶ Play all' : '▶ Play';
+      const label = d.playLabel ? d.playLabel : d.type === 'show' ? '▶ Play next episode' : d.type === 'season' ? '▶ Play season' : d.type === 'collection' ? '▶ Play all' : '▶ Play';
       actions.append(h('button.pill.primary', { type: 'button', onclick: (e) => { e.stopPropagation(); play(d, d.type === 'movie' || d.type === 'episode'); } }, label));
     }
+    // "Play on <TV>" — the TV's own Plex / Jellyfin / YouTube app, or open the app (js/screens/open-on-tv.js)
+    if (['movie', 'episode', 'show', 'season', 'video'].includes(d.type) && !d.noOpenOnTv) actions.append(openOnTvButton(() => forEntry(provider, d), { className: 'ontv-inline' }));
     if (provider.markWatched && d.type !== 'collection') {
       const w = h(`button.pill${d.watched ? '.on' : ''}`, { type: 'button' }, d.watched ? '✓ Watched' : 'Mark watched');
       w.onclick = async (e) => {
@@ -203,7 +219,8 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
     const wish = d.type === 'movie' ? { kind: 'movie', title: d.title, year: d.year, art: d.poster, by: d.directors?.[0] || '' }
       : d.type === 'show' ? { kind: 'show', title: d.title, year: d.year, art: d.poster, by: d.studio || '' }
         : ['season', 'episode'].includes(d.type) && d.show ? { kind: 'show', title: d.show, art: d.posterShow || (d.type === 'season' ? d.poster : '') } : null;
-    if (wish) actions.append(wishPill({ ...wish, source: provider.id === 'jellyfinvideo' ? 'jellyfin' : 'plex', ref: String(d.type === 'movie' || d.type === 'show' ? d.id : d.showId || ''), inLibrary: true }));
+    if (provider.detailActions) actions.append(...provider.detailActions(d));
+    if (wish) actions.append(wishPill({ ...wish, source: d.wishSource || (provider.id === 'jellyfinvideo' ? 'jellyfin' : 'plex'), ref: String(d.type === 'movie' || d.type === 'show' ? d.id : d.showId || ''), inLibrary: !d.wishSource }));
     const summary = h(`div.mdet-summary${spoiler ? '.spoiler' : ''}`, d.summary || '');
     if (spoiler) summary.onclick = (e) => { e.stopPropagation(); summary.classList.remove('spoiler'); };
     const credits = [
@@ -216,8 +233,10 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
       d.show && d.type !== 'show' ? h('div.mdet-show', `${d.show}${d.season != null ? ` · Season ${d.season}` : ''}${d.episode != null ? ` · Episode ${d.episode}` : ''}`) : null,
       h('div.mdet-title', d.title),
       meta ? h('div.mdet-meta', meta) : null,
+      d.availability ? h(`div.mdet-avail${d.available ? '.ok' : ''}`, d.availability) : null,
       d.genres?.length ? h('div.mdet-genres', d.genres.slice(0, 4).map((g) => h('span', g))) : null,
       actions,
+      d.playNote ? h('div.mdet-playnote', d.playNote) : null,
       d.tagline ? h('div.mdet-tagline', d.tagline) : null,
       d.summary ? summary : null,
       credits.length ? h('div.mdet-credits', credits.join('  ·  ')) : null,
@@ -225,7 +244,7 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
     // seasons / episodes / collection items
     if (d.children?.length) {
       box.append(h('div.mdet-sec', d.type === 'show' ? 'Seasons' : d.type === 'season' ? 'Episodes' : 'In this collection'));
-      for (const c of d.children) box.append(mediaRow(c, pick));
+      for (const c of d.children) box.append(row(c, pick));
     }
     if (d.cast?.length) box.append(h('div.mdet-sec', 'Cast'), castStrip(d.cast));
     // collection + suggestions load after the main page
@@ -236,18 +255,24 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
         const cols = await provider.collectionsFor(d).catch(() => []);
         for (const c of cols) {
           later.append(h('div.mdet-sec', `Collection · ${c.title}`));
-          c.items.filter((x) => ![String(d.id), String(d.showId)].includes(String(x.id))).forEach((x) => later.append(mediaRow(x, pick)));
+          c.items.filter((x) => ![String(d.id), String(d.showId)].includes(String(x.id))).forEach((x) => later.append(row(x, pick)));
         }
       }
       if (provider.related && ['movie', 'show', 'episode', 'season'].includes(d.type)) {
         const rel = await provider.related(d).catch(() => []);
-        if (rel.length) { later.append(h('div.mdet-sec', 'More like this')); rel.slice(0, 12).forEach((x) => later.append(mediaRow(x, pick))); }
+        if (rel.length) { later.append(h('div.mdet-sec', 'More like this')); rel.slice(0, 12).forEach((x) => later.append(row(x, pick))); }
       }
     })();
   }
 
+  /** Draw the first page again (after a setup step such as adding a key). */
+  function refreshRoot() {
+    while (stack.length) { const p = stack.pop(); p.el.remove(); p.destroy?.(); }
+    openNode({ kind: 'root' });
+  }
   openNode({ kind: 'root' });
   return {
+    refresh: refreshRoot,
     el,
     openDetail,
     home() { while (stack.length > 1) pop(); },

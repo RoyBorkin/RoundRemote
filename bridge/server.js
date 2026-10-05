@@ -268,6 +268,7 @@ async function api(req, res, url) {
   // Rhythm: system-audio capture stream, tempo lookup, audio download proxy (lib/audio.js)
   if (p.startsWith('/api/audio/')) return audio.route(req, res, url, { json });
   if (p.startsWith('/api/charts/')) return (await import('./lib/charts.js')).route(req, res, url, { json, cfg });   // Rhythm: chart library (Chorus Encore)
+  if (p.startsWith('/api/tvapps/')) return (await import('./lib/tvapps.js')).route(req, res, url, { json, cfg });   // TV remote apps grid: app icons from Google Play, cached a week
   if (p === '/api/profiles' || p.startsWith('/api/profiles/')) return profiles(req, res, decodeURIComponent(p.slice('/api/profiles/'.length)));
   return json(res, 404, { error: 'not found' });
 }

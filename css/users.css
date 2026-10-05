@@ -124,3 +124,43 @@
 .ups-acts { display: flex; gap: 2cqmin; justify-content: center; flex-wrap: wrap; }
 
 #app.lite .ups-user, #app.lite .ups-user .uav { animation: none; transition: none; }
+
+/* ---------- many people (8+): a scrolling round list — the first ones stay reachable ---------- */
+.users-panel .panel-body { justify-content: safe center; }
+.ups-grid { align-content: safe center; }
+.users-panel.many .panel-body { top: 19%; bottom: 15%; justify-content: flex-start; }
+.users-panel.many.whos .panel-body { top: 19.5%; }
+.ups-grid.many {
+  flex: 1 1 auto; min-height: 0; width: 74cqmin; max-width: 74cqmin; align-content: flex-start; gap: 2cqmin 2.4cqmin;
+  padding: 3cqmin 1.5cqmin 6cqmin; overscroll-behavior: contain; touch-action: pan-y; scroll-snap-type: y proximity; scroll-padding: 3cqmin 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
+}
+.ups-grid.many .ups-user { width: 21cqmin; scroll-snap-align: start; }
+.ups-grid.many .uav.lg { --s: 13cqmin; }
+.ups-grid.many .ups-name { font-size: 2.6cqmin; }
+.ups-grid.many .ups-tag { font-size: 1.7cqmin; }
+.ups-user:focus-visible { outline: none; }
+
+/* ---------- Profiles per service: edit a profile ---------- */
+.ups-edit .panel-body { gap: 1.6cqmin; top: 17%; bottom: 16%; }
+.ups-edit-head { display: flex; align-items: center; justify-content: center; gap: 2cqmin; }
+.ups-edit-head .uav { --s: 10cqmin; }
+.ups-edit-head .ups-name { font-size: 3.8cqmin; color: var(--fg); }
+.ups-hues { display: flex; flex-wrap: nowrap; justify-content: center; gap: 1cqmin; }
+.ups-edit .ups-row { flex: none; }
+.ups-hue {
+  --h: 200; width: 5.2cqmin; height: 5.2cqmin; flex: none; border-radius: 50%; border: .4cqmin solid transparent;
+  background: linear-gradient(140deg, hsl(var(--h) 62% 52%), hsl(calc(var(--h) + 40) 58% 34%)); transition: transform .15s;
+}
+.ups-hue.on { border-color: var(--fg); transform: scale(1.12); }
+.ups-hue:active { transform: scale(.9); }
+.ups-scroll { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .3s; }
+.ups-scroll path { fill: none; stroke-linecap: round; stroke-width: .9; }
+.ups-sc-track { stroke: var(--line); }
+.ups-sc-thumb { stroke: var(--accent); }
+.uav.none { background: var(--glass-2); color: var(--muted); box-shadow: none; }
+.uav.none .ic { width: 62%; height: 62%; fill: currentColor; }
+.m-tabs .uchip.compact { padding: .2cqmin .6cqmin .2cqmin .2cqmin; }
+.ups-edit-ic { font-size: 3.4cqmin; color: var(--muted); }
+.ups-edit-ic .ic { width: 1em; height: 1em; fill: currentColor; }

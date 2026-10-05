@@ -70,7 +70,7 @@ export const GAMES = [
     icon: 'M3 3h5v5H3zm6.5 0h5v5h-5zM16 3h5v5h-5zM3 9.5h5v5H3zm6.5 0h5v5h-5zM16 9.5h5v5h-5zM3 16h5v5H3zm6.5 0h5v5h-5zM16 16h5v5h-5z' },
   { id: 'blanks', file: './blanks.js', name: 'Fill the Blank', color: '#111827', party: true, blurb: 'A party card game for groups — everyone plays from their phone, the judge picks the funniest answer.',
     icon: 'M3 4h11v16H3zm2 3v1.6h7V7zm0 3.5v1.6h5v-1.6zM15.5 6.5l5.2 1.4-3.6 13.5-5.2-1.4.6-2.1 3.3.9 2.6-9.8-3.5-.9z' },
-  // two party apps live here too (apps/drinks.js, apps/trivia.js): `app` = open that app (go('app', { id })) instead of the games shell
+  // three party apps live here too (apps/bottle.js, apps/drinks.js, apps/trivia.js): `app` = open that app (go('app', { id })) instead of the games shell
   ...GAME_APPS.map((a) => ({ id: a.id, app: a.id, name: a.name, color: a.color, blurb: a.blurb, icon: a.icon, party: true, adult: !!a.adult })),
 ];
 

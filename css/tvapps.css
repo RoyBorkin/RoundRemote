@@ -1,0 +1,142 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* TV remote apps: the round icon grid, app tiles, Manage apps (js/screens/tvapps.js) */
+
+/* ---------- an app icon: real icon › logo on the brand colour › initials */
+.tva-ic { position: relative; width: 13cqmin; height: 13cqmin; border-radius: 30%; flex: none; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c) 82%, #fff) 0%, var(--c) 46%, color-mix(in srgb, var(--c) 78%, #000) 100%);
+  color: #fff; box-shadow: 0 .5cqmin 1.6cqmin rgb(0 0 0 / .32), inset 0 0 0 1px rgb(255 255 255 / .1); }
+.tva-ic.lt { color: #14161a; }
+.tva-mono { font: 800 4.6cqmin/1 var(--display, 'Space Grotesk'), Rubik, system-ui, sans-serif; letter-spacing: -.03em; text-shadow: 0 .2cqmin .6cqmin rgb(0 0 0 / .18); }
+.tva-mono.long { font-size: 3.5cqmin; }
+.tva-mono.he { font-family: Rubik, system-ui, sans-serif; font-weight: 700; letter-spacing: 0; }
+.tva-ic .tva-si, .tva-ic .tva-glyph { position: absolute; inset: 0; display: grid; place-items: center; }
+.tva-ic .tva-si svg { width: 56%; height: 56%; fill: currentColor; display: block; }
+.tva-ic .tva-glyph { font-size: 6.4cqmin; }
+.tva-ic.has-si .tva-mono, .tva-ic.has-glyph .tva-mono, .tva-ic.has-img .tva-mono { display: none; }
+.tva-ic .tva-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; animation: tva-fade .3s ease; }
+.tva-ic.has-img { background: #fff; }
+@keyframes tva-fade { from { opacity: 0; } }
+.tva-ic.sm { width: 8.4cqmin; height: 8.4cqmin; box-shadow: 0 .3cqmin .9cqmin rgb(0 0 0 / .25); }
+.tva-ic.sm .tva-mono { font-size: 3cqmin; } .tva-ic.sm .tva-mono.long { font-size: 2.3cqmin; }
+.tva-ic.sm .tva-glyph { font-size: 4.2cqmin; }
+.tva-ic.big { width: 17cqmin; height: 17cqmin; }
+.tva-ic.big .tva-mono { font-size: 6cqmin; } .tva-ic.big .tva-mono.long { font-size: 4.6cqmin; }
+
+/* ---------- the round grid */
+.tva-panel .panel-body { inset: 0; }
+.tva-panel .panel-title { z-index: 3; top: 7.5%; font-size: 3cqmin; padding: .6cqmin 2.6cqmin; border-radius: 99px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.tva-scroll { position: absolute; inset: 0; border-radius: 50%; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none;
+  /* the circle's rim, and the title (top) / Edit + Close (bottom) kept clear */
+  --tva-mask: radial-gradient(circle at 50% 50%, #000 62%, transparent 72%), linear-gradient(transparent 9%, #000 16%, #000 78%, transparent 85%);
+  mask-image: var(--tva-mask); -webkit-mask-image: var(--tva-mask); mask-composite: intersect; -webkit-mask-composite: source-in; }
+.tva-scroll::-webkit-scrollbar { display: none; }
+.tva-grid { position: relative; width: 100%; min-height: 100%; }
+.tva-tile { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1.1cqmin; width: 18cqmin; padding: .8cqmin 0;
+  transform: translate(-50%, -50%); transform-origin: 50% 50%; will-change: transform; background: none; border-radius: 4cqmin; -webkit-tap-highlight-color: transparent; }
+.tva-tile .tva-ic { transition: transform .18s var(--spring, ease), box-shadow .2s; }
+.tva-tile:active .tva-ic { transform: scale(.9); }
+.tva-tile.go .tva-ic { animation: tva-go .5s ease; }
+@keyframes tva-go { 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+.tva-name { max-width: 100%; font-size: 2.25cqmin; font-weight: 650; line-height: 1.15; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; transition: opacity .2s; }
+.tva-tile.far .tva-name { opacity: 0; }
+.tva-tile.sel .tva-ic, .tva-tile:focus-visible .tva-ic { box-shadow: 0 0 0 .6cqmin var(--bg), 0 0 0 1.1cqmin var(--accent), 0 .8cqmin 2.4cqmin rgb(0 0 0 / .4); }
+.tva-tile:focus-visible { outline: none; }
+/* the app open on the TV right now; apps the TV path knows (Home Assistant's app list) */
+.tva-tile.current .tva-ic::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 .55cqmin var(--accent); }
+.tva-tile.current .tva-name::before { content: '● '; color: var(--accent); font-size: 1.8cqmin; vertical-align: .2cqmin; }
+.tva-tile.inst:not(.current) .tva-name::after { content: ' ·'; color: var(--accent); font-weight: 900; }
+.tva-panel .empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 60%; }
+.tva-edit { position: absolute; z-index: 3; left: 35%; top: 89%; width: 8.4cqmin; height: 8.4cqmin; font-size: 3.8cqmin; transform: translate(-50%, -50%); background: var(--glass-2); }
+.tva-edit:active { transform: translate(-50%, -50%) scale(.9); }
+.tva-panel .panel-close { z-index: 3; }
+
+/* hold menu */
+.tva-menu .panel-body { align-items: center; gap: 1.8cqmin; top: 22%; bottom: 18%; justify-content: center; }
+.tva-menu-ic { margin-bottom: 1cqmin; }
+.tva-act { display: inline-flex; align-items: center; gap: 1.4cqmin; font-size: 2.8cqmin; }
+.tva-act span { display: grid; font-size: 3.4cqmin; }
+.tva-act[disabled] { opacity: .35; pointer-events: none; }
+.tva-row2 { display: flex; gap: 1.6cqmin; }
+
+/* ---------- Manage apps */
+.tva-manage-panel .panel-body { left: 9%; right: 9%; top: 15%; bottom: 13%; }
+.tva-manage-panel .panel-close { top: 93%; width: 7.4cqmin; height: 7.4cqmin; font-size: 3.4cqmin; }
+.tva-mhead { display: flex; flex-direction: column; align-items: center; gap: 1.4cqmin; flex: none; }
+.tva-q { width: 62%; padding: 1.5cqmin 3cqmin; border-radius: 99px; background: rgb(var(--ink) / .09); border: 1px solid var(--line); outline: none; font-size: 2.7cqmin; color: var(--fg); text-align: center; }
+.tva-q:focus { border-color: var(--accent); }
+.tva-tabs { display: flex; gap: 1cqmin; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding: .4cqmin 6cqmin; touch-action: pan-x;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.tva-tabs::-webkit-scrollbar { display: none; }
+.tva-tabs .chip { flex: none; padding: 1.1cqmin 2.4cqmin; font-size: 2.35cqmin; white-space: nowrap; }
+.tva-mlist.list { padding: 6% 0; }
+.tva-mrow { gap: 2cqmin; padding: 1cqmin 1.6cqmin; border-radius: 3.6cqmin; cursor: default; }
+.tva-mrow .row-title { font-size: 2.9cqmin; }
+.tva-mrow .row-sub { font-size: 2.1cqmin; }
+.tva-mrow:not(.on) .tva-ic { opacity: .55; filter: saturate(.6); }
+.tva-mright { display: flex; align-items: center; gap: 1cqmin; flex: none; }
+.tva-mright .switch { width: 9.4cqmin; height: 5.4cqmin; }
+.tva-mright .switch::after { width: 4cqmin; height: 4cqmin; }
+.tva-mright .switch.on::after { transform: translateX(4cqmin); }
+.tva-mv, .tva-del { width: 6cqmin; height: 6cqmin; font-size: 3cqmin; background: var(--glass); }
+.tva-mv { transform: rotate(-90deg); }
+.tva-mv.dn { transform: rotate(90deg); }
+.tva-mv[disabled] { opacity: .25; pointer-events: none; }
+.tva-del { color: #ff6b6b; }
+.tva-mfoot { flex: none; display: flex; flex-direction: column; align-items: center; gap: .4cqmin; padding-top: .6cqmin; }
+.tva-count { font-size: 2.1cqmin; color: var(--muted); }
+.tva-btns { display: flex; gap: 1.6cqmin; justify-content: center; }
+.tva-btns .pill.small { margin-top: .4cqmin; display: inline-flex; align-items: center; gap: .8cqmin; }
+.tva-add span { display: grid; font-size: 2.8cqmin; }
+.tva-reset { background: var(--glass); }
+
+/* inside Settings → TV apps: the rows are the page's own (they scroll and curve with it) */
+.tva-set { width: 100%; }
+.tva-mhead.tva-set { padding-bottom: .6cqmin; }
+.tva-mhead.tva-set .tva-q { width: 70%; }
+.tva-mfoot.tva-set { padding: 0; }
+.set-list .tva-mrow, .tva-mrow { width: 100%; }
+.tva-mrow bdi { unicode-bidi: isolate; }
+
+/* the grid's last tile: Add app */
+.tva-ic.tva-plus { background: transparent; color: var(--accent); box-shadow: none; border: .45cqmin dashed color-mix(in srgb, var(--accent) 70%, var(--line)); font-size: 6.6cqmin; }
+.tva-ic.tva-plus .ic { width: 1em; height: 1em; }
+.tva-addtile .tva-name { color: var(--muted); }
+/* Manage apps: the Add button on top, edit for your own apps */
+.tva-mhead .tva-add, .tva-mfoot .tva-add { display: inline-flex; align-items: center; gap: 1cqmin; font-size: 2.55cqmin; padding: 1.3cqmin 3cqmin; }
+.tva-ed { width: 6cqmin; height: 6cqmin; font-size: 2.8cqmin; background: var(--glass); }
+
+/* Add an app */
+.tva-add-panel .panel-body { top: 17%; bottom: 17%; }
+.tva-addbar { flex: none; display: flex; align-items: center; justify-content: center; gap: 1.2cqmin; }
+.tva-addbar .tva-q { width: 64%; }
+.tva-addbar .ibtn.tva-go { width: 7.6cqmin; height: 7.6cqmin; font-size: 3.6cqmin; background: var(--accent); color: var(--on-accent); }
+.tva-res.list { padding: 7% 0 10%; }
+.tva-sec { font-size: 2.1cqmin; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); text-align: center; padding: 1.4cqmin 0 .6cqmin; }
+.tva-rrow { gap: 1.8cqmin; padding: 1cqmin 1.4cqmin; border-radius: 3.6cqmin; cursor: default; }
+.tva-rrow .row-title { font-size: 2.8cqmin; }
+.tva-rrow .row-sub { font-size: 2cqmin; }
+.tva-rrow .tva-ic.has-img { background: transparent; }
+.tva-addbtn { flex: none; margin: 0; }
+.tva-addbtn[disabled] { opacity: .7; background: var(--glass); color: var(--muted); box-shadow: none; }
+.tva-res .opt-hint, .tva-res .tva-tip { padding: 1.4cqmin 8%; font-size: 2.1cqmin; }
+.tva-res .tva-btns { padding: 1cqmin 0; }
+.tva-manual { display: inline-flex; align-items: center; gap: .9cqmin; background: var(--glass); }
+.tva-manual span { display: grid; font-size: 2.6cqmin; }
+.tva-find { display: flex; align-items: center; gap: 2.4cqmin; padding: 1.4cqmin 6%; }
+.tva-qr { flex: none; width: 19cqmin; height: 19cqmin; border-radius: 2cqmin; overflow: hidden; background: #fff; }
+.tva-qr svg { width: 100%; height: 100%; display: block; }
+.tva-find-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 1.2cqmin; font-size: 2.2cqmin; color: var(--muted); line-height: 1.35; }
+.tva-find-txt b { color: var(--fg); }
+.tva-open { margin: 0; text-decoration: none; color: var(--fg); }
+.tva-res .empty { padding: 4cqmin 0 2cqmin; font-size: 2.6cqmin; }
+/* the form (manual / edit) */
+.tva-adv { width: 86%; display: flex; flex-direction: column; align-items: center; gap: 1.6cqmin; }
+.tva-adv summary { cursor: pointer; font-size: 2.4cqmin; font-weight: 700; color: var(--muted); text-align: center; list-style: none; padding: .6cqmin; }
+.tva-adv summary::before { content: '▸ '; } .tva-adv[open] summary::before { content: '▾ '; }
+.tva-adv[open] { gap: 1.6cqmin; }
+.tva-form .tva-adv .field { width: 100%; margin-top: 1.4cqmin; }
+.tva-pkg .tva-pkgv { padding: 2cqmin 3cqmin; border-radius: 99px; background: rgb(var(--ink) / .05); border: 1px dashed var(--line); font: 600 2.6cqmin/1.1 'JetBrains Mono', ui-monospace, monospace; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tva-form { display: flex; flex-direction: column; align-items: center; gap: 1.7cqmin; overflow-y: auto; scrollbar-width: none; padding: 2cqmin 0 4cqmin; }
+.tva-form .field { width: 84%; }
+.tva-form .opt-hint { font-size: 2.05cqmin; max-width: 86%; }

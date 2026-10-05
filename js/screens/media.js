@@ -12,6 +12,8 @@ import { fmtTime, angleFromCenter, distFromCenter, clamp } from '../core/util.js
 import { accentFromImage, paletteFromImage } from '../core/color.js';
 import { toast, topPanel } from '../ui/overlay.js';
 import { openDevices, openVolume, openTvRemote, buildTvRemote, openCustomizeControls } from './panels.js';
+import { openOnTv } from './open-on-tv.js';
+import { nowPlaying, anyPlan } from '../core/open-on-tv.js';
 import { createMediaLibrary, runtimeOf } from '../views/media-library.js';
 import { mediaFacts } from '../core/mediainfo.js';
 import { userChip } from './users.js';
@@ -148,6 +150,7 @@ export function MediaScreen() {
     { key: 'mediaCollection', icon: 'stack', label: 'Collection', ok: () => !!prov.collectionsFor && hasCollection !== false, run: () => openMediaCollection(openDetailInLibrary) },
     { key: 'mediaTracks', icon: 'subtitles', label: 'Audio & subtitles', ok: () => !!caps().tracks && !!prov.streams, run: openMediaTracks },
     { key: null, icon: 'remote', label: 'TV remote', ok: () => !!caps().remote, run: openTvRemote },
+    { key: null, icon: 'toTv', label: 'Open on TV', ok: () => tvCheck(), run: () => openOnTv(nowPlaying()).catch((e) => toast(e?.userMessage || e?.message, { kind: 'error' })) },
     { key: 'mediaStop', icon: 'stop', label: 'Stop', ok: () => !!caps().stop, run: async () => { try { await (prov.stopPlayback?.() ?? prov.pause()); toast('Stopped'); } catch (e) { toast(e?.userMessage || e?.message, { kind: 'error' }); } } },
   ].map((f) => ({ ...f, btn: iconBtn(f.icon, f.label, () => f.run(), 'm-fn') }));
   const funcs = h('div.m-funcs', FUNCS.map((f) => f.btn));
@@ -351,6 +354,14 @@ export function MediaScreen() {
     title.classList.toggle('long', title.textContent.length > 26);
     sub.textContent = ep ? (m?.title || '') : (details?.tagline || (details?.genres || []).slice(0, 3).join(' · ') || t.artist || '');
     hud.firstChild.textContent = ep ? `${m?.show || t.title} · S${m?.season ?? '?'}E${m?.episode ?? '?'}` : title.textContent;
+  }
+  // "Open on TV": shown once a TV that can take this is found (checked again when the item or the device changes)
+  let tvOk = false, tvKey = '';
+  function tvCheck() {
+    const c = nowPlaying();
+    const k = `${c?.svc}|${c?.media?.itemId || c?.track?.id || ''}|${c?.device?.id || ''}`;
+    if (k !== tvKey) { tvKey = k; tvOk = false; anyPlan(c).then((ok) => { if (tvKey === k && ok !== tvOk) { tvOk = ok; renderFuncs(); } }).catch(() => {}); }
+    return tvOk;
   }
   function renderFuncs() {
     let n = 0;

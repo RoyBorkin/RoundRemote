@@ -231,7 +231,8 @@ export function create({ hub, setStatus }) {
     async play(id, item) {
       const l = lounge(id);
       if (item.kind === 'playlist') await l.command('setPlaylist', { listId: item.id, videoId: item.firstVideoId || '', currentIndex: 0, currentTime: 0 });
-      else await l.command('setPlaylist', { videoId: item.id, currentTime: 0, currentIndex: -1, audioOnly: 'false' });
+      // startMs: carry on where it was (Open on TV from the YouTube player on the display)
+      else await l.command('setPlaylist', { videoId: item.id, currentTime: Math.max(0, Math.floor((Number(item.startMs) || 0) / 1000)), currentIndex: -1, audioOnly: 'false' });
     },
     actions: {
       async pair({ code }) {

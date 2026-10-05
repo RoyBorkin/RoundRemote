@@ -1,0 +1,71 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Shared Tasks content-manager UI (apps/tasks-ui.js): 18+ chips, the add / edit sheet, the "Add from phones" QR panel */
+.tk-x18 { display: inline-grid; place-items: center; min-width: 7.4cqmin; height: 5cqmin; padding: 0 1.4cqmin; border-radius: 99px; font-size: 2cqmin; font-weight: 800;
+  letter-spacing: -.01em; color: var(--dim); border: .3cqmin dashed color-mix(in srgb, var(--dim) 80%, transparent); background: transparent;
+  transition: background .2s, color .2s, border-color .2s, transform .18s var(--spring); }
+.tk-x18.on, .tk-x18.static { color: #fff; background: var(--danger); border: .3cqmin solid var(--danger); }
+.tk-x18:active { transform: scale(.9); }
+.tk-x18.lg { height: 7.6cqmin; min-width: 11cqmin; padding: 0 2.8cqmin 0 2.2cqmin; font-size: 2.8cqmin; display: inline-flex; gap: 1.4cqmin; color: var(--muted); }
+.tk-x18.lg::before { content: ''; width: 2.8cqmin; height: 2.8cqmin; border-radius: .8cqmin; border: .35cqmin solid currentColor; box-sizing: border-box; }
+.tk-x18.lg.on { color: #fff; }
+.tk-x18.lg.on::before { background: #fff; border-color: #fff;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%; }
+.tk-add-row { display: flex; align-items: center; justify-content: center; gap: 2.4cqmin; }
+#app[data-theme="bauhaus"] .tk-x18 { border-radius: 0; }
+
+/* add / edit sheet */
+.tkf-panel .panel-title { color: var(--k); }
+.tkf-panel .panel-body { top: 16.5%; bottom: 15%; left: 13%; right: 13%; overflow-y: auto; scrollbar-width: none; touch-action: pan-y; }
+.tkf-panel .panel-body::-webkit-scrollbar { display: none; }
+.tkf { display: flex; flex-direction: column; gap: 1.3cqmin; padding: 1cqmin 0 10cqmin; }
+.tkf > * { flex: none; }
+.tkf-h { font-size: 1.9cqmin; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); text-align: center; margin-top: 1.2cqmin; }
+.tkf-field { display: flex; flex-direction: column; gap: .4cqmin; width: 100%; text-align: start; padding: 1.6cqmin 3cqmin; border-radius: 3cqmin; background: var(--glass); border: 1px solid var(--line); }
+.tkf-field:active { background: var(--glass-2); }
+.tkf-k { font-size: 1.9cqmin; font-weight: 700; color: var(--muted); }
+.tkf-v { font-size: 3cqmin; font-weight: 600; line-height: 1.3; unicode-bidi: plaintext; overflow-wrap: anywhere; }
+.tkf-field.empty .tkf-v { color: var(--dim); font-weight: 500; }
+.tkf-field.main { border: .4cqmin solid color-mix(in srgb, var(--k) 70%, transparent); background: color-mix(in srgb, var(--k) 10%, var(--glass)); }
+.tkf-field.main .tkf-v { font-family: var(--display); font-size: 3.5cqmin; font-weight: 700; }
+.tkf-field.ok .tkf-k { color: var(--ok); }
+.tkf-field.bad .tkf-v { font-size: 2.7cqmin; }
+.tkf-note { font-size: 2cqmin; color: var(--dim); text-align: center; }
+.tkf-chips { display: flex; gap: 1cqmin; justify-content: center; flex-wrap: wrap; }
+.tkf-chips .chip { font-size: 2.4cqmin; padding: 1.2cqmin 2.4cqmin; white-space: nowrap; }
+.tkf-chips .chip.on { background: var(--k); color: #14101c; border-color: transparent; }
+.tkf-chips.multi .chip.on { background: color-mix(in srgb, var(--k) 25%, var(--glass)); color: var(--fg); border-color: var(--k); }
+.tkf-chips.ranks { display: grid; grid-template-columns: repeat(7, 1fr); gap: .8cqmin; }
+.tkf-chips.ranks .chip { padding: 1.2cqmin 0; font-weight: 800; text-align: center; }
+.tkf-new { border-style: dashed !important; color: var(--muted); }
+.tkf-ins { display: flex; align-items: center; justify-content: center; gap: 1.2cqmin; font-size: 2.1cqmin; color: var(--dim); }
+.tkf-ins .chip { font-family: var(--mono); font-size: 2.2cqmin; padding: .9cqmin 2cqmin; }
+.tkf-x18 { display: flex; align-items: center; gap: 2cqmin; padding: 1.3cqmin 2.6cqmin; border-radius: 3cqmin; background: var(--glass); border: 1px solid transparent; font-size: 2.4cqmin; font-weight: 600; text-align: start; margin-top: 1cqmin; }
+.tkf-x18 > span:nth-child(2) { flex: 1; }
+.tkf-x18 .tk-x18 { height: 4.6cqmin; min-width: 7cqmin; }
+.tkf-x18:not(.on) .tk-x18 { background: transparent; color: var(--dim); border-style: dashed; border-color: var(--dim); }
+.tkf-x18.on { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--glass)); }
+.tkf-x18 .switch.on { background: var(--danger); }
+.tkf-acts { display: flex; justify-content: center; gap: 2cqmin; margin-top: 1.6cqmin; }
+.tkf-acts .pill { font-size: 2.9cqmin; padding: 1.8cqmin 6cqmin; }
+.tkf-panel .pill.primary.tkf-save { background: var(--k); color: #14101c; box-shadow: 0 1cqmin 3.6cqmin color-mix(in srgb, var(--k) 40%, transparent); }
+#app[data-theme="bauhaus"] .tkf-field, #app[data-theme="bauhaus"] .tkf-x18 { border-radius: 0; border: .35cqmin solid rgb(var(--ink)); background: var(--surface); }
+
+/* "Add from phones" QR panel */
+.tkq-panel .panel-body { inset: 0; }
+.tkq { position: absolute; inset: 0; }
+.tkq-code { position: absolute; left: 50%; top: 45.5%; width: 43cqmin; transform: translate(-50%, -50%); border-radius: 3cqmin; overflow: hidden; background: #fff;
+  box-shadow: 0 1.6cqmin 6cqmin rgb(var(--shade) / .35), 0 0 0 .6cqmin color-mix(in srgb, var(--k) 75%, transparent); animation: tkq-in .45s var(--spring); }
+.tkq-code svg { display: block; width: 100%; height: auto; }
+@keyframes tkq-in { from { transform: translate(-50%, -50%) scale(.85); opacity: 0; } }
+.tkq-count { position: absolute; left: 50%; top: 70%; transform: translateX(-50%); font-size: 2.7cqmin; font-weight: 700; white-space: nowrap; }
+.tkq-url { position: absolute; left: 50%; top: 74.4%; transform: translateX(-50%); font-family: var(--mono); font-size: 1.9cqmin; color: var(--dim); white-space: nowrap; max-width: 58cqmin; overflow: hidden; text-overflow: ellipsis; }
+.tkq-here { position: absolute; left: 50%; top: 80.4%; transform: translate(-50%, -50%); font-size: 2.3cqmin; white-space: nowrap; }
+.tkq-wait { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqmin; color: var(--muted); font-size: 2.8cqmin; }
+.tkq-off { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 62cqmin; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2cqmin; }
+.tkq-off-ic { width: 15cqmin; height: 15cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 7.5cqmin; color: var(--dim); background: var(--glass); border: 1px dashed var(--line); position: relative; }
+.tkq-off-ic::after { content: ''; position: absolute; width: 1px; height: 120%; background: var(--danger); transform: rotate(45deg); opacity: .8; }
+.tkq-off-t { font-family: var(--display); font-size: 3.9cqmin; font-weight: 700; }
+.tkq-off-m { font-size: 2.5cqmin; line-height: 1.4; color: var(--muted); }
+.tkq-off-b { display: flex; gap: 2cqmin; margin-top: 1cqmin; }
+#app[data-theme="bauhaus"] .tkq-code { border-radius: 0; box-shadow: 0 0 0 .6cqmin rgb(var(--ink)); }

@@ -22,6 +22,8 @@
     "bgg": { "username": "", "token": "" },
     "pricecharting": { "token": "" },
     "rawg": { "username": "", "key": "" },
+    "discogs": { "username": "", "token": "" },
+    "tmdb": { "key": "" },
     "watchFile": "",
     "watchPreset": "auto",
     "upcLookup": true
@@ -41,6 +43,17 @@
     "teamId": "",
     "keyId": "",
     "privateKeyPath": "AuthKey_XXXXXXXXXX.p8"
+  },
+
+  "system": {
+    "allowRemote": false,
+    "battery": "auto",
+    "pisugar": { "host": "127.0.0.1", "port": 8423 },
+    "upsHat": { "bus": 1, "address": null, "capacityMah": null, "curve": "liion" },
+    "imu": { "enabled": true, "bus": 1, "address": null, "chip": "auto", "hz": 20, "alpha": 0.25, "plane": null, "offset": 0, "invert": false, "swapXY": false },
+    "hotspot": { "envFile": "/etc/roundremote/hotspot.env", "captivePort": 8766 },
+    "output": "",
+    "wakeOnInput": true
   },
 
   "app": {

@@ -130,6 +130,21 @@ export const DEFAULTS = Object.freeze({
   rhythmSel: {},               // chosen version per song key
   hitsterLang: 'auto',         // Hitster's language: auto (= the keyboard language) | en | he
   dimAfterMin: 10,             // 0 = never
+  // Device (Settings → Device on the Raspberry Pi; Orientation & Battery saver also under General on phones/tablets)
+  batterySaver: false,         // Battery saver is ACTIVE now (set by js/core/power.js from saverMode) → the app treats it like liteMode
+  saverMode: 'off',            // off | on | auto (on at ≤ saverAt % battery)
+  saverAt: 20,                 // auto: battery % at which it turns on
+  saverOffCharging: true,      // auto: turn off again while charging
+  saverActions: { lite: true, governor: true, wifi: true, bluetooth: false, screen: true, dim: true },   // what Battery saver does
+  saverDim: 0.4,               // dim overlay opacity while saving (the panel's backlight is button-only)
+  screenOffMin: 0,             // Pi: HDMI off after N min without a touch (0 = never; Battery saver: 2 min at most)
+  nightDim: { on: false, from: 22 * 60, to: 7 * 60, level: 0.5 },   // dark overlay at night (minutes after midnight)
+  orientMode: 'off',           // screen rotation: off | 90 | 45 | free
+  orientSource: 'manual',      // pi (the Pi's IMU) | motion (this phone/tablet's sensor) | manual (buttons)
+  orientAxis: 'roll',          // Pi IMU: which angle turns the screen: roll | pitch | heading
+  orientReverse: false,        // sensor turns the other way
+  orientOffset: 0,             // sensor angle that counts as upright (calibrate)
+  orientManual: 0,             // manual rotation, degrees clockwise
   pollMs: 2000,
   bridgeUrl: '',               // '' = auto (same origin if served by the bridge, else http://localhost:8765)
   bridgeKnown: false,          // a bridge was found before → OK to probe for it in the background
@@ -194,3 +209,8 @@ class Store extends Emitter {
 }
 
 export const store = new Store();
+
+/** "Reduce effects" in force: the user's setting, or Battery saver while it's on (without touching liteMode itself). */
+export const isLite = () => !!(store.s.liteMode || (store.s.batterySaver && store.s.saverActions?.lite !== false));
+/** How often remote services are polled (ms): the user's choice, at least 4 s while Battery saver is on. */
+export const pollMs = () => Math.max(Number(store.s.pollMs) || 2000, store.s.batterySaver ? 4000 : 0);

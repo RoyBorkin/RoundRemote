@@ -36,7 +36,7 @@ export const APPS = [
     icon: 'M7 6h10a5 5 0 0 1 4.9 6l-.9 4.4a2.6 2.6 0 0 1-4.6 1.1L14.6 15H9.4l-1.8 2.5A2.6 2.6 0 0 1 3 16.4L2.1 12A5 5 0 0 1 7 6zm0 3v1.5H5.5v2H7V14h2v-1.5h1.5v-2H9V9z' },
   { id: 'books', file: './books.js', name: 'Bookmarks', color: '#8b5cf6', blurb: 'Where you stopped in every book — page, progress and reading reminders.',
     icon: 'M6 2h12a1 1 0 0 1 1 1v19l-7-4-7 4V3a1 1 0 0 1 1-1z' },
-  { id: 'collection', file: './collection.js', name: 'Collection', color: '#0ea5e9', blurb: 'Your physical video games and board games — synced from BoardGameGeek, PriceCharting, RAWG, Steam and more.',
+  { id: 'collection', file: './collection.js', name: 'Collection', color: '#0ea5e9', blurb: 'Your shelves: video games, board games, books, vinyl, CDs, DVD & Blu-ray — scan, sync and browse them.',
     icon: 'M3 4h4v16H3zm5 2h4v14H8zm5-3h3v17h-3zm4.2 2.3l2.9-.8 3.6 13.6-2.9.8z' },
   { id: 'plants', file: './plants.js', name: 'Plants & Pets', color: '#22c55e', blurb: 'Watering, feeding, walks and medicine — reminders for everyone you look after.',
     icon: 'M12 22v-8M12 14c0-4 3-7 8-7 0 5-3 7-8 7zm0-2C12 8 9.5 5 4 5c0 5 3 7 8 7z' },

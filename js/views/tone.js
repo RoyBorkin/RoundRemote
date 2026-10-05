@@ -3,7 +3,7 @@
 // styles (see tone-visuals.js). Sound comes from core/sound.js: simulated from playback by
 // default, or live from a microphone.
 import { h } from '../ui/dom.js';
-import { store } from '../core/store.js';
+import { store, isLite } from '../core/store.js';
 import { sound } from '../core/sound.js';
 import { paletteFromImage } from '../core/color.js';
 import { TONE_RENDERERS } from './tone-visuals.js';
@@ -24,13 +24,13 @@ export function createToneView({ player }) {
   const el = h('div.view.view-tone', host, src);
   const snd = sound();
   let r = null, variant = store.get('toneVariant'), track = null, t0 = performance.now(), size = [0, 0];
-  const env = { accent: null, palette: null, art: null, lite: !!store.get('liteMode') };
+  const env = { accent: null, palette: null, art: null, lite: isLite() };
 
   function readAccent() { env.accent = parseColor(getComputedStyle(document.getElementById('app')).getPropertyValue('--accent').trim()) || [120, 170, 255]; }
   function mount() {
     r?.destroy(); r = null;
     host.dataset.v = variant;
-    env.lite = !!store.get('liteMode');
+    env.lite = isLite();
     readAccent();
     const make = TONE_RENDERERS[variant] || TONE_RENDERERS.ferro;
     r = make(host, env);
@@ -57,7 +57,7 @@ export function createToneView({ player }) {
   const offs = [
     store.on('change:toneVariant', (v) => { variant = v; mount(); }),
     store.on('change:toneSource', () => { if (snd.source === 'sim') snd.release(); labelSource(); }),
-    store.on('change:liteMode', mount),
+    store.on('change:liteMode', mount), store.on('change:batterySaver', mount),
   ];
   mount();
   labelSource();

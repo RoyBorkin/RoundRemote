@@ -25,6 +25,7 @@ import { BACKDROPS, drawBackdropPreview } from '../ui/backdrops.js';
 import { SOURCES, forgetAll, learnedSongCount } from '../../rhythm/session.js';
 import { openCalibration } from '../../rhythm/hub.js';
 import { alertsSection } from './settings-alerts.js';
+import { deviceGroup, displayExtras } from './settings-device.js';
 
 export const VERSION = '2.0.0';
 
@@ -36,7 +37,7 @@ export function SettingsScreen() {
   const opt = (label, control) => h('div.opt', h('div.opt-label', label), control);
   const section = (t) => h('div.section', t);
   // the big headers (Theme, General, Music…), with a row of chips at the top to jump to them
-  const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
+  const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['device', 'Device', 'devices'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
     ['home', 'Home', 'house'], ['alerts', 'Alerts', 'megaphone'], ['games', 'Games', 'gamepad'], ['rhythm', 'Rhythm', 'rhythm'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
   const groupEls = {};
   const group = (id) => {
@@ -44,7 +45,7 @@ export function SettingsScreen() {
     return (groupEls[id] = h('div.set-group', { dataset: { group: id } }, h('span.set-group-ic', { html: icon(ic) }), h('span', title)));
   };
   const jump = h('div.set-jump', GROUPS.map(([id, title]) => h('button.chip.sm', {
-    type: 'button', onclick: (e) => { e.stopPropagation(); groupEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+    type: 'button', dataset: { group: id }, onclick: (e) => { e.stopPropagation(); groupEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   }, title)));
 
   list.append(
@@ -61,9 +62,13 @@ export function SettingsScreen() {
     toggle('Reduce effects (faster on Pi 3)', () => store.get('liteMode'), (v) => store.set('liteMode', v)),
     toggle('Open last service on start', () => store.get('autoResume'), (v) => store.set('autoResume', v)),
     opt('Dim screen when idle', chips([{ id: 0, name: 'Never' }, { id: 2, name: '2 min' }, { id: 10, name: '10 min' }, { id: 30, name: '30 min' }], store.get('dimAfterMin'), (v) => store.set('dimAfterMin', v))),
+    ...displayExtras(),   // Screen rotation + Battery saver (phones, tablets, computers; on the Pi they're under Device)
     section('Keyboard'),
     opt('On-screen keyboard', chips([{ id: 'auto', name: 'Auto' }, { id: 'on', name: 'On' }, { id: 'off', name: 'Off' }], store.get('keyboard'), (v) => store.set('keyboard', v))),
     opt('Keyboard language', chips([{ id: 'en', name: 'English' }, { id: 'he', name: 'עברית' }], store.get('kbdLang'), (v) => store.set('kbdLang', v))),
+
+    group('device'),   // Raspberry Pi: Wi-Fi, Bluetooth, sound, power, screen, orientation, updates (hidden elsewhere)
+    ...deviceGroup({ header: groupEls.device, jump }),
 
     group('music'),
     section('Player'),

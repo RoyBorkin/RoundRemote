@@ -207,3 +207,31 @@
 .dc-mine .dc-mine-ic { width: 2cqmin; height: 2cqmin; fill: currentColor; }
 .dc-th.big .dc-mine { width: 4.6cqmin; height: 4.6cqmin; right: 1cqmin; bottom: 1cqmin; }
 .dc-th.big .dc-mine .dc-mine-ic { width: 2.8cqmin; height: 2.8cqmin; }
+
+/* ---------------------------------------------------------------- draw lists (My lists) */
+.dc-chips .chip b.dc-ln { font-weight: 800; opacity: .6; margin-inline-start: .6cqmin; font-variant-numeric: tabular-nums; }
+.dc-newlist, .dc-listchip { display: inline-flex; align-items: center; gap: .6cqmin; }
+.dc-newlist span, .dc-listchip span { display: grid; }
+.dc-newlist .ic, .dc-listchip .ic { width: 2.3cqmin; height: 2.3cqmin; }
+.dc-newlist { border-style: dashed; color: var(--muted); }
+.dc-listchip:not(.on) { color: #eab308; border-color: color-mix(in srgb, #eab308 45%, transparent); }
+#app[data-mode="light"] .dc-listchip:not(.on) { color: #a16207; }
+.dc-ltop { gap: 1.2cqmin; flex-wrap: wrap; align-items: center; }
+.dc-ledit .ibtn.dc-lbtn { width: 6.6cqmin; height: 6.6cqmin; font-size: 3cqmin; margin-top: 1.6cqmin; }
+.dc-ledit .ibtn.dc-lbtn .dc-ic, .dc-ledit .ibtn.dc-lbtn .ic { width: 1em; height: 1em; }
+.dc-ledit .ibtn.danger { color: var(--danger, #ff5a6a); }
+.dc-spinlist { display: flex; align-items: center; gap: .8cqmin; }
+.dc-spinlist .dc-ic { width: 2.6cqmin; height: 2.6cqmin; }
+.dc-picker .panel-body { top: 16%; bottom: 17.5%; }
+.dc-picker .search-bar { flex: none; }
+.dc-ptabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; padding: 1.2cqmin 4cqmin .4cqmin; touch-action: pan-x;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.dc-ptabs::-webkit-scrollbar { display: none; }
+.dc-ptabs .chip { flex: none; padding: 1cqmin 2.2cqmin; font-size: 2.2cqmin; }
+.dc-prow { width: 100%; text-align: start; }
+.dc-prow.on .dc-lmain { background: color-mix(in srgb, var(--ac) 14%, transparent); }
+.dc-pcheck { flex: none; width: 6cqmin; height: 6cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 3cqmin; color: var(--muted); background: var(--glass); border: 1px solid var(--line); }
+.dc-pcheck .ic { width: 1em; height: 1em; }
+.dc-prow.on .dc-pcheck { background: var(--ac); color: #0a0a0b; border-color: transparent; }
+.dc-pdone { flex: none; align-self: center; margin-top: .6cqmin; min-width: 22cqmin; }
+.dc-picker.kbd-open .dc-ptabs, .dc-picker.kbd-open .dc-pdone { display: none; }

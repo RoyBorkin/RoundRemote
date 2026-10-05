@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- © 2026 Roy Borkin. All rights reserved. See LICENSE. -->
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14111c"><meta name="color-scheme" content="dark light"><meta name="robots" content="noindex">
+<title>Code Words · Key</title>
+<!-- Code Words (games/codewords.js), One device mode: the spymasters' key on their own phone, rebuilt from the game's
+     seed in the URL (?k=<seed base36><r|b>&l=en|he). No server needed — works from GitHub Pages too. -->
+<style>
+:root{--bg:#14111c;--card:#1f1a2b;--card2:#2a2339;--fg:#f6f3fb;--muted:#b3abc6;--line:#382f4b;--red:#e5484d;--blue:#3e7bfa;--neu:#d9c9a3;--ass:#18181b}
+@media (prefers-color-scheme:light){:root{--bg:#f6f3fb;--card:#fff;--card2:#efeaf7;--fg:#1d1729;--muted:#5d5470;--line:#e2dcec}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 Inter,Rubik,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+body{padding:max(16px,env(safe-area-inset-top)) 16px max(30px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;min-height:100dvh}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.logo{width:42px;height:42px;border-radius:50%;background:#ef4444;color:#fff;display:grid;place-items:center;font-weight:900;font-size:20px}
+h1{font-size:19px;margin:0}.sub{color:var(--muted);font-size:13px}
+.lang{margin-inline-start:auto;padding:7px 13px;border-radius:99px;background:var(--card2);font-weight:700;font-size:13px}
+.start{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,var(--t) 20%,var(--card));border:2px solid var(--t);font-weight:800;margin-bottom:14px}
+.start i{width:16px;height:16px;border-radius:50%;background:var(--t)}
+.wrap{position:relative}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:12px;border-radius:22px;background:var(--card);border:1px solid var(--line)}
+.grid i{aspect-ratio:1.25;border-radius:10px}
+.k-r{background:var(--red)}.k-b{background:var(--blue)}.k-n{background:var(--neu)}.k-a{background:var(--ass);box-shadow:inset 0 0 0 3px #f43f5e;position:relative}
+.k-a::after{content:'✕';position:absolute;inset:0;display:grid;place-items:center;color:#f43f5e;font-weight:900;font-style:normal;font-size:20px}
+.cover{position:absolute;inset:0;border-radius:22px;background:var(--card2);display:grid;place-items:center;text-align:center;padding:20px;font-weight:800;font-size:18px;border:2px dashed var(--line)}
+.cover small{display:block;color:var(--muted);font-weight:600;font-size:14px;margin-top:6px}
+.top{text-align:center;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;color:var(--muted);font-size:13px;font-weight:700}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.note{color:var(--muted);font-size:13px;text-align:center}
+.err{padding:16px;border-radius:16px;background:var(--card);text-align:center}
+.code{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:800;color:var(--fg)}
+</style></head>
+<body>
+<header><div class="logo">⌗</div><div><h1 data-t="title"></h1><div class="sub"><span data-t="game"></span> <span class="code" id="code"></span></div></div><button class="lang" id="lang"></button></header>
+<div id="main"></div>
+<script>
+(() => {
+  // the same key algorithm as games/codewords.js (rng + makeKey) — keep them in step
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const other = (t) => (t === 'r' ? 'b' : 'r');
+  function makeKey(seed, start) {
+    const cells = [...Array(9).fill(start), ...Array(8).fill(other(start)), ...Array(7).fill('n'), 'a'];
+    const r = rng(seed);
+    for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+    return cells;
+  }
+  const TX = {
+    en: { title: 'Code Words · Key', game: 'Game', startsT: '{team} start with 9 agents, {other} have 8', red: 'Red', blue: 'Blue',
+      show: 'Spymasters only!', showSub: 'Tap to show the key', top: '▲ TOP OF THE DISPLAY ▲', agR: 'Red agent', agB: 'Blue agent', neu: 'Bystander', ass: 'Assassin',
+      note: 'The grid on the display has the same 5 rows and 5 columns. Tap the key to hide it again.', bad: 'This link has no key. Scan the QR code on the display again.' },
+    he: { title: 'מילות קוד · מפתח', game: 'משחק', startsT: 'ה{team} מתחילים עם 9 סוכנים, ל{other} יש 8', red: 'אדומים', blue: 'כחולים',
+      show: 'רק לראשי הריגול!', showSub: 'לחצו כדי להציג את המפתח', top: '▲ החלק העליון של המסך ▲', agR: 'סוכן אדום', agB: 'סוכן כחול', neu: 'עובר אורח', ass: 'מתנקש',
+      note: 'ללוח במסך יש אותן 5 שורות ו-5 עמודות. לחצו על המפתח כדי להסתיר אותו שוב.', bad: 'בקישור הזה אין מפתח. סרקו שוב את קוד ה-QR שבמסך.' },
+  };
+  const q = new URLSearchParams(location.search);
+  let lang = (() => { try { return localStorage.getItem('cwkey.lang'); } catch { return null; } })() || (q.get('l') === 'he' ? 'he' : q.get('l') === 'en' ? 'en' : /^(he|iw)/i.test(navigator.language || '') ? 'he' : 'en');
+  const m = /^([0-9a-z]{1,7})([rb])$/i.exec(q.get('k') || '');
+  let shown = false;
+  const t = (k, v) => String(TX[lang][k] ?? TX.en[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => (v || {})[x] ?? '');
+  function render() {
+    document.documentElement.lang = lang; document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
+    document.getElementById('lang').textContent = lang === 'he' ? 'EN' : 'עב';
+    const main = document.getElementById('main');
+    main.textContent = '';
+    if (!m) { document.getElementById('code').textContent = '—'; main.innerHTML = '<div class="err"></div>'; main.firstChild.textContent = t('bad'); return; }
+    const seed = parseInt(m[1], 36) >>> 0, start = m[2].toLowerCase();
+    document.getElementById('code').textContent = seed.toString(36).toUpperCase();
+    const key = makeKey(seed, start);
+    const name = (x) => t(x === 'r' ? 'red' : 'blue');
+    const st = document.createElement('div');
+    st.className = 'start'; st.style.setProperty('--t', start === 'r' ? 'var(--red)' : 'var(--blue)');
+    st.innerHTML = '<i></i><span></span>'; st.lastChild.textContent = t('startsT', { team: name(start), other: name(other(start)) });
+    const top = document.createElement('div'); top.className = 'top'; top.textContent = t('top');
+    const wrap = document.createElement('div'); wrap.className = 'wrap';
+    const grid = document.createElement('div'); grid.className = 'grid'; grid.dir = 'ltr';
+    for (const k of key) { const i = document.createElement('i'); i.className = 'k-' + k; grid.append(i); }
+    wrap.append(grid);
+    if (!shown) { const c = document.createElement('button'); c.className = 'cover'; c.innerHTML = '<div><span></span><small></small></div>'; c.querySelector('span').textContent = '🔒 ' + t('show'); c.querySelector('small').textContent = t('showSub'); c.onclick = () => { shown = true; render(); }; wrap.append(c); }
+    else grid.onclick = () => { shown = false; render(); };
+    const lg = document.createElement('div'); lg.className = 'legend';
+    for (const [c, k] of [['var(--red)', 'agR'], ['var(--blue)', 'agB'], ['var(--neu)', 'neu'], ['var(--ass)', 'ass']]) { const s = document.createElement('span'); s.innerHTML = '<i></i>'; s.firstChild.style.background = c; s.append(t(k)); lg.append(s); }
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = t('note');
+    main.append(st, top, wrap, lg, note);
+  }
+  document.getElementById('lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; try { localStorage.setItem('cwkey.lang', lang); } catch {} render(); };
+  render();
+})();
+</script>
+</body></html>

@@ -166,7 +166,8 @@ export default {
     const cx = canvas.getContext('2d');
     let parts = [], confOn = false, offRaf = null;
     function burst(power = 1) {
-      const r = canvas.getBoundingClientRect();
+      // its layout size (also right when the app is turned: js/core/orientation.js)
+      const r = { width: canvas.clientWidth, height: canvas.clientHeight };
       const W = (canvas.width = Math.round(r.width)), H = (canvas.height = Math.round(r.height));
       if (!W) return;
       const cols = ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#facc15', '#14b8a6'];

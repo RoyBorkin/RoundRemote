@@ -7,7 +7,7 @@ import { player } from '../core/player.js';
 import { store } from '../core/store.js';
 import { go } from '../core/router.js';
 import { getService } from '../providers/registry.js';
-import { fmtTime, angleFromCenter, distFromCenter, clamp } from '../core/util.js';
+import { fmtTime, angleFromCenter, distFromCenter, clamp, toLocal } from '../core/util.js';
 import { accentFromImage } from '../core/color.js';
 import { toast, topPanel } from '../ui/overlay.js';
 import { createInfoView } from '../views/info.js';
@@ -166,10 +166,11 @@ export function PlayerScreen() {
   ['pointerup', 'pointercancel'].forEach((ev) => stage.addEventListener(ev, () => clearTimeout(holdT)));
   // ---------- swipe between views / tap to toggle chrome ----------
   let sw = null;
-  stage.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, t: performance.now(), hidden: wasHidden }; });
+  stage.addEventListener('pointerdown', (e) => { const [x, y] = toLocal(e.clientX, e.clientY); sw = { x, y, t: performance.now(), hidden: wasHidden }; });
   stage.addEventListener('pointerup', (e) => {
     if (!sw) return;
-    const dx = e.clientX - sw.x, dy = e.clientY - sw.y, dt = performance.now() - sw.t;
+    const [x, y] = toLocal(e.clientX, e.clientY);   // the screen may be turned (js/core/orientation.js)
+    const dx = x - sw.x, dy = y - sw.y, dt = performance.now() - sw.t;
     const wasHidden = sw.hidden; sw = null;
     if (!current?.isInteractive && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 700) {
       const i = VIEWS.indexOf(view);

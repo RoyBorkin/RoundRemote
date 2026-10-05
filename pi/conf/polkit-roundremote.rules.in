@@ -1,0 +1,7 @@
+// /etc/polkit-1/rules.d/50-roundremote.rules — installed by Round Remote's pi/install.sh.
+// Lets the bridge user (a system service, so not an "active session") manage Wi-Fi with NetworkManager.
+polkit.addRule(function(action, subject) {
+  if (subject.user == "__USER__" && action.id.indexOf("org.freedesktop.NetworkManager.") == 0) {
+    return polkit.Result.YES;
+  }
+});

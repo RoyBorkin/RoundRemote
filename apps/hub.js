@@ -2,6 +2,7 @@
 // The Apps category: every app on a ring (like the Games ring). Tap one to see it in the middle, tap Open
 // (or the middle) to start it. Drag around the ring, scroll, or use ← → to move through them.
 import { h, iconBtn } from '../js/ui/dom.js';
+import { localRect, toLocal } from '../js/core/util.js';
 import { go } from '../js/core/router.js';
 import { store } from '../js/core/store.js';
 import { iconSvg } from '../games/index.js';
@@ -51,15 +52,15 @@ export function AppsHubScreen() {
   // drag around the ring to move through the apps
   let drag = null;
   el.addEventListener('pointerdown', (e) => {
-    const r = el.getBoundingClientRect();
-    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const r = localRect(el), [px, py] = toLocal(e.clientX, e.clientY);   // the app may be turned (js/core/orientation.js)
+    const dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
     if (Math.hypot(dx, dy) < r.width * 0.3) return;
     drag = { moved: false, r };
   });
   el.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    const { r } = drag;
-    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const { r } = drag, [px, py] = toLocal(e.clientX, e.clientY);
+    const dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
     let a = Math.atan2(dx, -dy); if (a < 0) a += Math.PI * 2;
     const i = Math.round((a / (Math.PI * 2)) * n) % n;
     if (i !== sel) { drag.moved = true; select(i); }

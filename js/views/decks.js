@@ -9,7 +9,7 @@
 // the read-laser dot), so everything moving is a cheap composited layer.
 import { h } from '../ui/dom.js';
 import { store } from '../core/store.js';
-import { angleFromCenter, angleDelta, distFromCenter, clamp, throttle, fmtTime } from '../core/util.js';
+import { angleFromCenter, angleDelta, distFromCenter, clamp, throttle, fmtTime, toLocal, localRect } from '../core/util.js';
 import { TAPE, tapeStyle, cdBackStyle, cdTopStyle, TAPE_STYLES, CD_BACK_STYLES, CD_TOP_STYLES,
   tapeBackMarkup, tapeFrontMarkup, hubMarkup, tapePath, tapeGuidesMarkup } from './deck-styles.js';
 
@@ -123,15 +123,15 @@ export function createTapeView({ player, onPreview }) {
 
   el.addEventListener('pointerdown', (e) => {
     if (distFromCenter(el, e.clientX, e.clientY) > 0.9) return; // outer band = progress ring
-    const box = cass.getBoundingClientRect();
+    const box = localRect(cass), [px, py] = toLocal(e.clientX, e.clientY);   // the screen may be turned (js/core/orientation.js)
     const unit = box.width / W;
     // on a reel: turn it like a pencil in the hub; anywhere else: pull the tape sideways
-    let mode = { kind: 'slide', x: e.clientX, unit };
+    let mode = { kind: 'slide', x: px, unit };
     for (const reel of [reelL, reelR]) {
-      const rb = reel.el.getBoundingClientRect();
+      const rb = localRect(reel.el);
       const cx = rb.left + rb.width / 2, cy = rb.top + rb.height / 2;
-      if (Math.hypot(e.clientX - cx, e.clientY - cy) < Math.max(reel.r, R0 + 10) * unit) {
-        mode = { kind: 'reel', reel, cx, cy, a: Math.atan2(e.clientY - cy, e.clientX - cx) };
+      if (Math.hypot(px - cx, py - cy) < Math.max(reel.r, R0 + 10) * unit) {
+        mode = { kind: 'reel', reel, cx, cy, a: Math.atan2(py - cy, px - cx) };
       }
     }
     drag = { id: e.pointerId, ...mode };
@@ -142,9 +142,10 @@ export function createTapeView({ player, onPreview }) {
   el.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     let dL = 0;
-    if (drag.kind === 'slide') { dL = (e.clientX - drag.x) / drag.unit; drag.x = e.clientX; }
+    const [px, py] = toLocal(e.clientX, e.clientY);
+    if (drag.kind === 'slide') { dL = (px - drag.x) / drag.unit; drag.x = px; }
     else {
-      const a = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx);
+      const a = Math.atan2(py - drag.cy, px - drag.cx);
       dL = -angleDelta(drag.a, a) * drag.reel.r; drag.a = a;   // anticlockwise = forward
     }
     if (Math.abs(dL) < 0.3) return;

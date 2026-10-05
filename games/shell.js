@@ -13,6 +13,9 @@
 //     unit: 'pts',                                       // shown after the score (optional)
 //     format: (score) => string,                         // optional score formatting
 //     hud: true,                                         // show the score at the top while playing
+//     party: true,                                       // (or noScores) a party game keeps no chart: no best-score line or
+//                                                        // Top 5 on the start card, no score on the pause card, and g.over()
+//                                                        // doesn't record (unless it passes record: true)
 //     create(g, { mode, opts }) { …; return { destroy() {} } } // start a new round (opts = chosen options)
 //     lang: () => 'he',                                  // optional: the shell's own texts in that language (and right to
 //                                                        // left); howTo / modes / unit may be getters — read on every render
@@ -34,6 +37,7 @@
 //   g.sfx(name)  g.vibrate(ms)  g.draw.*  (see kit.js)   g.mode  g.opts  g.time (seconds this round)
 // A new top-5 score asks for the player's name (kept for next time). Pause also has music / media controls.
 import { h, iconBtn, clear } from '../js/ui/dom.js';
+import { localRect, toLocal } from '../js/core/util.js';
 import { editText } from '../js/ui/keyboard.js';
 import { player } from '../js/core/player.js';
 import { icon } from '../js/ui/icons.js';
@@ -91,6 +95,10 @@ export function GameScreen({ id }) {
   const ov = h('div.g-ov');
   const btnPause = iconBtn('pause', 'Pause', () => pause(), 'g-pause');
   const el = h('div.game-screen', { '--gc': meta.color }, canvas, hudEl, toastEl, btnPause, ov);
+  { // a near-black game colour: the chrome uses the ink colour on dark themes (games/games.css .deep)
+    const n = parseInt(String(meta.color).replace('#', ''), 16);
+    if (/^#[0-9a-f]{6}$/i.test(meta.color) && (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 < 0.12) el.classList.add('deep');
+  }
 
   let def = null, inst = null, state = 'loading', frameFn = null, handlers = {}, raf = 0, last = 0, endT = 0, overInfo = null;
   let mode = null, opts = {};
@@ -116,6 +124,8 @@ export function GameScreen({ id }) {
   const scoring = () => modeDef()?.scoring || def?.scoring || 'high';
   const unit = () => modeDef()?.unit ?? def?.unit ?? '';
   const format = (s) => (modeDef()?.format || def?.format || ((n) => Math.round(n).toLocaleString()))(s);
+  // a party game (def.party, or def.noScores) keeps no chart: no best-score line, no Top 5, no score on the pause card
+  const party = () => !!(def?.party || def?.noScores);
 
   // ---------- the g object ----------
   const g = {
@@ -166,8 +176,8 @@ export function GameScreen({ id }) {
 
   // ---------- input ----------
   const pt = (e) => {
-    const r = canvas.getBoundingClientRect();
-    const x = (e.clientX - r.left) * (g.S / (r.width || 1)), y = (e.clientY - r.top) * (g.S / (r.height || 1));
+    const r = localRect(canvas), [ex, ey] = toLocal(e.clientX, e.clientY);   // the app may be turned (js/core/orientation.js)
+    const x = (ex - r.left) * (g.S / (r.width || 1)), y = (ey - r.top) * (g.S / (r.height || 1));
     const dx = x - g.cx, dy = y - g.cy;
     let a = Math.atan2(dx, -dy); if (a < 0) a += TAU;
     // ts = when the input actually happened (event time, same clock as performance.now()) — rhythm games judge by it
@@ -259,7 +269,7 @@ export function GameScreen({ id }) {
     const info = overInfo || {};
     let rank = 0, entry = null;
     // a zero in a bigger-is-better game isn't worth a place on the chart
-    if (info.score != null && info.record !== false && !(scoring() === 'high' && info.score <= 0)) {
+    if (info.score != null && info.record !== false && !(party() && info.record !== true) && !(scoring() === 'high' && info.score <= 0)) {
       const r = addScore(id, scoreKey(), info.score, { scoring: scoring(), label: info.label });
       rank = r.rank; entry = r.entry;
       if (rank) {
@@ -348,16 +358,16 @@ export function GameScreen({ id }) {
         keyLabel() ? h('div.g-keyname', keyLabel()) : null,
         h('div.g-how', def.howTo || meta.blurb || ''),
         modeChips(),
-        h('div.g-best', best()),
+        party() ? null : h('div.g-best', best()),
         h('div.g-actions', pill(T('Play'), startRound, 'primary')),
-        h('div.g-actions.small', pill(T('Top 5'), () => showOv('scores', { back: 'menu' })), pill(homeName(), () => go(homeRoute))),
+        h('div.g-actions.small', party() ? null : pill(T('Top 5'), () => showOv('scores', { back: 'menu' })), pill(homeName(), () => go(homeRoute))),
       );
     } else if (kind === 'scores') {
       put(h('div.g-title.sm', T('top5', meta.name)), keyLabel() ? h('div.g-keyname', keyLabel()) : null, modeChips(), chart(), h('div.g-actions', pill(T('Back'), () => showOv(data.back || 'menu'), 'primary')));
     } else if (kind === 'pause') {
       const snd = () => T(store.get('gameSound') === false ? 'Sound off' : 'Sound on');
       const sndBtn = pill(snd(), () => { store.set('gameSound', store.get('gameSound') === false); sndBtn.textContent = snd(); });
-      put(h('div.g-title', T('Paused')), h('div.g-best', T('score', scoreEl.textContent || '0')),
+      put(h('div.g-title', T('Paused')), party() ? null : h('div.g-best', T('score', scoreEl.textContent || '0')),
         h('div.g-actions', pill(T('Resume'), resume, 'primary')),
         h('div.g-actions.small', pill(T('Restart'), startRound), pill(T('Quit'), () => showOv('menu')), sndBtn),
         mediaBox());
@@ -371,8 +381,8 @@ export function GameScreen({ id }) {
         rank ? h('button.g-name', { type: 'button', onclick: (e) => { e.stopPropagation(); askName(data); } },
           h('span', { html: icon('edit') }), data.entry?.name ? `${data.entry.name}` : T('Add your name')) : null,
         info.note ? h('div.g-how', info.note) : null,
-        keyName() ? h('div.g-keyname', keyName()) : null,
-        chart(data.entry),
+        keyName() && !party() ? h('div.g-keyname', keyName()) : null,
+        party() ? null : chart(data.entry),
         h('div.g-actions', pill(T('Play again'), startRound, 'primary')),
         h('div.g-actions.small', pill(T('Menu'), () => showOv('menu')), pill(homeName(), () => go(homeRoute))),
       );

@@ -1,17 +1,23 @@
 # © 2026 Roy Borkin. All rights reserved. See LICENSE.
+# Round Remote bridge: serves the app on :8765 and the device APIs. Installed by pi/install.sh
+# (__USER__ / __APP_DIR__ / __UID__ are filled in there).
 [Unit]
-Description=Round Remote bridge (Roon / UPnP / AirPlay / Cast + app server)
-After=network-online.target shairport-sync.service
+Description=Round Remote bridge (app server, media adapters, Pi system API)
+After=network.target NetworkManager.service bluetooth.service shairport-sync.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=__USER__
 WorkingDirectory=__APP_DIR__/bridge
+# give the network up to 15 s (don't hold the screen back when there is none: the setup hotspot needs the bridge)
+ExecStartPre=-/usr/bin/nm-online -s -q -t 15
 ExecStart=/usr/bin/env node server.js
 Restart=always
 RestartSec=3
 Environment=NODE_ENV=production
+# PipeWire (wpctl) and the kiosk's Wayland session (wlr-randr) of this user
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
 
 [Install]
 WantedBy=multi-user.target

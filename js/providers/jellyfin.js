@@ -3,7 +3,7 @@
 // Media Player, Kodi…) through the server's Sessions API. Sign in with Quick Connect
 // (no typing on the round screen) or username/password.
 import { Provider } from './base.js';
-import { store } from '../core/store.js';
+import { store, pollMs } from '../core/store.js';
 import { http, HttpError, qs, uid, sleep, isMixed, lanImage } from '../core/util.js';
 import { bridgeBase } from './bridge.js';
 
@@ -98,7 +98,7 @@ export class JellyfinProvider extends Provider {
   async start() {
     this.publish({ status: 'loading' });
     await this.refresh().catch((e) => this.publish({ status: 'error', message: e.message }));
-    const loop = () => { this.timer = setTimeout(async () => { await this.refresh().catch(() => {}); if (this.timer) loop(); }, document.hidden ? 8000 : Math.max(1500, store.get('pollMs'))); };
+    const loop = () => { this.timer = setTimeout(async () => { await this.refresh().catch(() => {}); if (this.timer) loop(); }, document.hidden ? 8000 : Math.max(1500, pollMs())); };
     loop();
   }
   stop() { clearTimeout(this.timer); this.timer = null; }

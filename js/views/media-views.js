@@ -5,7 +5,7 @@
 import { h, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { curve, spinner, emptyNote } from '../ui/overlay.js';
-import { clamp } from '../core/util.js';
+import { clamp, toLocal } from '../core/util.js';
 import { store } from '../core/store.js';
 
 export const LIB_VIEWS = [
@@ -106,10 +106,10 @@ export function createItemsView(view, { onPick, onNeedMore, row }) {
       if (more && pos > all.length - 5) onNeedMore?.();
     };
     const go = (to) => { target = clamp(Math.round(to), 0, Math.max(0, all.length - 1)); pos = target; layout(true); };
-    el.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, start: pos, moved: false, id: e.pointerId }; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerdown', (e) => { drag = { x: toLocal(e.clientX, e.clientY)[0], start: pos, moved: false, id: e.pointerId }; el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointermove', (e) => {
       if (!drag) return;
-      const dx = e.clientX - drag.x;
+      const dx = toLocal(e.clientX, e.clientY)[0] - drag.x;   // the screen may be turned (js/core/orientation.js)
       if (Math.abs(dx) > 6) drag.moved = true;
       pos = clamp(drag.start - dx / (W() * 0.22), -0.4, all.length - 0.6);
       cancelAnimationFrame(raf); raf = requestAnimationFrame(() => layout(false));

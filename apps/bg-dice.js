@@ -388,7 +388,7 @@ export function mount(el, ctx, opts = {}) {
     }
     function renderLabels() {
       labels.forEach((l) => l.remove());
-      const { R } = tray.geo; const box = el.getBoundingClientRect().width || 1;
+      const { R } = tray.geo; const box = el.clientWidth || 1;   // layout px, like the tray's geometry
       const rr = (R / box) * 100 * 0.86;
       labels = Array.from({ length: D.n }, (_, i) => {
         const a = slot(i);

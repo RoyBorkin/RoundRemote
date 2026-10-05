@@ -3,6 +3,7 @@
 // Under the clock, the main menu in three rows: Music · Media · Rhythm / Home · Apps · Games / Settings
 // (arrow keys or the knob: ←/→ step through the buttons, ↑/↓ move between the rows).
 import { h, badge, iconBtn } from '../ui/dom.js';
+import { toLocal, localRect, frameDeg } from '../core/util.js';
 import { SERVICES, provider, inSection, adaptersOf } from '../providers/registry.js';
 import { icon } from '../ui/icons.js';
 import { bridgeInfo } from '../providers/bridge.js';
@@ -99,14 +100,17 @@ export function HomeScreen() {
   // shrinks (--fit, down to 80%) just enough to clear every tile — fonts differ per theme, so this is measured.
   function fitCenter() {
     if (!tiles.length || !el.isConnected) return;
+    const deg = frameDeg();
+    if (deg % 90) return;   // the screen is turned at an odd angle (js/core/orientation.js): keep the last fit
+    const lr = (q) => localRect(q, deg);
     center.style.setProperty('--fit', '1');
-    const box = ring.getBoundingClientRect(), cb = center.getBoundingClientRect();
+    const box = lr(ring), cb = lr(center);
     if (!box.width) return;
     const k = ring.clientWidth / box.width;   // measured rects → layout px (the screen may be mid-transition)
     const ox = (cb.left + cb.right) / 2, oy = (cb.top + cb.bottom) / 2;
-    const textRect = (n) => { const rg = document.createRange(); rg.selectNodeContents(n); return rg.getBoundingClientRect(); };
+    const textRect = (n) => { const rg = document.createRange(); rg.selectNodeContents(n); return lr(rg.getBoundingClientRect()); };
     const parts = [...center.querySelectorAll(':scope > .brand, :scope > .clock, :scope > .date, :scope > .home-hint')].map(textRect)
-      .concat([...center.querySelectorAll('.hm-row'), ...(now.hidden ? [] : [now])].map((n) => n.getBoundingClientRect()))
+      .concat([...center.querySelectorAll('.hm-row'), ...(now.hidden ? [] : [now])].map((n) => lr(n)))
       .filter((q) => q.width && q.height);
     const M = 3;   // px of air
     const hits = (f) => parts.some((q) => {
@@ -179,7 +183,7 @@ export function HomeScreen() {
   el.classList.add('has-backdrop');
   const offTheme = themeEvents.on('change', () => { backdrop.set(backdropSpec()); setTimeout(layout, 60); });   // theme fonts change the sizes
   document.fonts?.ready.then(() => layout());
-  const offLite = store.on('change:liteMode', () => backdrop.set(backdropSpec()));
+  const offLite = ((a, b) => () => { a(); b(); })(store.on('change:liteMode', () => backdrop.set(backdropSpec())), store.on('change:batterySaver', () => backdrop.set(backdropSpec())));
   const offUi = store.on('change:uiSize', () => setTimeout(layout, 0));
 
   let lastClock = '';
@@ -237,10 +241,11 @@ export function HomeScreen() {
   const offMode = store.on('change:homeMode', layout);
   // swipe sideways on the home screen to switch between Music and Movies & TV
   let sx = null;
-  el.addEventListener('pointerdown', (e) => { sx = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  el.addEventListener('pointerdown', (e) => { const [x, y] = toLocal(e.clientX, e.clientY); sx = { x, y, t: performance.now() }; });
   el.addEventListener('pointerup', (e) => {
     if (!sx) return;
-    const dx = e.clientX - sx.x, dy = e.clientY - sx.y, dt = performance.now() - sx.t; sx = null;
+    const [x, y] = toLocal(e.clientX, e.clientY);   // sideways for the app, even when the screen is turned
+    const dx = x - sx.x, dy = y - sx.y, dt = performance.now() - sx.t; sx = null;
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) setMode(MODES[(MODES.indexOf(mode()) + (dx < 0 ? 1 : MODES.length - 1)) % MODES.length]);
   });
 

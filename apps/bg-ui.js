@@ -35,6 +35,12 @@ export const IC = {
   speak: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z',
   crown: 'M3 7l4.5 4L12 4l4.5 7L21 7l-2 11H5zM5.3 19.5h13.4V21H5.3z',
   shake: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v13h10V5zM1 7h2v10H1zm20 0h2v10h-2z',
+  helmet: 'M5 14.5a7 7 0 0 1 14 0V17H5zM8 14.2h8v1.5H8z' + 'M5.6 10.6C3 9.6 1.9 7 2.4 3.8c1 2.4 2.6 3.6 4.7 4.1zM18.4 10.6c2.6-1 3.7-3.6 3.2-6.8-1 2.4-2.6 3.6-4.7 4.1zM4 18h16v2.6H4z',
+  bubble: 'M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L4 21.5V17a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' + c(7.5, 10, 1.45) + c(12, 10, 1.45) + c(16.5, 10, 1.45),
+  bowl: 'M1.8 11.2h20.4c-.3 5.6-4.8 9.6-10.2 9.6S2.1 16.8 1.8 11.2z' + 'M5.4 3.6l5.1-1.1 1.4 6.6-5.1 1.1zM13 2.8l5.1 1-1.2 6.4-5.1-1z',
+  keycard: rr(2, 2, 20, 20, 3) + 'M5 5h4v4H5zM10 5h4v4h-4zM15 5h4v4h-4zM5 10h4v4H5zM15 10h4v4h-4zM5 15h4v4H5zM10 15h4v4h-4zM15 15h4v4h-4z',
+  rabbit: c(12, 15.6, 6.2) + 'M8.6 9.4C7.1 6 7 2.8 8.4 1.9c1.6.8 2.7 4 2.4 7.3zM15.4 9.4c1.5-3.4 1.6-6.6.2-7.5-1.6.8-2.7 4-2.4 7.3z' + c(9.8, 15, 1) + c(14.2, 15, 1),
+  blackcard: rr(2.2, 2.5, 8.8, 14.5, 1.6) + rr(12.4, 6.5, 9.4, 15, 1.6) + rr(13.9, 8, 6.4, 12, .7),
   swords: 'M6.9 2 13 8.1 11.6 9.5 5.5 3.4V2zM17.1 2h1.4v1.4L9 12.9l1.4 1.4-1.4 1.4-1.4-1.4-2.8 2.8 1.4 1.4-1.4 1.4-4.2-4.2 1.4-1.4 1.4 1.4 2.8-2.8-1.4-1.4 1.4-1.4L7 11zm-.3 9.4 1.4 1.4-1.4 1.4 2.8 2.8 1.4-1.4 1.4 1.4-4.2 4.2-1.4-1.4 1.4-1.4-2.8-2.8-1.4 1.4-1.4-1.4z',
 };
 
@@ -188,7 +194,7 @@ export function celebrate(host, text, color = '#f59e0b', sub = '') {
   const el = h('div.bg-celebrate', { '--cc': color, onclick: () => stop() }, cv,
     h('div.bg-cel-box', h('div.bg-cel-crown', { html: svgIcon(IC.crown) }), h('div.bg-cel-t', text), sub ? h('div.bg-cel-s', sub) : null, h('div.bg-cel-tap', 'tap to close')));
   host.append(el);
-  const r = host.getBoundingClientRect();
+  const r = { width: host.clientWidth, height: host.clientHeight };   // layout size: right when the app is turned too
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = r.width * dpr; cv.height = r.height * dpr;
   const g = cv.getContext('2d');

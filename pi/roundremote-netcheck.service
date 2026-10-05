@@ -1,0 +1,15 @@
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
+# Round Remote: start the "RoundRemote-Setup" Wi-Fi hotspot when no network comes up after boot (pi/netcheck.sh).
+[Unit]
+Description=Round Remote network check (setup hotspot when offline)
+After=NetworkManager.service roundremote-bridge.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash __APP_DIR__/pi/netcheck.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

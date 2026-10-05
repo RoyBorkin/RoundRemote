@@ -1,10 +1,10 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
-// Board Games → Rules: short summaries of 40 games, written in our own words (not rulebook text).
-// Each: { id, name, he?, cat: board|classic|party|cards, players, time, goal, setup, turn, special, end, tips }
+// Board Games → Rules: short summaries of 45 games, written in our own words (not rulebook text).
+// Each: { id, name, he?, cat: board|classic|party|cards, players, time, goal, setup, turn, special, end, expansions?, tips }
 // A section is a string (paragraph) or an array (bullet list). Editions and house rules vary — the notes say so.
 
 export const CATS = { board: 'Board', classic: 'Classic', party: 'Party', cards: 'Cards' };
-export const SECTIONS = [['goal', 'Goal'], ['setup', 'Setup'], ['turn', 'On your turn'], ['special', 'Special rules'], ['end', 'End & scoring'], ['tips', 'Tips']];
+export const SECTIONS = [['goal', 'Goal'], ['setup', 'Setup'], ['turn', 'On your turn'], ['special', 'Special rules'], ['end', 'End & scoring'], ['expansions', 'Expansions & editions'], ['tips', 'Tips']];
 
 export const RULES = [
   // ------------------------------------------------------------------ board games
@@ -22,6 +22,7 @@ export const RULES = [
     turn: ['Roll two dice. Every settlement next to a hex with that number collects 1 of its resource (a city collects 2).', 'Trade with other players, or with the bank at 4:1 (harbours give 3:1 or 2:1).', 'Build: road = brick + lumber; settlement = brick + lumber + wool + grain; city = 3 ore + 2 grain; development card = ore + wool + grain.'],
     special: ['Rolling 7: anyone holding more than 7 cards discards half (round down). Move the robber to a new hex — it blocks production — and steal a card from a player there.', 'Distance rule: no settlement may be on a corner next to another settlement.', 'Development cards: knights (move the robber), progress cards and hidden victory points.', 'Longest Road (5+ connected segments) and Largest Army (3+ knights) are worth 2 points each, and can be taken away.'],
     end: 'The game ends the moment a player reaches 10 points on their own turn.',
+    expansions: ['Seafarers: ships (lumber + wool) and islands; each scenario sets its own goal (10–14 VP).', 'Cities & Knights: play to 13. An event die moves the barbarian ship (3 of its 6 faces) or hands out progress cards (yellow, blue and green city gates, checked against the red die). When the ship lands, all active knights fight barbarians as strong as the number of cities: win and the strongest defender gets a VP; lose and the weakest lose a city. Knights, city walls, city improvements bought with paper, cloth and coin, metropolises worth 2 extra VP.', 'Traders & Barbarians: five scenarios (Fishermen, Rivers, Caravans, Barbarian Attack, Traders & Barbarians — 10 to 13 VP) and variants such as Catan for two.', 'Explorers & Pirates: settler ships, crews and missions in five growing scenarios.', '5–6 player extensions exist for the base game and each expansion; the current rule pairs players so two take turns together.'],
     tips: ['Spread over different numbers and resources; 6 and 8 roll most often.', 'Ore and grain are the keys to cities and development cards.'] },
 
   { id: 'talisman', name: 'Talisman', he: 'טליסמן', cat: 'board', players: '2–6', time: '2–4 hours',
@@ -176,6 +177,7 @@ export const RULES = [
     turn: ['Your spymaster says one word and one number, like “ocean, 2”.', 'Teammates touch words one at a time: your agent — keep going (up to the number + 1); a bystander or the other team’s agent — your turn ends.'],
     special: ['Touching the assassin loses the game immediately.', 'Clues may not be the visible words themselves or parts of them.'],
     end: 'The first team to reveal all its agents wins.',
+    expansions: ['Codenames: Pictures — 20 picture cards in a 5×4 grid (8 / 7 agents, 4 bystanders, 1 assassin).', 'Codenames: Duet — 2+ players work together with a two-sided key (9 agents and 3 assassins on each side, 15 agents in all) and 9 turns.', 'Deep Undercover — an adults-only word set. Themed editions: Disney (with an easy 4×4 grid), Marvel, Harry Potter (cooperative), The Simpsons; XXL big-card editions; a free official online version.'],
     tips: ['Spymaster: keep a straight face.', 'Guessers: remember last turn’s clue — leftover words still count.'] },
 
   { id: 'dixit', name: 'Dixit', he: 'דיקסיט', cat: 'party', players: '3–6 (8 in later editions)', time: '30 min',
@@ -184,6 +186,7 @@ export const RULES = [
     turn: ['The storyteller picks a card and gives a clue: a word, sentence, song or sound.', 'Everyone else secretly gives the storyteller a card from their hand that fits the clue.', 'The cards are shuffled and revealed; each player (not the storyteller) votes for the one they think is the storyteller’s.'],
     special: ['If everyone or no one finds it: storyteller scores 0, everyone else 2.', 'Otherwise the storyteller and each player who found it score 3; others score 1 per vote their card attracted.'],
     end: 'When the deck runs out (or someone reaches 30 points), the highest score wins.',
+    expansions: ['Every expansion is 84 new cards: Quest, Origins, Daydreams, Memories, Revelations, Harmonies, Anniversary, Mirrors…; Journey and the Disney edition are standalone.', 'Odyssey (standalone, 3–12 players): from 7 players everyone may vote for two cards; finding the storyteller’s card with a single vote is worth +1, and a card earns at most 3 bonus points. A team variant plays in pairs.', 'Newer rules end the game when the draw pile runs out instead of at 30 points.'],
     tips: ['Be poetic, not literal.', 'Choose a decoy card that matches the clue’s feeling.'] },
 
   { id: 'jungle-speed', name: 'Jungle Speed', he: "ג'ונגל ספיד", cat: 'party', players: '2–10', time: '15 min',
@@ -202,6 +205,31 @@ export const RULES = [
     end: 'The last player who hasn’t exploded wins.',
     tips: ['Save your Defuse until you really need it.', 'Count the cards left — the odds get scary.'] },
 
+  { id: 'cards-against-humanity', name: 'Cards Against Humanity', cat: 'party', players: '4–20+', time: '30–90 min',
+    goal: 'Adults only. Win Awesome Points by playing the white card that the round’s judge, the Card Czar, finds funniest.',
+    setup: ['Everyone draws 10 white (answer) cards.', 'Pick the first Card Czar.'],
+    turn: ['The Czar reads a black (question or fill-in-the-blank) card aloud.', 'Everyone else secretly passes one white card to the Czar — two on “Pick 2” cards, in the order they should be read.', 'The Czar shuffles the answers, reads each one out with the black card and picks a favourite. Its owner wins the black card — one Awesome Point.', 'Everyone draws back up to 10 and the Czar role passes to the next player.'],
+    special: ['House rules from the official rules: Rebooting the Universe (trade a point to swap cards), Packing Heat (draw an extra card on Pick 2), Rando Cardrissian (a random card plays for an imaginary player), God Is Dead (no Czar — everyone votes), Survival of the Fittest (remove answers one by one), Serious Business (the Czar ranks the top three: 3, 2, 1), Never Have I Ever (discard a card you don’t understand, but admit it), Happy Ending (end with the “Make a Haiku” card).', 'Gambling: bet a point to play a second answer.'],
+    end: 'Play as long as you like (or to an agreed number of points); the most Awesome Points wins.',
+    expansions: ['Red, Blue and Green Boxes (300 cards each), the Absurd and Everything Boxes, a Family Edition for all ages, and many small themed packs.'],
+    tips: ['Play to the Czar — know your audience.', 'Skip it with people who will be hurt by it; it’s meant to be offensive.'] },
+
+  { id: 'alias', name: 'Alias', he: 'אליאס', cat: 'party', players: '4–12', time: '45–60 min',
+    goal: 'Race your team around the board by explaining words to your teammates — without saying them.',
+    setup: ['Split into teams of two or more and put the pawns on the start.', 'Each card has a list of words; the space your pawn is on (or your edition’s rule) says which one you explain.'],
+    turn: ['One player explains while the sand timer runs; teammates guess.', 'Use any words except the word itself, parts of it, rhymes, or a translation into another language.', 'Each word guessed moves you one space forward; each word you skip moves you one back.', 'When the timer runs out, the last word is open to all: the first player from any team to guess it moves their team one space.'],
+    special: ['Many editions have special spaces where every team guesses at once.', 'Take turns explaining within the team.'],
+    end: 'The first team to reach the finish wins.',
+    tips: ['Short clues beat long stories.', 'Don’t be afraid to skip a hard word quickly.'] },
+
+  { id: 'petakiot', name: 'Petakiot (Notes)', he: 'פתקיות', cat: 'party', players: '4–20', time: '30–60 min',
+    goal: 'The Israeli notes game (like Fishbowl or Salad Bowl): your team guesses more notes from the bowl than the others over three rounds.',
+    setup: ['Everyone secretly writes names — people, characters, famous figures — on 4–6 small notes, folds them and drops them into a bowl.', 'Split into two teams that sit alternately.'],
+    turn: ['A player from the team in turn draws notes one at a time and gets their team to guess as many as possible before the timer (often one minute) ends.', 'A guessed note is kept for the team; when time runs out, the note in hand goes back into the bowl and the other team plays.'],
+    special: ['Round 1 — describe (תיאור): any words, but never the name or a part of it.', 'Round 2 — one word (מילה אחת): just one word per note.', 'Round 3 — charades (פנטומימה): no words and no sounds.', 'Some play a 4th round: only sounds, or one frozen pose under a sheet.', 'When the bowl is empty the round ends; all the notes go back in for the next round. Many play that the team in turn carries on into the next round with the time it had left.', 'Agree whether passing is allowed.'],
+    end: 'Count each team’s notes after every round; the highest total after the last round wins.',
+    tips: ['Listen in round 1 — the same names come back, and shared jokes make rounds 2 and 3 easy.', 'Write names everyone at the table knows.'] },
+
   // ------------------------------------------------------------------ card games
   { id: 'taki', name: 'Taki', he: 'טאקי', cat: 'cards', players: '2–8', time: '15–30 min',
     goal: 'The Israeli shedding game: be the first to get rid of all your cards.',
@@ -210,6 +238,15 @@ export const RULES = [
     special: ['TAKI (טאקי): open a run — play every card of that colour in one go, then close it.', 'Super Taki (סופר טאקי): a wild TAKI in the current colour.', 'Stop (עצור): the next player is skipped. Change Direction (שנה כיוון): play reverses.', 'Plus (פלוס): you must put down another card right away (draw if you can’t).', '+2 (פלוס 2): the next player draws 2 — or adds their own +2, passing a bigger stack along.', 'Change Colour (שנה צבע): wild — choose the colour.', 'Newer editions add King (מלך — goes on anything, cancels penalties, play again), +3 (everyone else draws 3) and the +3 Breaker (שובר 3+ — bounces a +3 back).', 'Say “last card” (קלף אחרון) when you have one left; families differ on the penalty for forgetting.'],
     end: 'The first player with no cards wins the round; play several rounds and count wins.',
     tips: ['Keep a colour changer for the end.', 'Agree on house rules first — finishing on an action card is often not allowed.'] },
+
+  { id: 'munchkin', name: 'Munchkin', he: 'מאנצ׳קין', cat: 'cards', players: '3–6', time: '60–120 min',
+    goal: 'Kill monsters, grab treasure, stab your friends in the back — and be the first to reach level 10.',
+    setup: ['Everyone starts at level 1 with no race or class (a plain human), and draws 4 Door and 4 Treasure cards.', 'Play any race, class and items you like from your hand.'],
+    turn: ['Kick open the door: flip the top Door card. A monster means a fight; a curse hits you right away; anything else you may keep.', 'No monster? Look for trouble (fight a monster from your hand) or loot the room (draw a Door card face down).', 'Charity: end your turn with at most 5 cards (more go to the lowest-level player, or the discard pile if that’s you).'],
+    special: ['Combat: your level plus your gear bonuses against the monster’s level. You must beat it — a tie goes to the monster (Warriors win ties).', 'Win and you go up a level (usually one per monster) and draw its treasures. Everyone else may play cards to help the monster or you.', 'Ask one other player for help — their strength adds to yours; bargain with treasure. An Elf gains a level for helping kill a monster.', 'Run away: roll a die — 5 or 6 escapes (Elves need 4+). Fail and the monster’s Bad Stuff happens.', 'You can’t reach level 10 with a “go up a level” card or by selling items — the last level must come from killing a monster (unless a card says otherwise). Sell items worth 1,000 gold for a level.', 'Epic Munchkin: an official variant that goes on to level 20, with extra powers above level 10.'],
+    end: 'The first player to reach level 10 wins (level 20 in Epic).',
+    expansions: ['Numbered expansions for the original: 2 Unnatural Axe (Orcs), 3 Clerical Errors (Gnomes, Bards), 4 The Need for Steed (Steeds), 5 De-Ranged (Rangers), 6 Demented Dungeons (Dungeons and Portals), 6.5 Terrible Tombs, 7 More Good Cards / Cheat With Both Hands, 8 Half Horse, Will Travel (Centaurs, Lizard Guys, enhancers), 9 Jurassic Snark (dinosaur Steeds), 10 Time Warp — plus Munchkin Deluxe (board and standees) and the 2026 Second Edition.', 'Standalone themes that all mix: Munchkin Fu, Impossible, Cthulhu, Zombies, Apocalypse, Legends, Star Munchkin, Pathfinder, Warhammer 40,000 and Age of Sigmar, and many licensed sets.'],
+    tips: ['Don’t look too strong too early — everyone gangs up on the leader.', 'Keep a few nasty cards to stop the next player from winning.'] },
 
   { id: 'uno', name: 'Uno', he: 'אונו', cat: 'cards', players: '2–10', time: '20–40 min',
     goal: 'Empty your hand first; score points from what the others still hold.',

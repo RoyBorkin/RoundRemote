@@ -7,6 +7,7 @@
 //   • Friends — who's online and what they play
 // Swipe sideways, use ← → (or the knob / wheel), or tap the dots at the bottom to change page.
 import { h, iconBtn, onCircle, clear } from '../ui/dom.js';
+import { toLocal } from '../core/util.js';
 import { icon } from '../ui/icons.js';
 import { toast, curve, spinner, topPanel } from '../ui/overlay.js';
 import { go } from '../core/router.js';
@@ -331,10 +332,11 @@ export function ConsolesScreen({ id }) {
 
   // ---------- input: swipe, knob / wheel, keys
   let sx = null;
-  el.addEventListener('pointerdown', (e) => { sx = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  el.addEventListener('pointerdown', (e) => { const [x, y] = toLocal(e.clientX, e.clientY); sx = { x, y, t: performance.now() }; });
   el.addEventListener('pointerup', (e) => {
     if (!sx) return;
-    const dx = e.clientX - sx.x, dy = e.clientY - sx.y, dt = performance.now() - sx.t; sx = null;
+    const [x, y] = toLocal(e.clientX, e.clientY);   // the screen may be turned (js/core/orientation.js)
+    const dx = x - sx.x, dy = y - sx.y, dt = performance.now() - sx.t; sx = null;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 800) setPage(page + (dx < 0 ? 1 : -1));
   });
   let wheelAcc = 0, wheelT = 0;

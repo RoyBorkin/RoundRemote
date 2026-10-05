@@ -11,3 +11,4 @@ cache/
 tasks.json
 tasks.json.tmp
 streamsdk.json
+system-state.json

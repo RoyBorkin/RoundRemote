@@ -1,0 +1,151 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* The Raspberry Pi appliance: screen rotation, the dim and screen-off layers, and Settings → Device
+   (js/core/orientation.js, js/core/power.js, js/screens/settings-device.js). Loaded by js/core/device.js. */
+
+/* ---------- rotation of the whole round app ---------- */
+#app.rot-anim { transition: filter 1.2s ease, rotate .55s var(--ease); }
+#app.rot-free { transition: filter 1.2s ease, rotate .12s linear; }
+/* Turned off the 90° grid (.rot-oblique) the circle comes from #app's own overflow:hidden + border-radius:50%
+   (css/app.css), which also clips composited canvases. A clip-path: circle() here cost noticeably more per frame
+   (measured at 45°, CPU ×4: a running game had long frames with it and none without), so there is none. */
+@media (prefers-reduced-motion: reduce) { #app.rot-anim, #app.rot-free { transition: filter 1.2s ease; } }
+
+/* ---------- dim layer (Battery saver / night) and screen off ---------- */
+.dv-dim { position: fixed; inset: 0; z-index: 2147483000; background: #000; pointer-events: none; opacity: 0; transition: opacity 1.2s ease; }
+.dv-off { position: fixed; inset: 0; z-index: 2147483600; background: #000; opacity: 0; transition: opacity .6s ease; touch-action: none; cursor: none; }
+.dv-off.on { opacity: 1; }
+
+/* ---------- Settings → Device ---------- */
+.settings-list > [hidden], .set-jump > [hidden] { display: none !important; }
+.dv-hide { display: none !important; }
+.dv-anchor { height: 0; }
+.dv-sub-head { margin-top: 1.4cqmin; }
+.dv-gap { gap: 1.6cqmin; flex-wrap: wrap; }
+.dv-mono { font-family: var(--mono); font-weight: 700; }
+.dv-err { width: 86%; text-align: center; font-size: 2.4cqmin; color: color-mix(in srgb, var(--danger) 70%, rgb(var(--ink))); }
+.dv-empty { display: flex; align-items: center; justify-content: center; gap: 1.6cqmin; padding: 2cqmin; color: var(--dim); font-size: 2.5cqmin; text-align: center; }
+.dv-empty .spin { width: 3.6cqmin; height: 3.6cqmin; border-width: .45cqmin; }
+.chip.dv-dis { opacity: .45; }
+
+.dv-card { width: 86%; display: flex; align-items: center; gap: 2.2cqmin; padding: 1.8cqmin 2.8cqmin; border-radius: 4cqmin; background: var(--glass); border: 1px solid var(--line); text-align: left; }
+.dv-now .row-title { font-size: 3.3cqmin; }
+.dv-now-ic, .dv-row-ic { flex: none; display: grid; place-items: center; width: 8cqmin; height: 8cqmin; border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.dv-now-ic .ic, .dv-row-ic .ic { width: 4.6cqmin; height: 4.6cqmin; }
+.dv-now-ic.off { background: var(--glass-2); color: var(--dim); }
+.dv-row-ic { width: 7cqmin; height: 7cqmin; background: var(--glass-2); color: var(--fg); }
+.dv-row-ic .ic { width: 4cqmin; height: 4cqmin; }
+.dv-row.on .dv-row-ic { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+/* Wi-Fi bars: lit arcs in the colour, the rest faint */
+.dv-bars path { fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; opacity: .22; }
+.dv-bars circle { fill: currentColor; opacity: .22; }
+.dv-bars .on { opacity: 1; }
+
+.dv-list { width: 86%; display: flex; flex-direction: column; gap: .8cqmin; }
+.settings .dv-list .row { width: 100%; }
+.dv-row { gap: 2cqmin; padding: 1.1cqmin 1.6cqmin; background: var(--glass); border: 1px solid transparent; }
+.dv-row.on { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.dv-row.err .row-sub { color: color-mix(in srgb, var(--danger) 75%, rgb(var(--ink))); white-space: normal; }
+.dv-row .row-title { font-size: 2.9cqmin; unicode-bidi: plaintext; }
+.dv-row .row-sub { font-size: 2.2cqmin; }
+.dv-row:disabled { opacity: .5; }
+.dv-tag, .dv-lock { flex: none; color: var(--accent); }
+.dv-tag .ic { width: 4cqmin; height: 4cqmin; }
+.dv-lock { color: var(--dim); }
+.dv-lock .ic { width: 3cqmin; height: 3cqmin; }
+.dv-spin { flex: none; width: 4cqmin !important; height: 4cqmin !important; border-width: .5cqmin !important; }
+.dv-row-acts { flex: none; display: flex; align-items: center; gap: 1cqmin; }
+#app .dv-row-acts .pill { margin: 0; padding: 1.3cqmin 2.6cqmin; font-size: 2.4cqmin; }
+#app .dv-row-acts .dv-x { padding: 1.3cqmin 2cqmin; }
+.dv-row .pill.small { margin: 0; padding: 1.2cqmin 2.6cqmin; font-size: 2.3cqmin; flex: none; }
+.dv-gap .pill { margin-top: 0; }
+
+/* switch rows with a second line */
+.dv-sw { align-items: center; gap: 2cqmin; }
+.dv-sw-text { display: flex; flex-direction: column; align-items: flex-start; gap: .3cqmin; min-width: 0; text-align: left; }
+.dv-sw-sub { font-size: 2.1cqmin; color: var(--dim); }
+.dv-sw-sub:empty { display: none; }
+.dv-sw .switch:disabled { opacity: .6; pointer-events: none; }
+
+/* hotspot */
+.dv-hotspot { flex-direction: column; align-items: stretch; gap: 1.2cqmin; }
+.dv-hs-line { display: flex; justify-content: space-between; gap: 2cqmin; font-size: 2.6cqmin; width: 100%; }
+.dv-hs-line span { color: var(--muted); }
+.dv-hs-line b { text-align: right; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.dv-qr { align-self: center; width: 30cqmin; height: 30cqmin; padding: 1.2cqmin; border-radius: 2.4cqmin; background: #fff; }
+.dv-qr svg { width: 100%; height: 100%; display: block; }
+.dv-hs-url { text-align: center; font-size: 2.2cqmin; color: var(--dim); overflow-wrap: anywhere; }
+.dv-hotspot .chips .chip { font-size: 2.3cqmin; padding: 1.2cqmin 2.4cqmin; }
+
+/* Bluetooth scan with a progress ring */
+.dv-scan { display: inline-flex; align-items: center; gap: 1.4cqmin; }
+.dv-scan-ring { width: 3.8cqmin; height: 3.8cqmin; display: none; }
+.dv-scan-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dv-scan-ring circle { fill: none; stroke: currentColor; stroke-width: 4; opacity: .3; }
+.dv-scan-ring circle.p { opacity: 1; stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: round; }
+.dv-scan.run { pointer-events: none; }
+.dv-scan.run .dv-scan-ring { display: block; }
+.dv-scan.run .dv-scan-ring circle.p { animation: dvRing var(--dur, 12s) linear forwards; }
+@keyframes dvRing { to { stroke-dashoffset: 0; } }
+.dv-row-ic.bt { color: #4d9bff; background: color-mix(in srgb, #4d9bff 16%, transparent); }
+
+/* sound */
+.dv-vol { width: 100%; display: flex; flex-direction: column; align-items: center; gap: .6cqmin; }
+.dv-vol:empty { display: none; }
+.dv-slider { width: 100%; gap: .6cqmin; }
+.dv-mute.on { background: color-mix(in srgb, var(--danger) 25%, transparent); color: var(--danger); }
+.dv-meter { width: 60%; height: 2cqmin; border-radius: 99px; background: rgb(var(--ink) / .12); overflow: hidden; opacity: .5; }
+.dv-meter.on { opacity: 1; }
+.dv-meter i { display: block; height: 100%; width: var(--lv, 0%); border-radius: inherit; background: linear-gradient(90deg, var(--ok), var(--accent) 60%, var(--warn) 85%, var(--danger)); transition: width .06s linear; }
+
+/* battery */
+.dv-batt-box { display: flex; align-items: center; justify-content: center; gap: 3cqmin; width: 86%; }
+.dv-batt { position: relative; width: 19cqmin; height: 19cqmin; flex: none; }
+.dv-batt-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.dv-batt-ring circle { fill: none; stroke: rgb(var(--ink) / .12); stroke-width: 8; }
+.dv-batt-ring circle.p { stroke: var(--bc); stroke-linecap: round; stroke-dasharray: var(--p) 100; transition: stroke-dasharray .6s var(--ease); }
+.dv-batt-mid { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; }
+.dv-batt-mid b { font-family: var(--display); font-size: 4.4cqmin; font-weight: 800; line-height: 1; }
+.dv-bolt { color: var(--ok); }
+.dv-bolt .ic { width: 3cqmin; height: 3cqmin; }
+.dv-batt-text { display: flex; flex-direction: column; gap: .4cqmin; text-align: left; }
+.dv-batt-text b { font-size: 3.2cqmin; }
+.dv-batt-text span { font-size: 2.3cqmin; color: var(--muted); }
+.dv-status-line { text-align: center; font-size: 2.5cqmin; font-weight: 600; color: var(--muted); padding: 0 6%; }
+.dv-status-line.on { color: var(--ok); }
+.dv-status-line.warn { color: var(--warn); }
+.dv-status-line:empty { display: none; }
+
+/* orientation */
+.dv-orient { display: flex; flex-direction: column; align-items: center; gap: 1.2cqmin; }
+.dv-dial { position: relative; width: 15cqmin; height: 15cqmin; border-radius: 50%; border: .5cqmin solid var(--line); background: var(--glass); }
+.dv-dial-arrow { position: absolute; left: 50%; top: 50%; width: 1cqmin; height: 6cqmin; margin: -6cqmin 0 0 -.5cqmin; border-radius: 99px; background: var(--accent); }
+.dv-dial-frame { position: absolute; inset: -.5cqmin; border-radius: 50%; transform: rotate(calc(-1 * var(--a, 0deg))); transition: transform .35s var(--ease); }
+.dv-dial-notch { position: absolute; left: 50%; top: -.4cqmin; width: 4cqmin; height: 1.4cqmin; margin-left: -2cqmin; border-radius: 99px; background: rgb(var(--ink) / .55); }
+.dv-dial-arrow::before { content: ''; position: absolute; left: 50%; top: -1.6cqmin; transform: translateX(-50%); border: 1.4cqmin solid transparent; border-bottom: 1.8cqmin solid var(--accent); border-top: 0; }
+.dv-dial-deg { position: absolute; left: 0; right: 0; bottom: 1.6cqmin; text-align: center; font-family: var(--mono); font-size: 2cqmin; color: var(--muted); }
+.dv-dial.off .dv-dial-arrow { background: var(--dim); }
+.dv-dial.off .dv-dial-arrow::before { border-bottom-color: var(--dim); }
+.dv-rots { display: flex; gap: 1.6cqmin; justify-content: center; }
+.dv-rot { position: relative; width: 9.4cqmin; height: 9.4cqmin; font-size: 4.2cqmin; }
+.dv-rot small { position: absolute; bottom: -.4cqmin; right: -.6cqmin; font-size: 1.8cqmin; font-weight: 800; padding: .2cqmin .8cqmin; border-radius: 99px; background: var(--accent); color: var(--on-accent); }
+
+/* updates */
+.dv-ver { flex-direction: column; align-items: stretch; gap: .8cqmin; }
+.dv-progress { width: 60%; height: 1.4cqmin; border-radius: 99px; background: rgb(var(--ink) / .12); overflow: hidden; }
+.dv-progress i { display: block; height: 100%; width: var(--w, 0%); background: var(--accent); border-radius: inherit; transition: width .4s; }
+.dv-progress.busy i { width: 35%; animation: dvSlide 1.3s ease-in-out infinite; }
+@keyframes dvSlide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+
+/* restart / shut down */
+.dv-confirm .panel-body { top: 30%; bottom: auto; align-items: center; gap: 4cqmin; }
+.dv-confirm-text { text-align: center; font-size: 3cqmin; color: var(--muted); line-height: 1.45; padding: 0 4%; }
+.dv-actions { display: flex; gap: 2cqmin; justify-content: center; }
+.dv-actions .pill { font-size: 3cqmin; padding: 2cqmin 4.6cqmin; }
+.dv-bye { position: absolute; inset: 0; z-index: 200; display: grid; place-content: center; justify-items: center; gap: 2.4cqmin; background: #000; color: #fff; font-size: 3.4cqmin; font-weight: 700; }
+
+/* light themes: give the cards a little more edge */
+#app[data-mode="light"] .dv-card, #app[data-mode="light"] .dv-row { background: color-mix(in srgb, var(--surface) 80%, transparent); border-color: var(--line); }
+#app[data-mode="light"] .dv-row.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+#app.lite .dv-progress.busy i, html[data-saver] .dv-progress.busy i { animation-duration: 2.4s; }
+.dv-warn { color: var(--warn); }
+.dv-remote { width: 86%; margin: 1cqmin auto; padding: 2cqmin 3cqmin; border-radius: 3cqmin; text-align: center; font-size: 2.5cqmin; line-height: 1.35; color: var(--fg); background: color-mix(in srgb, var(--warn) 16%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }

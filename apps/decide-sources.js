@@ -1,7 +1,9 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
-// Decide — the six deciders: their filters, their built-in items and the loaders that read your libraries
+// Decide — the seven deciders: their filters, their built-in items and the loaders that read your libraries
 // (Plex / Jellyfin movies & shows, Steam / PlayStation recently played), your Collection (board games and video
-// games you own — apps/collection-store.js) and the app's own games.
+// games you own — apps/collection-store.js), the app's own games ("Games with an app here": Board Games companions
+// (apps/bg-games.js COMPANIONS + apps/bg-rules.js RULES), party games and apps, rhythm games and the multiplayer games
+// on the Games ring — games/index.js, rhythm/index.js) and your own draw lists ("My lists", made from all of those).
 // An item: { key, title, he?, sub, info?, art?, shape ('poster'|'wide'|'square'), glyph, color, src ('lib'|'coll'|'idea'|'mine'),
 //   tags: {…filter tags…}, ref: {…what the actions need…} }
 import { provider } from '../js/providers/registry.js';
@@ -9,6 +11,7 @@ import { WATCH, GENRES, GENRE_RE, DO_EN, DO_HE, MOODS, GO, GO_MOODS, VGAMES, VMO
 import { GAMES } from '../games/index.js';
 import { RHYTHM } from '../rhythm/index.js';
 import { RULES } from './bg-rules.js';
+import { COMPANIONS } from './bg-games.js';
 import { APPS } from './index.js';
 import * as COLL from './collection-store.js';
 
@@ -20,9 +23,16 @@ export { fmtMins };
 
 // ---------------------------------------------------------------- source filter (shared)
 // smart = your library / collection + your own items (+ the games on this screen) when you have enough, otherwise everything
+// apps = the games that have an app here (a Board Games companion, a party app, a rhythm game, a multiplayer screen game)
+// L:<id> = one of your draw lists (decide.js builds that pool from every decider's items)
 export const SRC = { id: 'src', label: 'Pick from', strict: true, def: 'smart',
-  opts: (d, ctx) => [['smart', 'Smart'], ['all', 'Everything'], ...(d.lib ? [['lib', d.libLabel]] : []), ...(ctx?.collCount ? [['coll', 'My collection']] : []), ['idea', 'Ideas'], ['mine', 'Added by me'], ['fav', 'Favourites']],
-  test: (it, v, ctx) => v === 'all' ? true : v === 'fav' ? ctx.isFav(it.key) : v === 'smart' ? (ctx.libCount + (ctx.collCount || 0) >= (ctx.d.smartMin || 1) ? it.src !== 'idea' || !!it.ref?.go : true) : it.src === v };
+  opts: (d, ctx) => [['smart', 'Smart'], ['all', 'Everything'], ...(d.lib ? [['lib', d.libLabel]] : []), ...(ctx?.collCount ? [['coll', 'My collection']] : []), ...(d.appsSrc ? [['apps', 'Games with an app here']] : []),
+    ['idea', 'Ideas'], ['mine', 'Added by me'], ['fav', 'Favourites'], ...(d.listable ? (ctx?.lists || []).map((l) => [`L:${l.id}`, `★ ${l.name}`]) : [])],
+  test: (it, v, ctx) => v === 'all' ? true : v === 'fav' ? ctx.isFav(it.key) : v === 'apps' ? !!it.tags?.app : String(v).startsWith('L:') ? !!ctx.listKeys?.has(it.key)
+    : v === 'smart' ? (ctx.libCount + (ctx.collCount || 0) >= (ctx.d.smartMin || 1) ? it.src !== 'idea' || !!it.ref?.go : true) : it.src === v };
+/** "Party / couples": 2 = a couple, 35 = a small group (3–5), 6 = a party (6+) */
+export const CROWD = { id: 'crowd', label: 'Party / couples', opts: [['any', 'Any'], ['2', 'Couple (2)'], ['35', 'Group (3–5)'], ['6', 'Party (6+)']],
+  test: (it, v) => { const [lo, hi] = it.tags?.players || [1, 99]; return v === '2' ? lo <= 2 && hi >= 2 : v === '35' ? lo <= 5 && hi >= 3 : hi >= 6; } };
 
 // ---------------------------------------------------------------- your Collection (apps/collection-store.js)
 let collMemo = {};
@@ -35,13 +45,14 @@ function collBoard() {
   const all = COLL.items('board');
   const rules = new Map(RULES.map((r) => [norm(r.name), r]));
   return (collMemo.board = all.filter((x) => !COLL.underBase(x, all)).map((x) => {
-    const r = rules.get(norm(x.title));
+    const r = rules.get(norm(x.title)) || (x.sources?.classics ? RULES.find((y) => y.id === x.sources.classics) : null) || null;
     const players = x.players || (r ? parsePlayers(r.players) : [1, 99]);
     const mins = x.mins ? Math.round((x.mins[0] + x.mins[1]) / 2) : r ? parseMinutes(r.time) : 45;
     return {
       key: `p:c:${x.id}`, title: x.title, sub: [fmtPl(x.players), fmtSpan(x.mins), x.plays ? `${x.plays} play${x.plays === 1 ? '' : 's'}` : 'never played', x.lent?.name ? `lent to ${x.lent.name}` : ''].filter(Boolean).join(' · '),
       info: x.notes || (r && typeof r.goal === 'string' ? r.goal : ''), art: x.art || '', shape: 'square', glyph: 'meeple', color: '#f59e0b', src: 'coll', srcName: 'collection', year: x.year,
-      tags: { players, mins, kind: 'board', lent: !!x.lent?.name }, ref: { coll: x.id, rules: r?.id || null, companion: r ? COMPANION[r.id] || null : null },
+      tags: { players, mins, kind: x.type === 'card' ? 'cards' : x.type === 'party' || x.type === 'noequip' ? 'party' : 'board', lent: !!x.lent?.name, app: !!((r && companionFor(r)) || x.game) },
+      ref: { coll: x.id, rules: r?.id || null, companion: r ? companionFor(r) : null, ...(x.game ? { go: ['game', { id: x.game }] } : {}) },
     };
   }));
 }
@@ -179,9 +190,21 @@ const DO_D = {
 };
 
 // ---------------------------------------------------------------- 3 · what to play (this app's games + board & card games)
+// the Board Games companion for a rules page: known pairs, else the same id / name (companions added later are found too)
 const COMPANION = { 'ticket-to-ride': 'ttr', catan: 'catan', monopoly: 'monopoly', taki: 'taki', twister: 'twister', clue: 'clue', 'jungle-speed': 'jungle',
   yahtzee: 'yahtzee', uno: 'uno', talisman: 'talisman', rummikub: 'rummikub' };
-const TWO_PLAYER = { tictactoe: 1, connect4: 1, zoo: 1, rps: 1, pong: 0 };
+const compById = new Map(COMPANIONS.map((c) => [c.id, c]));
+export function companionFor(r) {
+  if (!r) return null;
+  if (COMPANION[r.id] && compById.has(COMPANION[r.id])) return COMPANION[r.id];
+  const n = norm(r.name), nh = r.he ? String(r.he).trim() : '';
+  const c = COMPANIONS.find((x) => x.rules === r.id || x.id === r.id || norm(x.name) === n || (norm(x.name).length >= 3 && n.startsWith(norm(x.name)))
+    || (nh && (x.he === nh || String(x.name).includes(nh))));
+  return c?.id || null;
+}
+// games on the Games ring you can play together (2-player modes), and the party games (party: true) with their crowd size
+const TWO_PLAYER = { tictactoe: 1, connect4: 1, zoo: 1, rps: 1, pong: 1 };
+const PARTY_SIZE = { petakiot: [[4, 20], 45], codewords: [[4, 12], 20], blanks: [[3, 10], 30] };
 export function parsePlayers(s) {
   const t = String(s || '').replace(/\([^)]*\)/g, ' ');
   const nums = [...t.matchAll(/(\d+)(\+?)/g)];
@@ -208,31 +231,51 @@ const PLAY_D = {
     { id: 'time', label: 'Time', opts: [any, ['15', '15 min'], ['30', '30 min'], ['60', 'An hour'], ['long', 'Longer']], test: (it, v) => (v === 'long' ? it.tags.mins > 60 : it.tags.mins <= +v) },
     { id: 'kind', label: 'Kind', opts: [any, ['screen', 'On this screen'], ['board', 'Board'], ['cards', 'Cards'], ['party', 'Party']],
       test: (it, v) => it.tags.kind === v || (v === 'board' && it.tags.kind === 'classic') || (v === 'party' && it.tags.kind === 'app') },
-    { id: 'adult', label: '18+ games', opts: [['no', 'Hide'], ['yes', 'Show']], def: 'no', test: (it, v) => v === 'yes' || !it.tags.adult },
+    CROWD,
+    { id: 'adult', label: '18+ games', opts: [['no', 'Hide'], ['yes', 'Show']], def: 'no', strict: true, always: true, test: (it, v) => v === 'yes' || !it.tags.adult },
     SRC,
   ],
-  quick: [['src', 'coll', 'My games', 'coll'], ['pl', '1', 'Solo'], ['pl', '2', '2 players'], ['pl', '4', '3–4'], ['pl', '5', '5+'], ['time', '30', '≤ 30 min']],
+  appsSrc: true, listable: true,
+  quick: [['src', 'coll', 'My games', 'coll'], ['src', 'apps', 'With an app here'], ['crowd', '2', 'Couples'], ['crowd', '35', '3–5'], ['crowd', '6', 'Party 6+'], ['pl', '1', 'Solo'], ['time', '30', '≤ 30 min']],
   ideas() {
     const out = [];
     for (const g of GAMES) {
       const two = TWO_PLAYER[g.id];
-      out.push({ key: `p:g:${g.id}`, title: g.name, sub: `${two ? '1–2 players' : '1 player'} · a few minutes · on this screen`, info: g.blurb, glyph: 'pad', icon: g.icon, color: g.color, src: 'idea',
-        tags: { players: [1, two ? 2 : 1], mins: 5, kind: 'screen' }, ref: { go: ['game', { id: g.id }] } });
+      if (g.party) {
+        const [players, mins] = Array.isArray(g.players) ? [g.players, g.mins || 30] : PARTY_SIZE[g.id] || [[3, 12], 30];
+        out.push({ key: `p:g:${g.id}`, title: g.name, sub: `${players[0]}–${players[1]} players · ${fmtMins(mins)} · party game · phones join${g.id === 'blanks' && !g.adult ? ' · family or 18+ packs' : ''}`, info: g.blurb, glyph: 'party', icon: g.icon, color: g.color, src: 'idea',
+          tags: { players, mins, kind: 'party', app: true, adult: !!g.adult }, ref: { go: ['game', { id: g.id }] } });
+        continue;
+      }
+      out.push({ key: `p:g:${g.id}`, title: g.name, sub: `${two ? '1–2 players · play together' : '1 player'} · a few minutes · on this screen`, info: g.blurb, glyph: 'pad', icon: g.icon, color: g.color, src: 'idea',
+        tags: { players: [1, two ? 2 : 1], mins: 5, kind: 'screen', app: !!two }, ref: { go: ['game', { id: g.id }] } });
     }
     for (const g of RHYTHM) {
       const party = g.id === 'hits';
       out.push({ key: `p:r:${g.id}`, title: g.name, sub: `${party ? '1–10 players · 20 min' : '1 player · a song or two'} · rhythm game`, info: g.blurb, glyph: 'note', icon: g.icon, color: g.color, src: 'idea',
-        tags: { players: [1, party ? 10 : 1], mins: party ? 20 : 5, kind: party ? 'party' : 'screen' }, ref: { go: ['game', { id: g.id }] } });
+        tags: { players: [1, party ? 10 : 1], mins: party ? 20 : 5, kind: party ? 'party' : 'screen', app: true }, ref: { go: ['game', { id: g.id }] } });
     }
+    const withRules = new Set();
     for (const r of RULES) {
       const players = parsePlayers(r.players), mins = parseMinutes(r.time);
-      out.push({ key: `p:b:${r.id}`, title: r.name, he: r.he, sub: `${r.players.replace(/ \(.*\)/, '')} players · ${r.time} · ${KIND_LABEL[r.cat] || ''}`, info: typeof r.goal === 'string' ? r.goal : '',
+      const comp = companionFor(r);
+      if (comp) withRules.add(comp);
+      out.push({ key: `p:b:${r.id}`, title: r.name, he: r.he, sub: `${String(r.players).replace(/ \(.*\)/, '')} players · ${r.time} · ${KIND_LABEL[r.cat] || ''}${comp ? ' · helper here' : ''}`, info: typeof r.goal === 'string' ? r.goal : '',
         glyph: r.cat === 'cards' ? 'cards' : r.cat === 'party' ? 'party' : 'meeple', color: { board: '#3b82f6', classic: '#a16207', party: '#ec4899', cards: '#16a34a' }[r.cat] || '#8b5cf6', src: 'idea',
-        tags: { players, mins, kind: r.cat }, ref: { rules: r.id, companion: COMPANION[r.id] || null } });
+        tags: { players, mins, kind: r.cat, app: !!comp, adult: !!r.adult }, ref: { rules: r.id, companion: comp } });
     }
-    const app = (id, extra) => { const a = APPS.find((x) => x.id === id); if (a) out.push({ key: `p:a:${id}`, title: a.name, info: a.blurb, icon: a.icon, glyph: 'party', color: a.color, src: 'idea', ref: { go: ['app', { id }] }, ...extra }); };
+    // companions without a rules page of their own
+    for (const c of COMPANIONS) {
+      if (withRules.has(c.id)) continue;
+      const players = c.players ? (Array.isArray(c.players) ? c.players : parsePlayers(c.players)) : [2, 10];
+      const kind = ['board', 'classic', 'party', 'cards'].includes(c.cat) ? c.cat : 'board';
+      out.push({ key: `p:h:${c.id}`, title: c.name, he: c.he, sub: `${players[0]}–${players[1] >= 20 ? `${players[0]}+` : players[1]} players · game helper here`, info: c.blurb || '', glyph: 'meeple', color: c.color || '#8b5cf6', src: 'idea',
+        tags: { players, mins: c.time ? parseMinutes(c.time) : 30, kind, app: true, adult: !!c.adult }, ref: { companion: c.id } });
+    }
+    const app = (id, extra) => { const a = APPS.find((x) => x.id === id); if (a) out.push({ key: `p:a:${id}`, title: a.name, info: a.blurb, icon: a.icon, glyph: 'party', color: a.color, src: 'idea', ref: { go: ['app', { id }] }, ...extra, tags: { ...extra.tags, app: true, adult: !!(extra.tags.adult || a.adult) } }); };
     app('bottle', { sub: '3+ players · 20 min · party app', tags: { players: [3, 20], mins: 20, kind: 'app' } });
     app('drinks', { sub: '18+ · 3+ players · 30 min · party app', tags: { players: [3, 20], mins: 30, kind: 'app', adult: true } });
+    app('trivia', { sub: '2+ players · 45 min · quiz night · phones buzz in', tags: { players: [2, 30], mins: 45, kind: 'app' } });
     return out;
   },
 };
@@ -260,7 +303,7 @@ const GO_D = {
 
 // ---------------------------------------------------------------- 5 · what video game to play
 const VG_D = {
-  id: 'vgame', name: 'Video game', color: '#3b82f6', glyph: 'pad', lib: true, libLabel: 'Steam & PlayStation', smartMin: 6, coll: () => collVideo(),
+  id: 'vgame', name: 'Video game', color: '#3b82f6', glyph: 'pad', lib: true, libLabel: 'Steam & PlayStation', smartMin: 6, coll: () => collVideo(), listable: true,
   blurb: 'Your collection, Steam and PlayStation games (and our picks) — by time, mood and players.',
   add: { title: 'Add a game', placeholder: 'A game you own (any platform)' },
   groups: [
@@ -346,5 +389,14 @@ const EAT_D = {
   cuisine: (id) => CZ.get(id),
 };
 
-export const DECIDERS = [WATCH_D, DO_D, PLAY_D, GO_D, VG_D, EAT_D];
+// ---------------------------------------------------------------- 7 · my lists (your own draw lists — decide.js fills the pool)
+const LISTS_D = {
+  id: 'lists', name: 'My lists', color: '#eab308', glyph: 'lists', lists: true,
+  blurb: 'Your own draw lists — “Friday night”, “Couple night”… — made from every game here. Spin just that list.',
+  add: { title: 'New list', placeholder: 'e.g. Friday night' },
+  groups: [CROWD, { id: 'adult', label: '18+ games', opts: [['no', 'Hide'], ['yes', 'Show']], def: 'no', strict: true, always: true, test: (it, v) => v === 'yes' || !it.tags?.adult }],
+  quick: [],
+  ideas() { return []; },
+};
+export const DECIDERS = [WATCH_D, DO_D, PLAY_D, GO_D, VG_D, EAT_D, LISTS_D];
 export const CUISINE_LIST = CUISINES.map(([id, name, he, color]) => ({ id, name, he, color }));

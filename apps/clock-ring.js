@@ -212,6 +212,7 @@ export async function startWhat(cfg = DEFAULT_WHAT) {
 export function nudgeAwake() {
   try { window.dispatchEvent(new WheelEvent('wheel', { deltaY: 0 })); } catch {}
   document.getElementById('app')?.classList.remove('dim');
+  import('../js/core/device.js').then((d) => d.wake('alarm')).catch(() => {});   // Pi: the screen back on if it went off
 }
 
 // ------------------------------------------------------------------ the ringing overlay

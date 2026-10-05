@@ -16,6 +16,9 @@
 .gh-item svg { width: 52%; height: 52%; fill: currentColor; }
 .gh-item.on { transform: translate(-50%, -50%) scale(1.22); border-color: var(--c); background: var(--c); color: #0a0a0b; z-index: 2; }
 .gh-item:active { transform: translate(-50%, -50%) scale(.9); }
+/* a near-black game colour (Fill the Blank) vanishes on dark themes: its ring icon, the hub and the game's chrome use the ink colour there */
+#app:not([data-mode="light"]) .gh-item.deep { --c: rgb(var(--ink) / .8) !important; }
+#app:not([data-mode="light"]) :is(.games-hub, .game-screen).deep { --gc: rgb(var(--ink) / .82) !important; }
 @keyframes gh-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } }
 .gh-pointer { position: absolute; inset: 0; pointer-events: none; transition: transform .35s var(--ease); }
 .gh-pointer::after { content: ''; position: absolute; left: 50%; top: 14.2%; width: 1.4cqmin; height: 1.4cqmin; border-radius: 50%; transform: translate(-50%, -50%); background: var(--gc); box-shadow: 0 0 1.6cqmin var(--gc); }
@@ -45,7 +48,7 @@
 .g-pause { position: absolute; left: 50%; top: 6.2%; transform: translate(-50%, -50%) scale(.82); z-index: 4; opacity: .75; }
 .game-screen:not(.playing) .g-pause, .game-screen.ov-on .g-pause { opacity: 0; pointer-events: none; }
 .g-toast { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%) scale(.8); z-index: 3; pointer-events: none; opacity: 0; font-family: var(--display); font-size: 5cqmin; font-weight: 700; color: rgb(var(--ink));
-  text-shadow: 0 0 3cqmin var(--gc), 0 .4cqmin 1.6cqmin rgb(var(--paper) / .8); white-space: nowrap; transition: opacity .2s, transform .3s var(--spring); }
+  text-shadow: 0 0 3cqmin var(--gc), 0 .4cqmin 1.6cqmin rgb(var(--paper) / .8); width: max-content; max-width: 78%; text-align: center; line-height: 1.15; text-wrap: balance; transition: opacity .2s, transform .3s var(--spring); }
 .g-toast.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
 /* overlay cards */

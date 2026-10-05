@@ -2,6 +2,7 @@
 // The Games category: every game on a ring (like the services on Home). Tap one to see it in the middle,
 // tap Play (or the middle) to start. Drag around the ring, scroll, or use ← → to move through them.
 import { h, iconBtn } from '../js/ui/dom.js';
+import { localRect, toLocal } from '../js/core/util.js';
 import { icon } from '../js/ui/icons.js';
 import { go } from '../js/core/router.js';
 import { store } from '../js/core/store.js';
@@ -33,7 +34,9 @@ export function GamesHubScreen() {
     });
     { // a near-white colour vanishes on light themes — mark it so the CSS swaps in the ink colour
       const n = parseInt(String(gm.color).replace('#', ''), 16);
-      if ((0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 > 0.88) b.classList.add('pale');
+      const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+      if (lum > 0.88) b.classList.add('pale');
+      else if (lum < 0.12) b.classList.add('deep');   // …and a near-black one on dark themes (games/games.css)
     }
     ring.append(b);
     return b;
@@ -58,11 +61,12 @@ export function GamesHubScreen() {
     const gm = GAMES[sel];
     items.forEach((b, j) => b.classList.toggle('on', j === sel));
     el.style.setProperty('--gc', gm.color);
+    el.classList.toggle('deep', items[sel].classList.contains('deep'));
     badge.innerHTML = iconSvg(gm.icon);
     name.textContent = gm.name;
     blurb.textContent = gm.blurb;
     const bt = bestText(gm.id);
-    best.textContent = bt ? `Best  ${bt}` : 'No score yet';
+    best.textContent = gm.party ? 'Party game' : bt ? `Best  ${bt}` : 'No score yet';
     pointer.style.transform = `rotate(${(sel / n) * 360}deg)`;
     center.classList.remove('swap'); void center.offsetWidth; center.classList.add('swap');
     store.set('lastGame', gm.id);
@@ -73,15 +77,15 @@ export function GamesHubScreen() {
   // drag around the ring to move through the games
   let drag = null;
   el.addEventListener('pointerdown', (e) => {
-    const r = el.getBoundingClientRect();
-    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const r = localRect(el), [px, py] = toLocal(e.clientX, e.clientY);   // the app may be turned (js/core/orientation.js)
+    const dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
     if (Math.hypot(dx, dy) < r.width * 0.3) return;
     drag = { moved: false, r };
   });
   el.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    const { r } = drag;
-    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const { r } = drag, [px, py] = toLocal(e.clientX, e.clientY);
+    const dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
     let a = Math.atan2(dx, -dy); if (a < 0) a += Math.PI * 2;
     const i = Math.round((a / (Math.PI * 2)) * n) % n;
     if (i !== sel) { drag.moved = true; select(i); }

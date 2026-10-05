@@ -1,12 +1,17 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
-// Decide: can't choose? A ring of six deciders — what to watch, what to do, what to play, where to go, which
-// video game, what to eat. Each one spins a slot-machine reel (lights, ticks, a clunk and confetti) and lands
-// on one pick that respects your quick filters, never repeats the last few picks, and comes with actions:
-// play it on the TV, open the game, launch it on the PC, open the place in Maps (QR for your phone)…
-// Favourites, history and your own options are kept per decider. Knob: turn = spin, press = spin.
+// Decide: can't choose? A ring of seven deciders — what to watch, what to do, what to play, where to go, which
+// video game, what to eat, and My lists. Each one spins a slot-machine reel (lights, ticks, a clunk and confetti)
+// and lands on one pick that respects your quick filters, never repeats the last few picks, and comes with actions:
+// play it on the TV, open the game or its Board Games helper, launch it on the PC, open the place in Maps (QR for
+// your phone)… "What to play" can pick only "Games with an app here" and filter by Party / couples. Draw lists
+// ("Friday night", "Couple night"…) are made from every game Decide knows — your Collection, Board Games helpers and
+// rules, party apps, rhythm games, the games on this screen, our picks and your own — and spun on their own (My lists)
+// or from What to play / Video game. Favourites, history and your own options are kept per decider.
+// Knob: turn = spin, press = spin.
 import { h, clear } from '../js/ui/dom.js';
 import { icon } from '../js/ui/icons.js';
 import { curve, topPanel, listRow, spinner } from '../js/ui/overlay.js';
+import { createKeyboard, wantsKeyboard } from '../js/ui/keyboard.js';
 import { store } from '../js/core/store.js';
 import { provider } from '../js/providers/registry.js';
 import { qrSvg } from './qr.js';
@@ -67,7 +72,7 @@ export default {
     stage.addEventListener('click', () => { if (!stage.classList.contains('show-card') && !spinning) spin(); });
     const acts = h('div.dc-acts');
     const tuneBtn = h('button.ibtn.dc-tune', { type: 'button', 'aria-label': 'Filters', onclick: () => openFilters(), html: gl('tune') }, h('b.dc-dot'));
-    const listBtn = h('button.ibtn.dc-list', { type: 'button', 'aria-label': 'Favourites, history and your own options', onclick: () => openLists(), html: gl('hist') });
+    const listBtn = h('button.ibtn.dc-list', { type: 'button', 'aria-label': 'Favourites, history and your own options', onclick: () => (cur?.lists ? openListManager() : openLists()), html: gl('hist') });
     const goBtn = h('button.dc-go', { type: 'button', onclick: () => spin() });
     const bottom = h('div.dc-bottom', tuneBtn, goBtn, listBtn);
     const fx = h('div.dc-fx');
@@ -110,7 +115,28 @@ export default {
     }
     const normT = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '');
     const collOf = (d) => (d.coll ? d.coll() : []);   // your Collection app's games (decide-sources.js)
-    function allItems(d) {
+    // ---- draw lists: [{ id, name, items: [snapshot of each game, with origin = the decider it came from] }]
+    const listsAll = () => app.data('lists', []);
+    const listById = (id) => listsAll().find((l) => l.id === id) || null;
+    const saveLists = (l) => { app.save('lists', l); };
+    const srcOf = (d) => String(fOf(d).src || '');
+    const listIdOf = (d) => (d.lists ? (listById(app.data('curList', null)) ? app.data('curList', null) : listsAll()[0]?.id || null) : srcOf(d).startsWith('L:') ? srcOf(d).slice(2) : null);
+    const listMode = (d) => !!d?.lists || srcOf(d).startsWith('L:');
+    const LISTABLE = () => DECIDERS.filter((x) => x.listable);
+    /** every game Decide knows (What to play + Video game: collection, library, helpers, apps, ideas, yours), by key */
+    function universe() {
+      const U = new Map();
+      for (const d of LISTABLE()) for (const it of baseItems(d)) if (!U.has(it.key)) U.set(it.key, { ...it, origin: d.id });
+      return U;
+    }
+    function listItems(id) {
+      const L = listById(id);
+      if (!L) return [];
+      const U = universe();
+      return L.items.map((x) => U.get(x.key) || { ...x, tags: x.tags || {} });
+    }
+    function allItems(d) { return listMode(d) ? listItems(listIdOf(d)) : baseItems(d); }
+    function baseItems(d) {
       const CL = collOf(d);
       const cT = new Set(CL.map((x) => normT(x.title)));
       // a game in your collection and your Steam / PlayStation library shows up once — as the collection item
@@ -120,12 +146,15 @@ export default {
       const keys = new Set([...CL, ...L].map((x) => x.key)), titles = new Set([...cT, ...L.map((x) => normT(x.title))]);
       return [...CL, ...L, ...mineItems(d), ...ideas(d).filter((x) => !keys.has(x.key) && !titles.has(normT(x.title)))];
     }
-    const ctxFor = (d) => { const favKeys = new Set(favsOf(d).map((f) => f.key)); return { d, libCount: lib[d.id]?.items?.length || 0, collCount: collOf(d).length, isFav: (k) => favKeys.has(k) }; };
+    const ctxFor = (d) => { const favKeys = new Set(favsOf(d).map((f) => f.key)); const lid = listIdOf(d); return { d, libCount: lib[d.id]?.items?.length || 0, collCount: collOf(d).length, isFav: (k) => favKeys.has(k),
+      lists: listsAll(), listKeys: new Set((listById(lid)?.items || []).map((x) => x.key)) }; };
     function passes(d, it, ctx, skip = '') {
+      const lm = listMode(d);
       for (const g of d.groups) {
         if (g.id === skip) continue;
+        if (lm && !['src', 'adult', 'crowd'].includes(g.id)) continue;      // a draw list: only who's playing and 18+ narrow it
         const v = fval(d, g);
-        if (v === (g.def ?? 'any') && g.id !== 'src') continue;
+        if (v === (g.def ?? 'any') && g.id !== 'src' && !g.always) continue;   // (18+ hides by default: it always applies)
         if (g.needsLib && !lib[d.id]?.items?.length) continue;
         if (it.src === 'mine' && g.id !== 'src' && !g.strict) continue;     // your own options have no tags: they pass the tag filters
         if (!g.test(it, v, ctx)) return false;
@@ -157,7 +186,11 @@ export default {
       app.setTitle(cur.name); app.hideTitle(false);
       stage.classList.remove('show-card');
       drawChips(); idleReel(); drawActions(); drawGo();
+      listBtn.innerHTML = gl(cur.lists ? 'edit' : 'hist');
+      listBtn.setAttribute('aria-label', cur.lists ? 'Make and edit your lists' : 'Favourites, history and your own options');
       app.sfx('tap');
+      // a list can hold your Steam / PlayStation games: read them in the background
+      if (listMode(cur)) { const vg = DECIDERS.find((x) => x.id === 'vgame'); if (vg?.load && !lib.vgame) loadLib(vg).then(() => { if (cur && listMode(cur) && !spinning && !result) idleReel(); }); }
       if (cur.load && !lib[cur.id]) loadLib(cur);
     }
     function closeDecider() {
@@ -191,6 +224,17 @@ export default {
         const c = CUISINE_LIST.find((x) => x.id === eatCz);
         out.push(h('button.chip.on.dc-czchip', { type: 'button', onclick: () => { eatCz = null; app.save('eatCz', null); drawChips(); idleReel(); app.sfx('tap'); } }, c?.name || eatCz, h('span', { html: icon('close') })));
       }
+      if (d.lists) {
+        // My lists: one chip per list (+ a new one)
+        const cur = listIdOf(d);
+        for (const l of listsAll()) out.push(h(`button.chip${l.id === cur ? '.on' : ''}`, { type: 'button', dir: 'auto', dataset: { list: l.id }, onclick: () => { app.save('curList', l.id); result = null; app.sfx('tick'); drawChips(); idleReel(); drawActions(); } }, `★ ${l.name}`, h('b.dc-ln', String(l.items.length))));
+        out.push(h('button.chip.dc-newlist', { type: 'button', onclick: () => newList((l) => { app.save('curList', l.id); drawChips(); idleReel(); openListEditor(l.id); }) }, h('span', { html: icon('plus') }), 'New list'));
+      }
+      if (d.listable) {
+        const lid = listIdOf(d), L = lid && listById(lid);
+        out.push(L ? h('button.chip.on.dc-listchip', { type: 'button', dir: 'auto', onclick: () => { setF(d, 'src', 'smart'); app.sfx('tap'); drawChips(); if (!spinning && !result) idleReel(); } }, `★ ${L.name}`, h('span', { html: icon('close') }))
+          : h('button.chip.dc-listchip', { type: 'button', onclick: () => chooseList(d) }, '★ My lists'));
+      }
       for (const [gid, v, label, need] of d.quick) {
         if (need === 'lib' && !lib[d.id]?.items?.length) continue;
         if (need === 'coll' && !collOf(d).length) continue;
@@ -210,6 +254,8 @@ export default {
       const n = pool().length;
       countEl.classList.toggle('none', !n && !st?.loading);
       if (st?.loading) countEl.replaceChildren(h('span.dc-spin'), d.id === 'watch' ? 'Reading your library…' : 'Looking at your games…');
+      else if (d.lists && !listsAll().length) { countEl.textContent = 'No lists yet — make one with “New list”'; countEl.classList.remove('none'); }
+      else if (listMode(d)) { const L = listById(listIdOf(d)); countEl.textContent = !L ? 'That list is gone — pick another' : !L.items.length ? `“${L.name}” is empty — tap ✎ to add games` : `${n} option${n === 1 ? '' : 's'} · ★ ${L.name}`; countEl.classList.toggle('none', !n); }
       else if (!n) countEl.textContent = 'Nothing matches — loosen the filters';
       else {
         const libN = st?.items?.length || 0;
@@ -354,7 +400,7 @@ export default {
       result = it;
       const d = cur;
       const wide = it.shape === 'wide';
-      const kick = it.cuisine ? 'Cuisine' : it.src === 'coll' ? `From your collection${it.ref?.platform ? ` · ${it.ref.platform}` : ''}` : it.src === 'lib' ? `From your ${it.srcName || 'library'}` : it.src === 'mine' ? 'Added by you' : fromList ? 'From your list' : d.id === 'eat' && it.ref?.cz ? CUISINE_LIST.find((c) => c.id === it.ref.cz)?.name || 'Idea' : 'Idea';
+      const kick = it.cuisine ? 'Cuisine' : listMode(d) && it.origin ? `★ ${listById(listIdOf(d))?.name || 'Your list'}${it.src === 'coll' ? ' · your collection' : ''}` : it.src === 'coll' ? `From your collection${it.ref?.platform ? ` · ${it.ref.platform}` : ''}` : it.src === 'lib' ? `From your ${it.srcName || 'library'}` : it.src === 'mine' ? 'Added by you' : fromList ? 'From your list' : d.id === 'eat' && it.ref?.cz ? CUISINE_LIST.find((c) => c.id === it.ref.cz)?.name || 'Idea' : 'Idea';
       const title = h('div.dc-ctitle', { dir: 'auto' }, it.title);
       if (it.title.length > 34) title.classList.add('long');
       const he = it.he && !hasRtl(it.title) ? h('div.dc-che', { dir: 'rtl' }, it.he) : null;
@@ -379,8 +425,10 @@ export default {
     // ---------------------------------------------------------------- actions
     const pill = (label, ic, fn, cls = '') => h(`button.pill.dc-act${cls}`, { type: 'button', onclick: (e) => { e.stopPropagation(); fn(); } }, h('span', { html: ic.startsWith('M') ? svg(ic) : gl(ic) }), label);
     const roundBtn = (label, ic, fn, cls = '') => h(`button.ibtn.dc-rb${cls}`, { type: 'button', 'aria-label': label, title: label, onclick: (e) => { e.stopPropagation(); fn(); }, html: gl(ic) });
+    const originOf = (it) => (it?.origin && DECIDERS.find((x) => x.id === it.origin)) || cur;
     function drawActions() {
-      const d = cur, it = result;
+      const it = result;
+      const d = cur && it ? originOf(it) : cur;
       acts.classList.toggle('hide', !it || !stage.classList.contains('show-card'));
       if (!d || !it) { acts.replaceChildren(); return; }
       const fav = isFav(d, it);
@@ -401,6 +449,7 @@ export default {
       if (d.id === 'play') {
         if (r.go) return { label: r.go[0] === 'game' ? 'Play' : 'Open', icon: 'play', run: () => { app.sfx('tap'); app.go(...r.go); } };
         if (r.rules) return { label: 'Rules', icon: 'book', run: () => openRules(r.rules) };
+        if (r.companion) return { label: 'Game helper', icon: 'meeple', run: () => openCompanion(r.companion) };
       }
       if (d.id === 'go' && r.maps) return { label: 'Find nearby', icon: 'pin', run: () => openMaps(r.maps, it.title) };
       if (d.id === 'vgame' && r.appid && (it.src === 'lib' || (it.src === 'coll' && r.steam))) return { label: 'Launch on PC', icon: 'play', run: () => launchSteam(it) };
@@ -499,7 +548,7 @@ export default {
     }
 
     // ---------------------------------------------------------------- favourites, history, your own options
-    const snap = (it) => ({ key: it.key, title: it.title, he: it.he, sub: it.sub, info: it.info, art: it.art, shape: it.shape, glyph: it.glyph, icon: it.icon, color: it.color, src: it.src, srcName: it.srcName, year: it.year, tags: it.tags, ref: it.ref, cuisine: it.cuisine });
+    const snap = (it) => ({ key: it.key, title: it.title, he: it.he, sub: it.sub, info: it.info, art: it.art, shape: it.shape, glyph: it.glyph, icon: it.icon, color: it.color, src: it.src, srcName: it.srcName, year: it.year, tags: it.tags, ref: it.ref, cuisine: it.cuisine, origin: it.origin });
     const isFav = (d, it) => favsOf(d).some((f) => f.key === it.key);
     function toggleFav(it) {
       const all = app.data('favs', {});
@@ -571,6 +620,157 @@ export default {
       const parts = d.add.note ? [v] : v.split(/\s*,\s*/).filter(Boolean);
       setMine(d, [...mineOf(d), ...parts.map((t, i) => ({ id: `${Date.now().toString(36)}${i}`, title: t.trim(), note }))].slice(-200));
       app.sfx('pop'); after?.();
+    }
+
+    // ---------------------------------------------------------------- draw lists: choose, manage, edit, pick games
+    const uid = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+    async function newList(after) {
+      const v = await app.editText({ title: 'New list', placeholder: 'e.g. Friday night', okLabel: 'Make it' });
+      if (!v?.trim()) return;
+      const l = { id: uid(), name: v.trim().slice(0, 40), items: [] };
+      saveLists([...listsAll(), l]);
+      app.sfx('pop');
+      after?.(l);
+    }
+    /** What to play / Video game: spin one of your lists instead */
+    function chooseList(d) {
+      openPanel({
+        title: 'Spin a list',
+        build(body, panel) {
+          const list = h('div.list.dc-llist');
+          body.append(list); curve(list);
+          const ls = listsAll();
+          if (!ls.length) list.append(h('div.empty', 'No lists yet. Make one — “Friday night”, “Couple night”… — from every game here.'));
+          for (const l of ls) list.append(h('div.dc-lrow', h('button.dc-lmain', { type: 'button', dataset: { list: l.id }, onclick: () => { setF(d, 'src', `L:${l.id}`); panel.close(); result = null; drawChips(); idleReel(); drawActions(); app.sfx('tap'); } },
+            h('div.dc-th', { '--c': '#eab308', html: gl('lists') }), h('span.dc-ltext', h('b', { dir: 'auto' }, l.name), h('small', `${l.items.length} game${l.items.length === 1 ? '' : 's'}`)))));
+          list.append(h('div.dc-ltop', h('button.pill.small.primary.dc-addbtn', { type: 'button', onclick: () => { panel.close(); newList((l) => openListEditor(l.id, () => { setF(d, 'src', `L:${l.id}`); drawChips(); idleReel(); })); } }, h('span', { html: icon('plus') }), 'New list'),
+            ls.length ? h('button.pill.small', { type: 'button', onclick: () => { panel.close(); openListManager(); } }, 'Manage lists') : null));
+        },
+      });
+    }
+    function openListManager() {
+      openPanel({
+        title: 'My lists',
+        build(body, panel) {
+          const top = h('div.dc-ltop');
+          const list = h('div.list.dc-llist');
+          body.append(top, list); curve(list);
+          const draw = () => {
+            clear(top); clear(list);
+            top.append(h('button.pill.small.primary.dc-addbtn', { type: 'button', onclick: () => newList((l) => { draw(); openListEditor(l.id, draw); }) }, h('span', { html: icon('plus') }), 'New list'));
+            const ls = listsAll();
+            if (!ls.length) list.append(h('div.empty', 'Make a list — “Friday night”, “Couple night”… — from your collection, the Board Games helpers, party apps, rhythm games and the games on this screen.'));
+            for (const l of ls) list.append(h('div.dc-lrow', h('button.dc-lmain', { type: 'button', dataset: { list: l.id }, onclick: () => openListEditor(l.id, draw) },
+              h('div.dc-th', { '--c': '#eab308', html: gl('lists') }), h('span.dc-ltext', h('b', { dir: 'auto' }, l.name), h('small', { dir: 'auto' }, l.items.length ? l.items.slice(0, 4).map((x) => x.title).join(', ') + (l.items.length > 4 ? '…' : '') : 'Empty — tap to add games')))));
+          };
+          draw();
+        },
+        onClose: () => { if (cur) { drawChips(); if (!result && !spinning) idleReel(); } },
+      });
+    }
+    function openListEditor(id, after) {
+      openPanel({
+        title: listById(id)?.name || 'List',
+        build(body, panel) {
+          const top = h('div.dc-ltop.dc-ledit');
+          const list = h('div.list.dc-llist');
+          body.append(top, list); curve(list);
+          const setL = (fn) => { saveLists(listsAll().map((l) => (l.id === id ? fn(l) : l))); };
+          const draw = () => {
+            const L = listById(id);
+            if (!L) { panel.close(); return; }
+            panel.setTitle(L.name);
+            clear(top); clear(list);
+            top.append(
+              h('button.pill.small.primary.dc-addbtn', { type: 'button', onclick: () => openPicker(id, draw) }, h('span', { html: icon('plus') }), 'Add games'),
+              h('button.ibtn.dc-lbtn', { type: 'button', 'aria-label': 'Rename', html: gl('edit'), onclick: async () => { const v = await app.editText({ title: 'Rename list', value: L.name, okLabel: 'Save' }); if (v?.trim()) { setL((l) => ({ ...l, name: v.trim().slice(0, 40) })); draw(); } } }),
+              h('button.ibtn.dc-lbtn.danger', { type: 'button', 'aria-label': 'Delete list', html: icon('close'), onclick: () => confirmDelete(L) }),
+              ...(L.items.length ? [h('button.pill.small.dc-spinlist', { type: 'button', onclick: () => spinList(L) }, h('span', { html: gl('again') }), 'Spin it')] : []));
+            if (!L.items.length) list.append(h('div.empty', 'Nothing in this list yet — tap “Add games”.'));
+            const U = universe();
+            for (const x of L.items) {
+              const it = U.get(x.key) || x;
+              list.append(h('div.dc-lrow', h('div.dc-lmain', thumb(it), h('span.dc-ltext', h('b', { dir: 'auto' }, it.title), h('small', { dir: 'auto' }, it.sub || ''))),
+                h('button.dc-ldel', { type: 'button', 'aria-label': `Remove ${it.title}`, html: icon('close'), onclick: () => { setL((l) => ({ ...l, items: l.items.filter((y) => y.key !== x.key) })); app.sfx('drop'); draw(); } })));
+            }
+          };
+          const confirmDelete = (L) => openPanel({
+            title: 'Delete list?',
+            build(b2, p2) {
+              b2.append(h('div.dc-qrwrap', h('div.dc-qrhint', { dir: 'auto' }, `Delete “${L.name}”?`), h('div.dc-qrurl', 'The games stay where they are.'),
+                h('div.dc-ltop', h('button.pill.small', { type: 'button', onclick: () => p2.close() }, 'Keep'),
+                  h('button.pill.small.danger', { type: 'button', onclick: () => {
+                    saveLists(listsAll().filter((l) => l.id !== id));
+                    for (const d of DECIDERS) if (srcOf(d) === `L:${id}`) setF(d, 'src', 'smart');
+                    if (app.data('curList', null) === id) app.save('curList', null);
+                    app.sfx('drop'); p2.close(); panel.close();
+                  } }, 'Delete'))));
+            },
+          });
+          draw();
+          panel.onDestroy = () => { after?.(); if (cur) { drawChips(); if (!result && !spinning) idleReel(); } };
+        },
+      });
+    }
+    function spinList(L) {
+      const i = DECIDERS.findIndex((x) => x.lists);
+      app.save('curList', L.id);
+      while (topPanel()) topPanel().close();
+      if (cur?.lists) { result = null; drawChips(); idleReel(); spin(); return; }
+      if (cur && cur.listable) { setF(cur, 'src', `L:${L.id}`); result = null; drawChips(); idleReel(); spin(); return; }
+      if (cur) closeDecider();
+      openDecider(i); setTimeout(() => spin(), 350);
+    }
+    const PICK_TABS = [['all', 'All'], ['coll', 'Collection'], ['board', 'Board & cards'], ['screen', 'On this screen'], ['rhythm', 'Rhythm'], ['video', 'Video games'], ['mine', 'Mine']];
+    const tabOf = (it) => (/^[pv]:c:/.test(it.key) ? 'coll' : /^p:[bh]:/.test(it.key) ? 'board' : /^p:[ga]:/.test(it.key) ? 'screen' : /^p:r:/.test(it.key) ? 'rhythm' : /^u:/.test(it.key) ? 'mine' : it.origin === 'vgame' ? 'video' : 'board');
+    /** multi-select picker: every game Decide knows, with search and category tabs */
+    function openPicker(id, after) {
+      const L0 = listById(id);
+      if (!L0) return;
+      const picked = new Map(L0.items.map((x) => [x.key, x]));
+      let tab = 'all', q = '';
+      openPanel({
+        title: 'Add games',
+        build(body, panel) {
+          panel.el.classList.add('dc-picker');
+          const input = h('input.search-input.dc-psearch', { type: 'search', placeholder: 'Search every game', autocomplete: 'off', spellcheck: 'false' });
+          const useKbd = wantsKeyboard();
+          const setKbd = (on) => panel.el.classList.toggle('kbd-open', on);
+          const tabs = h('div.dc-tabs.dc-ptabs');
+          const done = h('button.pill.small.primary.dc-addbtn.dc-pdone', { type: 'button', onclick: () => finish() });
+          const list = h('div.list.dc-llist');
+          body.append(h('div.search-bar', input, useKbd ? app.iconBtn('keyboard', 'Keyboard', () => setKbd(!panel.el.classList.contains('kbd-open')), 'kbd-toggle') : null), tabs, list, done);
+          const recurve = curve(list);
+          let all = [...universe().values()];
+          const draw = () => {
+            tabs.replaceChildren(...PICK_TABS.filter(([t]) => t === 'all' || all.some((x) => tabOf(x) === t)).map(([t, l]) => h(`button.chip${tab === t ? '.on' : ''}`, { type: 'button', dataset: { tab: t }, onclick: () => { tab = t; draw(); } }, l)));
+            clear(list);
+            const nq = normT(q);
+            const hits = all.filter((x) => (tab === 'all' || tabOf(x) === tab) && (!nq || normT(x.title).includes(nq) || normT(x.he || '').includes(nq) || normT(x.sub || '').includes(nq)));
+            for (const it of hits.slice(0, 150)) {
+              const on = picked.has(it.key);
+              list.append(h(`button.dc-lrow.dc-prow${on ? '.on' : ''}`, { type: 'button', dataset: { key: it.key }, onclick: () => { if (on) picked.delete(it.key); else picked.set(it.key, snap(it)); app.sfx('tick'); draw(); } },
+                h('span.dc-lmain', thumb(it), h('span.dc-ltext', h('b', { dir: 'auto' }, it.title), h('small', { dir: 'auto' }, it.sub || ''))),
+                h('i.dc-pcheck', { html: on ? icon('check') : icon('plus') })));
+            }
+            if (!hits.length) list.append(h('div.empty', 'Nothing found'));
+            done.textContent = picked.size ? `Done · ${picked.size}` : 'Done';
+            recurve();
+          };
+          const finish = () => {
+            saveLists(listsAll().map((l) => (l.id === id ? { ...l, items: [...picked.values()].map((x) => ({ ...x, tags: x.tags || {} })) } : l)));
+            app.sfx('pop'); panel.close(); after?.();
+          };
+          input.addEventListener('input', () => { q = input.value; draw(); });
+          input.addEventListener('keydown', (e) => { if (e.key === 'Enter') setKbd(false); });
+          list.addEventListener('pointerdown', () => setKbd(false));
+          if (useKbd) { input.readOnly = true; input.addEventListener('pointerdown', () => setKbd(true)); panel.el.appendChild(createKeyboard(input, { onEnter: () => setKbd(false) })); }
+          draw();
+          // Steam / PlayStation games join the picker once they're read
+          const vg = DECIDERS.find((x) => x.id === 'vgame');
+          if (vg?.load && !lib.vgame) loadLib(vg).then(() => { if (!panel.closed) { all = [...universe().values()]; draw(); } });
+        },
+      });
     }
 
     // ---------------------------------------------------------------- the filter panel

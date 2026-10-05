@@ -4,7 +4,7 @@
 // When the app runs on https (GitHub Pages) and Home Assistant is plain http on your network, the browser
 // can't open ws:// — then it talks REST through the bridge's LAN proxy and refreshes every 2 seconds.
 import { Emitter, http, isMixed, qs, HttpError } from '../core/util.js';
-import { store } from '../core/store.js';
+import { store, pollMs } from '../core/store.js';
 import { bridgeBase } from './bridge.js';
 
 // What the round screen can show and control
@@ -175,7 +175,7 @@ export class HomeAssistantService extends Emitter {
     this._setStatus('ready');
     this.emit('change', null);
     clearInterval(this.pollT);
-    this.pollT = setInterval(() => this._pollRest().catch(() => {}), Math.max(1500, store.get('pollMs') || 2000));
+    this.pollT = setInterval(() => this._pollRest().catch(() => {}), Math.max(1500, pollMs()));
   }
   async _pollRest() {
     const list = await this._rest('/api/states');

@@ -2,7 +2,7 @@
 // Spotify Web API provider (Authorization Code + PKCE, no server needed).
 // Uses the post-February-2026 API: playlist `items` (not `tracks`), search limit ≤ 10.
 import { Provider } from './base.js';
-import { store } from '../core/store.js';
+import { store, pollMs } from '../core/store.js';
 import { http, HttpError, qs, randomString, sha256base64url, sleep } from '../core/util.js';
 
 const AUTH = 'https://accounts.spotify.com';
@@ -131,7 +131,7 @@ export class SpotifyProvider extends Provider {
     await this.refresh().catch(() => {});
     const loop = async () => {
       const hidden = document.hidden;
-      const wait = hidden ? 10000 : Math.max(1000, store.get('pollMs') || 2000);
+      const wait = hidden ? 10000 : Math.max(1000, pollMs());
       this.timer = setTimeout(async () => {
         if (Date.now() >= this.backoffUntil) await this.refresh().catch((e) => console.info('spotify poll', e.message));
         if (this.timer) loop();

@@ -296,12 +296,14 @@ export default {
                 h('button.pill.small', { type: 'button', onclick: editTitle }, 'Edit'),
                 h('button.pill.small.danger', { type: 'button', onclick: () => { W.removeWish(id); app.sfx('drop'); app.toast(`Removed “${it.title}”`); panel.close(); } }, 'Remove'))));
           };
-          // Got it → offer to put it on the Collection's shelf (a video game or a board game)
+          // Got it / Read / Watched → offer to put it on the Collection's shelf: a video or board game, a book, a DVD or Blu-ray
           let coll = null;
           import('./collection-store.js').then((m) => { coll = m; if (!panel.closed) draw(); }).catch(() => {});
           function collectRow(it) {
-            if (!coll || it.kind !== 'game' || it.status !== 'done') return null;
-            const have = coll.findItem({ kind: 'video', title: it.title }) || coll.findItem({ kind: 'board', title: it.title });
+            if (!coll || it.status !== 'done') return null;
+            const have = it.kind === 'book' ? coll.findItem({ kind: 'book', title: it.title, by: it.by })
+              : it.kind === 'movie' || it.kind === 'show' ? coll.findItem({ kind: 'movie', title: it.title })
+                : coll.findItem({ kind: 'video', title: it.title }) || coll.findItem({ kind: 'board', title: it.title });
             if (have) return h('button.pill.small.wl-coll.on', { type: 'button', onclick: () => app.go('app', { id: 'collection' }) }, h('i', { html: icon('check') }), 'In your Collection');
             return h('button.pill.small.primary.wl-coll', { type: 'button', onclick: async () => { const r = await coll.openAddToCollection(app, it); if (r && !panel.closed) draw(); } }, h('i', { html: icon('plus') }), 'Add to Collection');
           }
@@ -310,7 +312,7 @@ export default {
             if (!it || (s === 'done') === (it.status === 'done')) return;
             W.updateWish(id, { status: s });
             app.sfx(s === 'done' ? 'score' : 'tap'); app.vibrate(15);
-            app.toast(s === 'done' ? (it.kind === 'game' && coll ? 'Got it! Add it to your Collection?' : `${KIND_META[it.kind].done}! Moved to ${KIND_META[it.kind].done}`) : 'Back on your wish list');
+            app.toast(s === 'done' ? (coll ? `${KIND_META[it.kind].done}! Add it to your Collection?` : `${KIND_META[it.kind].done}! Moved to ${KIND_META[it.kind].done}`) : 'Back on your wish list');
             draw();
           }
           async function editNote() {

@@ -1,6 +1,7 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Toasts, circular panels, and the "curved list" effect used by every scrolling list.
 import { h, iconBtn } from './dom.js';
+import { frameDeg, localRect, toLocal } from '../core/util.js';
 
 let root = null;
 export function setOverlayRoot(el) { root = el; }
@@ -54,12 +55,14 @@ export function curve(scroller) {
   let raf = 0;
   const update = () => {
     raf = 0;
-    const r = scroller.getBoundingClientRect();
+    const deg = frameDeg();   // the screen may be turned (js/core/orientation.js): measure in the app's own frame
+    const r = localRect(scroller, deg);
     const mid = r.top + r.height / 2;
     const half = r.height / 2 || 1;
     for (const item of scroller.children) {
       const ir = item.getBoundingClientRect();
-      const t = Math.min(1.2, Math.abs(ir.top + ir.height / 2 - mid) / half);
+      const iy = deg ? toLocal(ir.left + ir.width / 2, ir.top + ir.height / 2, deg)[1] : ir.top + ir.height / 2;
+      const t = Math.min(1.2, Math.abs(iy - mid) / half);
       const s = 1 - 0.16 * t * t;
       item.style.transform = `scale(${s.toFixed(3)})`;
       item.style.opacity = (1 - 0.55 * Math.min(1, t * t)).toFixed(3);

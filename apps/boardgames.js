@@ -3,13 +3,20 @@
 // Every tool is a sub-page (its own module, loaded when opened); Back returns to the ring.
 import { h, clear } from '../js/ui/dom.js';
 import { ringMenu, IC } from './bg-ui.js';
+import { COMPANIONS } from './bg-games.js';
+import { RULES } from './bg-rules.js';
+
+// the blurbs count what's really there (new companions and rules show up by themselves)
+const SHOWN = COMPANIONS.filter((c) => !c.adult && /^[\x20-\x7e]+$/.test(c.name)).map((c) => c.name).slice(0, 5);
+const gamesBlurb = `${COMPANIONS.length} game helpers: ${SHOWN.join(', ')}${COMPANIONS.length > SHOWN.length ? ` and ${COMPANIONS.length - SHOWN.length} more` : ''}.`;
+const rulesBlurb = `Quick rules for ${RULES.length} board and card games, in plain words.`;
 
 export const TOOLS = [
   { id: 'dice', name: 'Dice', color: '#ef4444', icon: IC.dice, blurb: 'Roll up to 12 dice — d4 to d20 and d100, hold and re-roll, battles and duels.', file: './bg-dice.js' },
   { id: 'coin', name: 'Coin', color: '#f59e0b', icon: IC.coin, blurb: 'Flip a coin. Streaks, stats and best-of-N series.', file: './bg-coin.js' },
   { id: 'scores', name: 'Scores', color: '#22c55e', icon: IC.scores, blurb: 'Score keeper with rounds, undo, targets and saved games.', file: './bg-scores.js' },
-  { id: 'games', name: 'Games', color: '#3b82f6', icon: IC.meeple, blurb: 'Helpers for Ticket to Ride, Catan, Monopoly, Taki, Twister, Clue and more.', file: './bg-games.js' },
-  { id: 'rules', name: 'Rules', color: '#a855f7', icon: IC.book, blurb: 'Quick rules for 40 board and card games, in plain words.', file: './bg-rulesview.js' },
+  { id: 'games', name: 'Games', color: '#3b82f6', icon: IC.meeple, blurb: gamesBlurb, file: './bg-games.js' },
+  { id: 'rules', name: 'Rules', color: '#a855f7', icon: IC.book, blurb: rulesBlurb, file: './bg-rulesview.js' },
 ];
 
 export default {

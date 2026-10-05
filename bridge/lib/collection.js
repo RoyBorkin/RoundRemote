@@ -2,15 +2,18 @@
 // Collection app (apps/collection.js) — the bridge side: syncs with the collection services that need a server
 // (no CORS, or a secret that shouldn't live in the browser) and the phone page for imports and barcodes.
 //
-//   GET  /collection                     phone page: upload a CSV / JSON export, scan a barcode or type a game → the display
-//   GET  /api/collection/info            { ips, port, publicUrl, rev, conns: { bgg, pricecharting, rawg }, watch, upc }
-//   POST /api/collection/config          { bgg: { username, token }, pricecharting: { token }, rawg: { username, key } }
-//                                        ('' clears a secret, a missing field keeps it) — saved in bridge/collection.json
-//   GET  /api/collection/bgg             BoardGameGeek collection (own=1, + expansions) — XML API2 with your app token
+//   GET  /collection                     phone page: upload a CSV / JSON export, scan a barcode or type a game / book / album / movie
+//   GET  /api/collection/info            { ips, port, publicUrl, rev, conns: { bgg, pricecharting, rawg, discogs, tmdb }, watch, upc }
+//   POST /api/collection/config          { bgg: { username, token }, pricecharting: { token }, rawg: { username, key }, discogs: { username, token },
+//                                        tmdb: { key } } ('' clears a secret, a missing field keeps it) — saved in bridge/collection.json
+//   GET  /api/collection/bgg             BoardGameGeek collection (own=1, + expansions; categories → board / card / party game)
 //   GET  /api/collection/pricecharting   PriceCharting collection (offers?status=collection) — your API token
 //   GET  /api/collection/rawg            RAWG library (statuses=owned, every page) — your RAWG key
-//   GET  /api/collection/search?src=rawg|bgg&q=…   search to add a game by hand (with covers)
-//   GET  /api/collection/upc?code=…      barcode → product (UPCitemdb's free trial endpoint; rate-limited)
+//   GET  /api/collection/discogs         Discogs collection (folder 0, 100 a page, every page; ≤ 60 requests a minute) — your token
+//   GET  /api/collection/search?src=rawg|bgg|discogs|musicbrainz|openlibrary|tmdb&kind=…&q=…   search to add by hand (with covers)
+//   GET  /api/collection/tmdb?id=…&type=movie|tv   runtime, director and genres of a movie / show
+//   GET  /api/collection/upc?code=…      barcode → product: ISBNs → Open Library; other codes → UPCitemdb's free trial endpoint
+//                                        (rate-limited), then Discogs (with a token) / MusicBrainz for records and CDs
 //   POST /api/collection/parse           { text, preset, map } → what the file holds (the phone page's preview)
 //   GET  /api/collection/inbox?since=rev entries for the display: { rev, entries: [{ id, rev, at, type: 'import'|'item', … }] }
 //   POST /api/collection/inbox           { type: 'import', preset, name, text, map } | { type: 'item', item }
@@ -19,8 +22,12 @@
 // from the display's settings and kept in bridge/collection.json. They are only ever sent to their own service.
 // A "watched file" (config collection.watchFile) is re-imported whenever it changes (e.g. a synced GamEye export).
 //
+// Discogs (personal token: 60 requests a minute) and MusicBrainz (no key; 1 request a second, a User-Agent required) are
+// throttled here; Open Library and MusicBrainz need no account.
+//
 // config.json → "collection": { file, publicUrl, bgg: { username, token }, pricecharting: { token }, rawg: { username, key },
-//   watchFile, watchPreset, upcLookup, bggBase, pricechartingBase, rawgBase, upcBase, bggRetryMs }
+//   discogs: { username, token }, tmdb: { key }, watchFile, watchPreset, upcLookup, userAgent, bggBase, pricechartingBase, rawgBase,
+//   upcBase, discogsBase, openLibraryBase, musicBrainzBase, tmdbBase, tmdbImageBase, bggRetryMs, discogsGapMs, discogsRetryMs, mbGapMs }
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -115,6 +122,8 @@ export function bggThings(xml) {
       bggId: it.attrs.id, kind: 'board', title: name?.attrs?.value || '', year: intOr(val(it, 'yearpublished')), art: absUrl(txt(kid(it, 'image')) || txt(kid(it, 'thumbnail'))),
       thumb: absUrl(txt(kid(it, 'thumbnail'))), players: span(val(it, 'minplayers'), val(it, 'maxplayers')), mins: span(val(it, 'minplaytime') || val(it, 'playingtime'), val(it, 'maxplaytime') || val(it, 'playingtime')),
       age: intOr(val(it, 'minage')), expansion: it.attrs.type === 'boardgameexpansion',
+      cats: kids(it, 'link').filter((l) => l.attrs.type === 'boardgamecategory').map((l) => l.attrs.value),
+      mechs: kids(it, 'link').filter((l) => l.attrs.type === 'boardgamemechanic').map((l) => l.attrs.value),
       baseIds: kids(it, 'link').filter((l) => l.attrs.type === 'boardgameexpansion' && l.attrs.inbound === 'true').map((l) => l.attrs.id),
     });
   }
@@ -125,13 +134,16 @@ export function bggThings(xml) {
 let st = null, file = null, conf = null;
 function load(cfg, dir) {
   conf = { publicUrl: '', upcLookup: true, watchPreset: 'auto', bggBase: 'https://boardgamegeek.com', pricechartingBase: 'https://www.pricecharting.com', rawgBase: 'https://api.rawg.io',
-    upcBase: 'https://api.upcitemdb.com', bggRetryMs: 2000, ...(cfg.collection || {}) };
+    upcBase: 'https://api.upcitemdb.com', discogsBase: 'https://api.discogs.com', openLibraryBase: 'https://openlibrary.org', musicBrainzBase: 'https://musicbrainz.org',
+    tmdbBase: 'https://api.themoviedb.org', tmdbImageBase: 'https://image.tmdb.org/t/p/w500', bggRetryMs: 2000, discogsGapMs: 1050, discogsRetryMs: 61000, mbGapMs: 1150,
+    userAgent: 'RoundRemote-Collection/1.0 ( https://github.com/royborkin/RoundSpotify )', ...(cfg.collection || {}) };
   if (st) return;
   file = path.resolve(dir, conf.file || 'collection.json');
-  st = { bgg: {}, pricecharting: {}, rawg: {}, inbox: { rev: 0, entries: [] }, watch: {} };
+  st = { bgg: {}, pricecharting: {}, rawg: {}, discogs: {}, tmdb: {}, inbox: { rev: 0, entries: [] }, watch: {} };
   try { if (fs.existsSync(file)) st = { ...st, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; }
   catch (e) { log('collection', `could not read ${file}: ${e.message}`); }
   st.inbox ||= { rev: 0, entries: [] };
+  st.discogs ||= {}; st.tmdb ||= {};
 }
 function save() {
   try { const tmp = file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(st, null, 1)); fs.renameSync(tmp, file); }
@@ -146,7 +158,7 @@ const fail = (msg, status = 400, extra = {}) => Object.assign(new Error(msg), { 
 // ---------------------------------------------------------------- fetching
 async function get(url, { headers = {}, timeout = 20000, what = 'the service' } = {}) {
   let r;
-  try { r = await fetch(url, { headers: { 'User-Agent': 'RoundRemote-Collection/1.0', ...headers }, signal: AbortSignal.timeout(timeout) }); }
+  try { r = await fetch(url, { headers: { 'User-Agent': conf?.userAgent || 'RoundRemote-Collection/1.0', ...headers }, signal: AbortSignal.timeout(timeout) }); }
   catch (e) { throw fail(`Can't reach ${what} (${e.cause?.code || e.name === 'TimeoutError' ? 'timeout' : e.message})`, 502); }
   return { status: r.status, text: await r.text(), headers: r.headers };
 }
@@ -196,6 +208,16 @@ async function bggSync(username) {
       for (const x of exps) { const t = things.get(x.bggId); if (t?.baseIds?.length) x.baseIds = t.baseIds; if (!x.players && t?.players) x.players = t.players; }
     } catch (e) { if (e.auth) throw e; log('collection', `BGG expansion details: ${e.message}`); break; }
   }
+  // board / card / party game from BGG's categories (best effort: 20 ids a call, the first 100 games)
+  const S = await sources();
+  const bids = base.map((x) => x.bggId).filter(Boolean);
+  for (let i = 0; i < bids.length && i < 100; i += 20) {
+    try {
+      const things = bggThings(await bggGet(`thing?id=${bids.slice(i, i + 20).join(',')}`, { retries: 2 }));
+      for (const x of base) { const t = things.get(x.bggId); if (t && (t.cats.length || t.mechs.length)) Object.assign(x, S.classifyBoard({ cats: t.cats, mechs: t.mechs, title: x.title })); }
+    } catch (e) { if (e.auth) throw e; log('collection', `BGG categories: ${e.message}`); break; }
+  }
+  for (const x of base) if (!x.type) { const c = S.classifyBoard({ title: x.title }); if (c.type) x.type = c.type; }
   return { username, items: [...base, ...exps], counts: { games: base.length, expansions: exps.length }, at: Date.now() };
 }
 async function bggSearch(q) {
@@ -204,7 +226,8 @@ async function bggSearch(q) {
   if (!hits.length) return [];
   let things = new Map();
   try { things = bggThings(await bggGet(`thing?id=${hits.map((x) => x.bggId).join(',')}`, { retries: 2 })); } catch (e) { if (e.auth) throw e; }
-  return hits.map((x) => ({ ...x, ...(things.get(x.bggId) || {}), title: things.get(x.bggId)?.title || x.title, kind: 'board', source: 'bgg', sid: x.bggId }));
+  const S = await sources();
+  return hits.map((x) => { const t = things.get(x.bggId) || {}; const { cats = [], mechs = [], ...rest } = t; return { ...x, ...rest, ...S.classifyBoard({ cats, mechs, title: t.title || x.title }), title: t.title || x.title, kind: 'board', source: 'bgg', sid: x.bggId }; });
 }
 
 // PriceCharting (paid subscription → API token): your collection with today's prices.
@@ -275,30 +298,207 @@ async function rawgSearch(q) {
   return (j.results || []).filter((g) => g?.name).map((g) => ({ ...rawgGame(g), source: 'rawg' }));
 }
 
+// ---------------------------------------------------------------- throttling (Discogs 60 / min, MusicBrainz 1 / s)
+const lanes = new Map(), laneAt = new Map();
+export const throttleLog = [];
+/** run fn() on a lane, at least `gap` ms after the previous call on that lane finished starting */
+function throttled(lane, gap, fn) {
+  const prev = lanes.get(lane) || Promise.resolve();
+  const p = prev.then(async () => {
+    const wait = (laneAt.get(lane) || 0) + gap - Date.now();
+    if (wait > 0) await sleep(wait);
+    laneAt.set(lane, Date.now());
+    throttleLog.push([lane, Date.now()]); if (throttleLog.length > 200) throttleLog.shift();
+    return fn();
+  });
+  lanes.set(lane, p.catch(() => {}));
+  return p;
+}
+const baseOf = (k) => String(conf[k] || '').replace(/\/$/, '');
+const jsonOf = (r, what) => { try { return JSON.parse(r.text); } catch { throw fail(`${what} answered ${r.status} without JSON`, 502); } };
+
+// Discogs: a personal access token (discogs.com → Settings → Developers). Authenticated: 60 requests a minute.
+async function discogsGet(p, { auth = true, retries = 2 } = {}) {
+  const token = secret('discogs.token');
+  if (auth && !token) throw fail('Add your Discogs personal access token first (Collection → Connections → Discogs)', 400, { setup: true });
+  for (let i = 0; ; i++) {
+    const r = await throttled('discogs', +conf.discogsGapMs || 1050, () => get(`${baseOf('discogsBase')}${p}`, { headers: { ...(token ? { Authorization: `Discogs token=${token}` } : {}), Accept: 'application/vnd.discogs.v2.discogs+json' }, what: 'Discogs' }));
+    const left = +(r.headers.get('x-discogs-ratelimit-remaining') ?? 99);
+    if (left <= 1) { log('collection', 'Discogs rate limit nearly used — pausing'); laneAt.set('discogs', Date.now() + Math.min(60000, +conf.discogsRetryMs || 61000) - (+conf.discogsGapMs || 1050)); }
+    if (r.status === 429 && i < retries) { log('collection', 'Discogs 429 — waiting'); await sleep(+conf.discogsRetryMs || 61000); continue; }
+    if (r.status === 401) throw fail('Discogs refused the token — make a new one at discogs.com → Settings → Developers', 401, { auth: true });
+    if (r.status === 403) throw fail('Discogs says this collection is private — make it public or use your own token', 403, { auth: true });
+    if (r.status === 404) throw fail('Discogs doesn’t know that username', 404);
+    if (r.status === 429) throw fail('Discogs says too many requests — try again in a minute', 429);
+    if (r.status !== 200) throw fail(`Discogs error ${r.status}`, 502);
+    return jsonOf(r, 'Discogs');
+  }
+}
+async function discogsSync(username) {
+  username = String(username || st.discogs.username || conf.discogs?.username || '').trim();
+  if (!secret('discogs.token')) throw fail('Add your Discogs personal access token first (Collection → Connections → Discogs)', 400, { setup: true });
+  if (!username) throw fail('Which Discogs user? Add your username', 400, { setup: true });
+  const S = await sources();
+  const items = [];
+  let pages = 1;
+  for (let page = 1; page <= pages && page <= 100; page++) {
+    const j = await discogsGet(`/users/${encodeURIComponent(username)}/collection/folders/0/releases?${new URLSearchParams({ per_page: '100', page: String(page), sort: 'added', sort_order: 'desc' })}`);
+    pages = +j.pagination?.pages || 1;
+    for (const r of j.releases || []) { const e = S.discogsEntry(r); if (e) items.push(e); }
+  }
+  return { username, items, counts: { vinyl: items.filter((x) => x.kind === 'vinyl').length, cd: items.filter((x) => x.kind === 'cd').length }, pages, at: Date.now() };
+}
+async function discogsSearch(q, kind, barcode = '') {
+  const S = await sources();
+  const qs = new URLSearchParams({ type: 'release', per_page: '12', ...(barcode ? { barcode } : { q }), ...(kind === 'vinyl' ? { format: 'Vinyl' } : kind === 'cd' ? { format: 'CD' } : {}) });
+  const j = await discogsGet(`/database/search?${qs}`);
+  return (j.results || []).map(S.discogsSearchEntry).filter(Boolean).map((x) => ({ ...x, source: 'discogs' }));
+}
+
+// MusicBrainz: no key; 1 request a second and a User-Agent that says who we are.
+async function mbGet(p) {
+  const r = await throttled('mb', +conf.mbGapMs || 1100, () => get(`${baseOf('musicBrainzBase')}${p}`, { headers: { Accept: 'application/json' }, what: 'MusicBrainz' }));
+  if (r.status === 503 || r.status === 429) throw fail('MusicBrainz is busy — try again in a moment', 503);
+  if (r.status !== 200) throw fail(`MusicBrainz error ${r.status}`, 502);
+  return jsonOf(r, 'MusicBrainz');
+}
+async function mbSearch(q, kind) {
+  const S = await sources();
+  const j = await mbGet(`/ws/2/release-group?${new URLSearchParams({ query: q, fmt: 'json', limit: '12' })}`);
+  return (j['release-groups'] || []).map((g) => S.mbReleaseGroup(g, kind)).filter(Boolean).map((x) => ({ ...x, source: 'musicbrainz' }));
+}
+async function mbBarcode(code) {
+  const S = await sources();
+  const j = await mbGet(`/ws/2/release?${new URLSearchParams({ query: `barcode:${code}`, fmt: 'json', limit: '3' })}`);
+  return (j.releases || []).map(S.mbRelease).filter(Boolean).map((x) => ({ ...x, source: 'musicbrainz', upc: code }));
+}
+
+// Open Library: no key (please identify yourself with a User-Agent).
+async function olGet(p) {
+  const r = await throttled('ol', 350, () => get(`${baseOf('openLibraryBase')}${p}`, { headers: { Accept: 'application/json' }, what: 'Open Library' }));
+  if (r.status === 404) return null;
+  if (r.status !== 200) throw fail(`Open Library error ${r.status}`, 502);
+  return jsonOf(r, 'Open Library');
+}
+async function isbnLookup(isbn) {
+  return cached(`isbn:${isbn}`, 24 * 3600e3, async () => {
+    const S = await sources();
+    const ed = await olGet(`/isbn/${isbn}.json`);
+    if (!ed) return null;
+    const authors = [];
+    for (const a of (ed.authors || []).slice(0, 3)) { try { const j = await olGet(`${a.key}.json`); if (j?.name) authors.push(j.name); } catch {} }
+    let work = null;
+    try { if (ed.works?.[0]?.key) work = await olGet(`${ed.works[0].key}.json`); } catch {}
+    const e = S.olEdition(ed, { authors, work });
+    return e ? { ...e, source: 'openlibrary', upc: isbn } : null;
+  });
+}
+async function olSearch(q) {
+  const S = await sources();
+  const isbn = S.isbnOf(q);
+  if (isbn) { const e = await isbnLookup(isbn); return e ? [e] : []; }
+  const j = await olGet(`/search.json?${new URLSearchParams({ q, limit: '12', fields: 'key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,publisher,subject' })}`);
+  return (j?.docs || []).map(S.olDoc).filter(Boolean).map((x) => ({ ...x, isbn: x.isbn, source: 'openlibrary' }));
+}
+
+// TMDB: a free API key (v3 "api_key") or the longer API Read Access Token (sent as a Bearer token).
+async function tmdbGet(p, params = {}) {
+  const key = secret('tmdb.key');
+  if (!key) throw fail('Add a TMDB API key first (Collection → Connections → TMDB)', 400, { setup: true });
+  const bearer = /^eyJ/.test(key);
+  const qs = new URLSearchParams({ ...params, ...(bearer ? {} : { api_key: key }) });
+  const r = await get(`${baseOf('tmdbBase')}/3${p}?${qs}`, { headers: { Accept: 'application/json', ...(bearer ? { Authorization: `Bearer ${key}` } : {}) }, what: 'TMDB' });
+  if (r.status === 401) throw fail('TMDB refused the key — check it at themoviedb.org → Settings → API', 401, { auth: true });
+  if (r.status === 429) throw fail('TMDB says too many requests — try again in a moment', 429);
+  if (r.status !== 200) throw fail(`TMDB error ${r.status}`, 502);
+  return jsonOf(r, 'TMDB');
+}
+async function tmdbGenres() {
+  return cached('tmdb:genres', 24 * 3600e3, async () => {
+    const S = await sources();
+    const out = { ...S.TMDB_GENRES };
+    for (const t of ['movie', 'tv']) { try { for (const g of (await tmdbGet(`/genre/${t}/list`, { language: 'en' })).genres || []) out[g.id] = g.name; } catch (e) { if (e.auth) throw e; } }
+    return out;
+  });
+}
+async function tmdbSearch(q) {
+  const S = await sources();
+  const names = await tmdbGenres();
+  const img = baseOf('tmdbImageBase');
+  const [m, t] = await Promise.all([tmdbGet('/search/movie', { query: q, include_adult: 'false' }), tmdbGet('/search/tv', { query: q }).catch(() => ({ results: [] }))]);
+  const movies = (m.results || []).slice(0, 9).map((x) => S.tmdbEntry(x, 'movie', names, img));
+  const shows = (t.results || []).slice(0, 4).map((x) => S.tmdbEntry(x, 'tv', names, img));
+  return [...movies, ...shows].filter(Boolean).map((x) => ({ ...x, source: 'tmdb' }));
+}
+async function tmdbDetails(id, type) {
+  const S = await sources();
+  const t = type === 'tv' ? 'tv' : 'movie';
+  const j = await tmdbGet(`/${t}/${encodeURIComponent(id)}`, { append_to_response: 'credits' });
+  const director = t === 'movie' ? (j.credits?.crew || []).filter((c) => c.job === 'Director').map((c) => c.name).slice(0, 2).join(', ') : (j.created_by || []).map((c) => c.name).slice(0, 2).join(', ');
+  return { id: String(j.id), type: t, runtime: +j.runtime || (j.episode_run_time || [])[0] || null, by: director, genres: S.genresOf('movie', (j.genres || []).map((g) => g.name)), year: S.yearOf(j.release_date || j.first_air_date) };
+}
+
 // UPCitemdb's free trial: 100 lookups a day, a few a minute. Fails often → the phone falls back to typing.
 const PLAT_RE = [[/\bps5\b|playstation\s*5/i, 'PlayStation 5'], [/\bps4\b|playstation\s*4/i, 'PlayStation 4'], [/\bps3\b|playstation\s*3/i, 'PlayStation 3'], [/switch\s*2/i, 'Nintendo Switch 2'],
   [/nintendo\s*switch|\bswitch\b/i, 'Nintendo Switch'], [/xbox\s*series/i, 'Xbox Series X|S'], [/xbox\s*one/i, 'Xbox One'], [/xbox\s*360/i, 'Xbox 360'], [/\bwii\s*u\b/i, 'Wii U'], [/\bwii\b/i, 'Wii'],
   [/\b3ds\b/i, 'Nintendo 3DS'], [/\bnintendo ds\b|\bds\b/i, 'Nintendo DS'], [/\bpc\b|windows/i, 'PC']];
+/** a UPCitemdb product → { kind, title, platform, by, format, art, upc, brand } — which shelf it belongs on, from its category and title */
 export function upcItem(x) {
   const t = String(x.title || '').trim();
   const cat = String(x.category || '');
+  const all = `${t} ${cat} ${x.description || ''}`;
   const board = /board game|tabletop|card game|puzzle|toys\s*&\s*games\s*>\s*games/i.test(cat) && !/video game/i.test(cat);
-  const plat = board ? '' : (PLAT_RE.find(([re]) => re.test(`${t} ${cat} ${x.model || ''}`))?.[1] || '');
-  // "Mario Kart 8 Deluxe - Nintendo Switch" → "Mario Kart 8 Deluxe"
-  const title = t.replace(/\s*[-–(,]\s*(for\s+)?(sony\s+)?(playstation\s*\d|ps\d|nintendo\s+switch(\s*2)?|switch|xbox[\w\s|]*|wii\s*u?|nintendo\s+3?ds|pc)\b.*$/i, '').replace(/\s*\((standard|deluxe)? ?edition\)\s*$/i, '').trim() || t;
-  return { kind: board ? 'board' : 'video', title, platform: plat, art: (x.images || [])[0] || '', upc: x.upc || x.ean || '', brand: x.brand || '' };
+  const video = /video game/i.test(cat) || PLAT_RE.some(([re]) => re.test(t));
+  const book = !video && !board && /\bbooks?\b/i.test(cat) && !/comic book box|book ?case|bookend/i.test(cat);
+  const movie = !video && !board && !book && (/dvds? ?& ?videos|movies|\bdvd\b|blu-?ray|4k ultra|\buhd\b|steelbook/i.test(cat) || /\b(dvd|blu-?ray|4k ultra hd|uhd)\b/i.test(t));
+  const music = !video && !board && !book && !movie && (/music|vinyl|\bcds?\b|records?\b|albums?/i.test(cat) || /\b(vinyl|lp|cd)\b/i.test(t));
+  const kind = board ? 'board' : book ? 'book' : movie ? 'movie' : music ? (/vinyl|\blp\b|\brecords?\b|\b(7|10|12)("|″|\s*inch)/i.test(all) && !/\bcd\b/i.test(t) ? 'vinyl' : 'cd') : 'video';
+  const plat = kind === 'video' ? (PLAT_RE.find(([re]) => re.test(`${t} ${cat} ${x.model || ''}`))?.[1] || '') : '';
+  // "Mario Kart 8 Deluxe - Nintendo Switch" → "Mario Kart 8 Deluxe"; "The Matrix (Blu-ray)" → "The Matrix"; "Abbey Road [Vinyl]" → "Abbey Road"
+  let title = kind === 'video' ? t.replace(/\s*[-–(,]\s*(for\s+)?(sony\s+)?(playstation\s*\d|ps\d|nintendo\s+switch(\s*2)?|switch|xbox[\w\s|]*|wii\s*u?|nintendo\s+3?ds|pc)\b.*$/i, '').replace(/\s*\((standard|deluxe)? ?edition\)\s*$/i, '') : t;
+  if (kind !== 'video') title = title.replace(/\s*[([](?:[^)\]]*\b(?:vinyl|lp|cd|dvd|blu-?ray|4k|uhd|ultra hd|steelbook|widescreen|digital|import|remaster(?:ed)?|hardcover|paperback)\b[^)\]]*)[)\]]/gi, '')
+    .replace(/\s+[-–]\s+(vinyl|lp|cd|dvd|blu-?ray|4k ultra hd)\s*$/i, '').trim();
+  const fm = /4k|uhd|ultra hd/i.test(all) ? 'uhd' : /blu-?ray/i.test(all) ? 'bluray' : /\bdvd\b/i.test(all) ? 'dvd' : '';
+  return { kind, title: title.trim() || t, platform: plat, art: (x.images || [])[0] || '', upc: x.upc || x.ean || '', brand: x.brand || '',
+    ...(kind === 'movie' ? { format: fm, steelbook: /steel ?book/i.test(all) || null } : {}), ...(kind === 'vinyl' ? { format: 'lp' } : kind === 'cd' ? { format: 'cd' } : {}),
+    ...(kind === 'book' ? { publisher: x.publisher || x.brand || '' } : {}), ...(music ? { label: x.brand || '' } : {}) };
+}
+const upcErr = (e) => e?.status === 429 || /busy/i.test(e?.message || '');
+async function upcDb(code) {
+  const r = await get(`${conf.upcBase.replace(/\/$/, '')}/prod/trial/lookup?${new URLSearchParams({ upc: code })}`, { what: 'the barcode database', timeout: 12000 });
+  let j = null; try { j = JSON.parse(r.text); } catch {}
+  if (r.status === 429 || /TOO_FAST|EXCEED/i.test(j?.code || '')) throw fail('The free barcode lookup is busy (a few per minute, 100 a day) — type the title instead', 429);
+  if (r.status === 404 || j?.code === 'INVALID_UPC' || !j?.items?.length) return [];
+  if (r.status !== 200) throw fail(`Barcode lookup failed (${j?.message || r.status}) — type the title instead`, 502);
+  return j.items.slice(0, 3).map(upcItem);
+}
+/** records & CDs: Discogs (with a token) or MusicBrainz know the barcode — artist, format, label, year */
+async function musicBarcode(code) {
+  if (secret('discogs.token')) { try { const r = await discogsSearch('', null, code); if (r.length) return r.slice(0, 3).map((x) => ({ ...x, upc: code })); } catch (e) { if (e.auth) log('collection', e.message); } }
+  try { return await mbBarcode(code); } catch { return []; }
 }
 async function upcLookup(code) {
   if (conf.upcLookup === false) throw fail('Barcode lookup is turned off on the bridge (collection.upcLookup)', 400);
-  code = String(code || '').replace(/\D/g, '');
-  if (code.length < 8 || code.length > 14) throw fail('A barcode number has 8 to 14 digits', 400);
-  return cached(`upc:${code}`, 24 * 3600e3, async () => {
-    const r = await get(`${conf.upcBase.replace(/\/$/, '')}/prod/trial/lookup?${new URLSearchParams({ upc: code })}`, { what: 'the barcode database', timeout: 12000 });
-    let j = null; try { j = JSON.parse(r.text); } catch {}
-    if (r.status === 429 || /TOO_FAST|EXCEED/i.test(j?.code || '')) throw fail('The free barcode lookup is busy (a few per minute, 100 a day) — type the title instead', 429);
-    if (r.status === 404 || j?.code === 'INVALID_UPC' || !j?.items?.length) return { code, items: [] };
-    if (r.status !== 200) throw fail(`Barcode lookup failed (${j?.message || r.status}) — type the title instead`, 502);
-    return { code, items: j.items.slice(0, 3).map(upcItem) };
+  const raw = String(code || '').replace(/[^\dXx]/g, '');
+  code = raw.replace(/\D/g, '');
+  const S = await sources();
+  const isbn = S.isbnOf(raw);
+  if (!isbn && (code.length < 8 || code.length > 14)) throw fail('A barcode number has 8 to 14 digits', 400);
+  return cached(`upc:${raw}`, 24 * 3600e3, async () => {
+    // a book's barcode is its ISBN (978… / 979…) → Open Library
+    if (isbn) { try { const b = await isbnLookup(isbn); if (b) return { code: raw, items: [b] }; } catch (e) { log('collection', `ISBN ${isbn}: ${e.message}`); } }
+    let items = [], busy = null;
+    try { items = await upcDb(code); } catch (e) { if (!upcErr(e)) throw e; busy = e; }
+    const m = items[0];
+    // a record or CD: fill in the artist, format and label from Discogs / MusicBrainz
+    if (m && (m.kind === 'vinyl' || m.kind === 'cd')) {
+      const mu = await musicBarcode(code);
+      if (mu.length) items = [{ ...mu[0], art: mu[0].art || m.art, kind: mu[0].kind || m.kind }, ...items.slice(1)];
+    }
+    if (!items.length) { const mu = await musicBarcode(code); if (mu.length) items = mu; }
+    if (!items.length && busy) throw busy;
+    if (isbn && !items.length) return { code: raw, items: [] };
+    return { code: raw, items: items.map((x) => (isbn && !x.kind ? { ...x, kind: 'book' } : x)) };
   });
 }
 
@@ -356,6 +556,8 @@ function connInfo() {
     bgg: { username: st.bgg.username || conf.bgg?.username || '', hasToken: !!secret('bgg.token'), inConfig: !!conf.bgg?.token },
     pricecharting: { hasToken: !!secret('pricecharting.token'), inConfig: !!conf.pricecharting?.token },
     rawg: { username: st.rawg.username || conf.rawg?.username || '', hasKey: !!secret('rawg.key'), inConfig: !!conf.rawg?.key },
+    discogs: { username: st.discogs.username || conf.discogs?.username || '', hasToken: !!secret('discogs.token'), inConfig: !!conf.discogs?.token },
+    tmdb: { hasKey: !!secret('tmdb.key'), inConfig: !!conf.tmdb?.key },
   };
 }
 const clean = (v, max = 200) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
@@ -384,7 +586,9 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
       set('bgg', 'username', b.bgg?.username, 60); set('bgg', 'token', b.bgg?.token, 400);
       set('pricecharting', 'token', b.pricecharting?.token, 200);
       set('rawg', 'username', b.rawg?.username, 60); set('rawg', 'key', b.rawg?.key, 100);
-      for (const k of [...cache.keys()]) if (/^(bgg|rawg)/.test(k)) cache.delete(k);
+      set('discogs', 'username', b.discogs?.username, 60); set('discogs', 'token', b.discogs?.token, 200);
+      set('tmdb', 'key', b.tmdb?.key, 600);
+      for (const k of [...cache.keys()]) if (/^(bgg|rawg|discogs|tmdb|upc)/.test(k)) cache.delete(k);
       save();
       return send(200, { ok: true, conns: connInfo() });
     }
@@ -396,13 +600,24 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
     }
     if (p === '/api/collection/pricecharting') return send(200, await pcSync());
     if (p === '/api/collection/rawg') return send(200, await rawgSync(url.searchParams.get('username')));
+    if (p === '/api/collection/discogs') {
+      const user = url.searchParams.get('username') || st.discogs.username || conf.discogs?.username || '';
+      if (url.searchParams.get('force') === '1') cache.delete(`discogs:${user}`);
+      return send(200, await cached(`discogs:${user}`, 10 * 60e3, () => discogsSync(user)));
+    }
+    if (p === '/api/collection/tmdb') return send(200, await cached(`tmdbd:${url.searchParams.get('type')}:${url.searchParams.get('id')}`, 24 * 3600e3, () => tmdbDetails(clean(url.searchParams.get('id'), 20), url.searchParams.get('type'))));
     if (p === '/api/collection/search') {
       const q = clean(url.searchParams.get('q'), 100);
       if (q.length < 2) return send(200, { items: [] });
       const src = url.searchParams.get('src');
       if (src === 'bgg') return send(200, { items: await cached(`bggs:${q.toLowerCase()}`, 30 * 60e3, () => bggSearch(q)) });
       if (src === 'rawg') return send(200, { items: await cached(`rawgs:${q.toLowerCase()}`, 30 * 60e3, () => rawgSearch(q)) });
-      return send(400, { error: 'src must be rawg or bgg' });
+      const kind = ['vinyl', 'cd', 'book', 'movie'].includes(url.searchParams.get('kind')) ? url.searchParams.get('kind') : '';
+      if (src === 'discogs') return send(200, { items: await cached(`discogss:${kind}:${q.toLowerCase()}`, 30 * 60e3, () => discogsSearch(q, kind)) });
+      if (src === 'musicbrainz') return send(200, { items: await cached(`mbs:${kind}:${q.toLowerCase()}`, 30 * 60e3, () => mbSearch(q, kind || 'vinyl')) });
+      if (src === 'openlibrary') return send(200, { items: await cached(`ols:${q.toLowerCase()}`, 30 * 60e3, () => olSearch(q)) });
+      if (src === 'tmdb') return send(200, { items: await cached(`tmdbs:${q.toLowerCase()}`, 30 * 60e3, () => tmdbSearch(q)) });
+      return send(400, { error: 'src must be rawg, bgg, discogs, musicbrainz, openlibrary or tmdb' });
     }
     if (p === '/api/collection/upc') {
       if (limited(req, 20)) return send(429, { error: 'Slow down a little' });
@@ -415,7 +630,8 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
       const r = S.importText(String(b.text || ''), { preset: b.preset || 'auto', map: b.map || null });
       if (r.error) return send(400, { error: r.error });
       return send(200, { preset: r.preset, presetName: r.presetName, kind: r.kind, count: r.items.length, wishes: r.wishes.length, skipped: r.skipped || 0, total: r.total,
-        headers: r.headers.slice(0, 60), map: r.map, sample: r.items.slice(0, 6).map((x) => ({ title: x.title, platform: x.platform ? S.platformName(x.platform) : '', players: x.players || null })) });
+        headers: r.headers.slice(0, 60), map: r.map, kinds: r.items.reduce((o, x) => ({ ...o, [x.kind]: (o[x.kind] || 0) + 1 }), {}),
+        sample: r.items.slice(0, 6).map((x) => ({ title: x.title, platform: x.platform ? S.platformName(x.platform) : '', by: x.kind === 'video' || x.kind === 'board' ? '' : x.by || '', players: x.players || null })) });
     }
     if (p === '/api/collection/inbox') {
       if (req.method === 'GET') {
@@ -439,8 +655,13 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
           const it = b.item || {};
           const title = clean(it.title, 200);
           if (!title) return send(400, { error: 'Type a title first' });
-          const item = { kind: it.kind === 'board' ? 'board' : 'video', title, platform: clean(it.platform, 40), art: /^https?:\/\//.test(it.art || '') ? clean(it.art, 600) : '', upc: clean(it.upc, 20).replace(/\D/g, ''),
-            ownership: clean(it.ownership, 20), notes: clean(it.notes, 300) };
+          const S = await sources();
+          const kind = S.KINDS.includes(it.kind) ? it.kind : 'video';
+          const item = { kind, title, platform: kind === 'video' ? clean(it.platform, 40) : '', art: /^https?:\/\//.test(it.art || '') ? clean(it.art, 600) : '', upc: clean(it.upc, 20).replace(/\D/g, ''),
+            ownership: kind === 'video' ? clean(it.ownership, 20) : '', notes: clean(it.notes, 300), by: clean(it.by, 120), format: clean(it.format, 20), isbn: S.isbnOf(it.isbn || ''),
+            year: +it.year || null, label: clean(it.label, 80), catno: clean(it.catno, 40), publisher: clean(it.publisher, 80), pages: +it.pages || null, runtime: +it.runtime || null,
+            genres: Array.isArray(it.genres) ? it.genres.slice(0, 4).map((g) => clean(g, 24)) : [], discogsId: clean(it.discogsId, 20), mbid: clean(it.mbid, 40), olid: clean(it.olid, 30),
+            rpm: +it.rpm || null, discs: +it.discs || null, steelbook: it.steelbook ? true : null };
           const e = addEntry({ type: 'item', from: 'phone', item, by: clean(b.by, 40) });
           log('collection', `phone add: ${title}`);
           return send(200, { ok: true, rev: e.rev });
@@ -485,7 +706,9 @@ label.l:first-child{margin-top:0}
 .in{width:100%;padding:13px 15px;border-radius:14px;border:1px solid var(--line);background:var(--card2);outline:none;font-size:16px}
 .in:focus{border-color:var(--c)}
 .row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.seg button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px;padding:9px 4px}
+.seg button svg{width:22px;height:22px;fill:var(--k,var(--c))}
 .seg button{padding:11px;border-radius:14px;border:1px solid var(--line);background:var(--card2);font-weight:700;color:var(--muted)}
 .seg button.on{border-color:var(--k,var(--c));color:var(--fg);background:color-mix(in srgb,var(--k,var(--c)) 20%,var(--card2))}
 .big{width:100%;padding:15px;border-radius:99px;background:var(--c);color:#fff;font-weight:800;font-size:17px;margin-top:14px;transition:transform .15s,opacity .2s}
@@ -515,7 +738,7 @@ video{width:100%;border-radius:14px;background:#000;margin-top:10px;max-height:2
 
 <section id="add">
   <div class="card">
-    <div class="seg" id="kind"><button data-k="video" style="--k:var(--c)"></button><button data-k="board" style="--k:var(--b)"></button></div>
+    <div class="seg" id="kind"></div>
     <button class="ghost scan" id="scan" hidden><svg viewBox="0 0 24 24"><path d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm3 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"/></svg><span data-t="scan"></span></button>
     <input type="file" id="photo" accept="image/*" capture="environment" hidden>
     <video id="cam" playsinline muted hidden></video>
@@ -525,10 +748,13 @@ video{width:100%;border-radius:14px;background:#000;margin-top:10px;max-height:2
     <div class="found" id="found" hidden><img id="fimg" alt=""><div><b id="ftitle"></b><span class="sub" id="fsub"></span></div></div>
     <label class="l" for="title" data-t="name"></label>
     <input class="in" id="title" dir="auto" maxlength="200" autocomplete="off">
+    <div id="byWrap" hidden><label class="l" for="by" id="byLabel"></label>
+    <input class="in" id="by" dir="auto" maxlength="120" autocomplete="off"></div>
     <div id="platWrap"><label class="l" for="plat" data-t="platform"></label>
     <input class="in" id="plat" list="plats" autocomplete="off" maxlength="40"><datalist id="plats"></datalist></div>
-    <label class="l" for="own" data-t="own"></label>
-    <select class="in" id="own"><option value=""></option><option value="cib"></option><option value="loose"></option><option value="new"></option><option value="digital"></option></select>
+    <div id="fmtWrap" hidden><label class="l" for="fmt" data-t="format"></label><select class="in" id="fmt"></select></div>
+    <div id="ownWrap"><label class="l" for="own" data-t="own"></label>
+    <select class="in" id="own"><option value=""></option><option value="cib"></option><option value="loose"></option><option value="new"></option><option value="digital"></option></select></div>
     <button class="big" id="send" disabled data-t="send"></button>
   </div>
 </section>
@@ -543,7 +769,7 @@ video{width:100%;border-radius:14px;background:#000;margin-top:10px;max-height:2
     <div class="prev" id="prev" hidden></div>
     <div id="mapper" hidden>
       <label class="l" data-t="cols"></label>
-      <div class="maps"><label><span data-t="c_title"></span><select class="in" id="mTitle"></select></label><label><span data-t="c_plat"></span><select class="in" id="mPlat"></select></label><label><span data-t="c_players"></span><select class="in" id="mPlayers"></select></label><label><span data-t="c_kind"></span><select class="in" id="mKind"><option value="video"></option><option value="board"></option></select></label></div>
+      <div class="maps"><label><span data-t="c_title"></span><select class="in" id="mTitle"></select></label><label><span data-t="c_plat"></span><select class="in" id="mPlat"></select></label><label><span data-t="c_by"></span><select class="in" id="mBy"></select></label><label><span data-t="c_players"></span><select class="in" id="mPlayers"></select></label><label><span data-t="c_kind"></span><select class="in" id="mKind"><option value="video"></option><option value="board"></option><option value="book"></option><option value="vinyl"></option><option value="cd"></option><option value="movie"></option></select></label></div>
     </div>
     <button class="big" id="upload" disabled data-t="upload"></button>
   </div>
@@ -554,25 +780,41 @@ video{width:100%;border-radius:14px;background:#000;margin-top:10px;max-height:2
 const $ = (s) => document.querySelector(s);
 const ls = { get: (k) => { try { return localStorage.getItem('rrcoll.' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('rrcoll.' + k, v); } catch {} } };
 const T = {
-  en: { title: 'Collection', sub: 'Add to the round display', add: 'Add a game', file: 'Import a file', video: 'Video game', board: 'Board game',
+  en: { title: 'Collection', sub: 'Add to the round display', add: 'Add', file: 'Import a file', video: 'Video game', board: 'Board game', book: 'Book', vinyl: 'Vinyl', cd: 'CD', movie: 'DVD / Blu-ray',
+    by_book: 'Author', by_vinyl: 'Artist', by_cd: 'Artist', by_movie: 'Director', format: 'Format', c_by: 'Artist / author', f_: '—',
+    kinds: { video: ['game', 'games'], board: ['board game', 'board games'], book: ['book', 'books'], vinyl: ['record', 'records'], cd: ['CD', 'CDs'], movie: ['disc', 'discs'] },
     scan: 'Scan barcode', upc: 'Barcode number (UPC / EAN)', look: 'Look up', name: 'Title', platform: 'Platform', own: 'What you have',
     o_: '—', o_cib: 'Complete in box', o_loose: 'Loose (game only)', o_new: 'New / sealed', o_digital: 'Digital',
     send: 'Send to the display', sent: 'Sent! It’s on the display now ✓', preset: 'What exported it?', cols: 'Which columns?', upload: 'Send to the display',
     p_auto: 'Detect it for me', notFound: 'Not in the barcode database — type the title', looking: 'Looking it up…', scanning: 'Point the camera at the barcode…',
     noCam: 'Live scanning needs this page over https — take a photo of the barcode, or type the number.', noScan: 'This browser can’t read barcodes — type the number under the barcode.',
-    games: (n) => n + (n === 1 ? ' game' : ' games'), found: (p, w, s) => [p, w ? w + (w === 1 ? ' wish-list game' : ' wish-list games') : '', s ? s + (s === 1 ? ' row skipped' : ' rows skipped') : ''].filter(Boolean).join(' · '),
-    imported: (n) => 'Sent ' + n + ' games to the display ✓', c_title: 'Title', c_plat: 'Platform', c_players: 'Players', c_kind: 'Kind', none: '— none —', offline: 'Can’t reach the bridge' },
-  he: { title: 'האוסף', sub: 'הוספה למסך העגול', add: 'הוספת משחק', file: 'ייבוא קובץ', video: 'משחק וידאו', board: 'משחק קופסה',
+    games: (n) => n + (n === 1 ? ' game' : ' games'), found: (p, w, s) => [p, w ? w + ' to Wish Lists' : '', s ? s + (s === 1 ? ' row skipped' : ' rows skipped') : ''].filter(Boolean).join(' · '),
+    imported: (n) => 'Sent ' + n + ' items to the display ✓', c_title: 'Title', c_plat: 'Platform', c_players: 'Players', c_kind: 'Kind', none: '— none —', offline: 'Can’t reach the bridge' },
+  he: { title: 'האוסף', sub: 'הוספה למסך העגול', add: 'הוספה', file: 'ייבוא קובץ', video: 'משחק וידאו', board: 'משחק קופסה', book: 'ספר', vinyl: 'תקליט', cd: 'דיסק', movie: 'DVD / בלו-ריי',
+    by_book: 'סופר/ת', by_vinyl: 'אמן', by_cd: 'אמן', by_movie: 'במאי', format: 'פורמט', c_by: 'אמן / סופר', f_: '—',
+    kinds: { video: ['משחק', 'משחקים'], board: ['משחק קופסה', 'משחקי קופסה'], book: ['ספר', 'ספרים'], vinyl: ['תקליט', 'תקליטים'], cd: ['דיסק', 'דיסקים'], movie: ['סרט', 'סרטים'] },
     scan: 'סריקת ברקוד', upc: 'מספר ברקוד (UPC / EAN)', look: 'חיפוש', name: 'שם', platform: 'פלטפורמה', own: 'מה יש לך',
     o_: '—', o_cib: 'מלא בקופסה', o_loose: 'דיסק / קלטת בלבד', o_new: 'חדש / סגור', o_digital: 'דיגיטלי',
     send: 'שליחה למסך', sent: 'נשלח! זה כבר על המסך ✓', preset: 'מאיזו אפליקציה הייצוא?', cols: 'אילו עמודות?', upload: 'שליחה למסך',
     p_auto: 'לזהות לבד', notFound: 'לא נמצא במאגר הברקודים — כתבו את השם', looking: 'מחפש…', scanning: 'כוונו את המצלמה לברקוד…',
     noCam: 'סריקה חיה דורשת https — צלמו את הברקוד או הקלידו את המספר.', noScan: 'הדפדפן לא קורא ברקודים — הקלידו את המספר שמתחת לברקוד.',
-    games: (n) => n + ' משחקים', found: (p, w, s) => [p, w ? w + ' ברשימת המשאלות' : '', s ? s + ' שורות דולגו' : ''].filter(Boolean).join(' · '),
+    games: (n) => n + ' פריטים', found: (p, w, s) => [p, w ? w + ' ברשימת המשאלות' : '', s ? s + ' שורות דולגו' : ''].filter(Boolean).join(' · '),
     imported: (n) => 'נשלחו ' + n + ' משחקים למסך ✓', c_title: 'שם', c_plat: 'פלטפורמה', c_players: 'שחקנים', c_kind: 'סוג', none: '— אין —', offline: 'אין חיבור לגשר' },
 };
-const PRESETS = [['auto'], ['gameye', 'GamEye'], ['clz', 'CLZ Games'], ['grouvee', 'Grouvee'], ['bggcsv', 'BoardGameGeek (CSV)'], ['bgstats', 'BG Stats (JSON)'], ['generic', { en: 'Another spreadsheet', he: 'גיליון אחר' }]];
-const HINTS = { gameye: 'GamEye → Settings → Export → CSV', clz: 'CLZ Games → Menu → Export to CSV', grouvee: 'grouvee.com → Settings → Export', bggcsv: 'boardgamegeek.com → Collection → Export', bgstats: 'BG Stats → Settings → Backup & export → JSON', generic: '' };
+const PRESETS = [['auto'], ['gameye', 'GamEye'], ['clz', 'CLZ Games'], ['grouvee', 'Grouvee'], ['bggcsv', 'BoardGameGeek (CSV)'], ['bgstats', 'BG Stats (JSON)'], ['discogscsv', 'Discogs (CSV)'],
+  ['goodreads', 'Goodreads (CSV)'], ['clzbooks', 'CLZ Books'], ['clzmusic', 'CLZ Music'], ['clzmovies', 'CLZ Movies'], ['generic', { en: 'Another spreadsheet', he: 'גיליון אחר' }]];
+const HINTS = { gameye: 'GamEye → Settings → Export → CSV', clz: 'CLZ Games → Menu → Export to CSV', grouvee: 'grouvee.com → Settings → Export', bggcsv: 'boardgamegeek.com → Collection → Export', bgstats: 'BG Stats → Settings → Backup & export → JSON',
+  discogscsv: 'discogs.com → Collection → Export (CSV)', goodreads: 'goodreads.com → My Books → Import and export → Export library', clzbooks: 'CLZ Books → Export to CSV', clzmusic: 'CLZ Music → Export to CSV', clzmovies: 'CLZ Movies → Export to CSV', generic: '' };
+const KINDS = ['video', 'board', 'book', 'vinyl', 'cd', 'movie'];
+const KCOL = { video: '#0ea5e9', board: '#f59e0b', book: '#8b5cf6', vinyl: '#f43f5e', cd: '#14b8a6', movie: '#65a30d' };
+const KIC = { video: 'M7 6h10a5 5 0 0 1 4.9 6l-.9 4.4a2.6 2.6 0 0 1-4.6 1.1L14.6 15H9.4l-1.8 2.5A2.6 2.6 0 0 1 3 16.4L2.1 12A5 5 0 0 1 7 6zm0 3v1.5H5.5v2H7V14h2v-1.5h1.5v-2H9V9z',
+  board: 'M12 2.5a3.2 3.2 0 0 1 3.2 3.2c0 .9-.4 1.8-1 2.4 2.9.6 6.3 1.8 6.3 3.4 0 1.1-1.8 1.4-3.3 1.4l2.6 5.3c.4.8-.2 1.8-1.1 1.8h-3.6L12 15.6 8.9 20h-3.6c-.9 0-1.5-1-1.1-1.8l2.6-5.3c-1.5 0-3.3-.3-3.3-1.4 0-1.6 3.4-2.8 6.3-3.4a3.2 3.2 0 0 1 2.2-5.6z',
+  book: 'M6 2h12a1 1 0 0 1 1 1v15H7.5a1.5 1.5 0 0 0 0 3H19v1H7.5A3.5 3.5 0 0 1 4 18.5V4a2 2 0 0 1 2-2zm3 4v2h7V6z',
+  vinyl: 'M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0zM8.7 12a3.3 3.3 0 1 0 6.6 0a3.3 3.3 0 1 0-6.6 0zM11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0z',
+  cd: 'M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0zM9.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0z',
+  movie: 'M4 10h17v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM3.3 6.4l14.6-3.9a1 1 0 0 1 1.2.7l.6 2.3-16 4.3-.6-2.3a1 1 0 0 1 .2-1.1z' };
+const FMTS = { book: [['hardcover', 'Hardcover'], ['paperback', 'Paperback'], ['comic', 'Comic / graphic novel'], ['boardbook', 'Board book']], vinyl: [['lp', 'LP'], ['2lp', '2LP'], ['3lp', '3LP+'], ['ep', 'EP'], ['7', '7″'], ['10', '10″'], ['12', '12″ single'], ['box', 'Box set']],
+  cd: [['cd', 'CD'], ['2cd', '2CD+'], ['sacd', 'SACD'], ['single', 'CD single'], ['box', 'Box set'], ['cassette', 'Cassette']], movie: [['dvd', 'DVD'], ['bluray', 'Blu-ray'], ['uhd', '4K UHD'], ['bluray3d', 'Blu-ray 3D'], ['vhs', 'VHS']] };
 const PLATS = ['PlayStation 5', 'PlayStation 4', 'Nintendo Switch', 'Nintendo Switch 2', 'Xbox Series X|S', 'Xbox One', 'PC', 'PlayStation 3', 'Xbox 360', 'Wii', 'Wii U', 'Nintendo 3DS', 'Nintendo DS', 'PlayStation 2', 'GameCube', 'Nintendo 64', 'Super Nintendo', 'NES', 'Game Boy Advance', 'PlayStation'];
 let lang = ls.get('lang') || (/^(he|iw)/i.test(navigator.language || '') ? 'he' : 'en');
 const t = (k) => T[lang][k] ?? T.en[k] ?? k;
@@ -592,8 +834,13 @@ function render() {
   $('#lang').textContent = lang === 'he' ? 'EN' : 'עב';
   document.querySelectorAll('[data-tab]').forEach((b) => { b.textContent = t(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
   $('#add').hidden = tab !== 'add'; $('#file').hidden = tab !== 'file';
-  document.querySelectorAll('#kind [data-k]').forEach((b) => { b.textContent = t(b.dataset.k); b.classList.toggle('on', b.dataset.k === kind); });
-  $('#platWrap').hidden = kind === 'board';
+  const seg = $('#kind');
+  if (!seg.children.length) for (const k of KINDS) { const b = document.createElement('button'); b.dataset.k = k; b.style.setProperty('--k', KCOL[k]); b.onclick = () => { kind = k; ls.set('kind', kind); found = null; $('#found').hidden = true; render(); }; seg.append(b); }
+  seg.querySelectorAll('[data-k]').forEach((b) => { b.innerHTML = '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="' + KIC[b.dataset.k] + '"/></svg><span></span>'; b.lastChild.textContent = t(b.dataset.k); b.classList.toggle('on', b.dataset.k === kind); });
+  $('#platWrap').hidden = kind !== 'video'; $('#ownWrap').hidden = kind !== 'video';
+  $('#byWrap').hidden = kind === 'video' || kind === 'board'; $('#byLabel').textContent = t('by_' + kind);
+  $('#fmtWrap').hidden = !FMTS[kind];
+  if (FMTS[kind]) { const f = $('#fmt'), cur = f.dataset.kind === kind ? f.value : ''; f.textContent = ''; f.dataset.kind = kind; for (const [v, l] of [['', t('f_')], ...FMTS[kind]]) { const o = document.createElement('option'); o.value = v; o.textContent = l; f.append(o); } f.value = cur; }
   document.querySelectorAll('#own option').forEach((o) => o.textContent = t('o_' + o.value));
   const sel = $('#preset'), cur = sel.value || ls.get('preset') || 'auto';
   sel.textContent = '';
@@ -647,9 +894,11 @@ async function lookup() {
     else {
       found = it;
       $('#found').hidden = false; $('#fimg').hidden = !it.art; if (it.art) $('#fimg').src = it.art;
-      $('#ftitle').textContent = it.title; $('#fsub').textContent = [it.platform, it.brand].filter(Boolean).join(' · ');
-      $('#title').value = it.title; if (it.platform) $('#plat').value = it.platform;
-      if (it.kind !== kind) { kind = it.kind; ls.set('kind', kind); }
+      $('#ftitle').textContent = it.title; $('#fsub').textContent = [t(it.kind), it.by, it.platform, it.year, it.label || it.publisher || it.brand].filter(Boolean).join(' · ');
+      if (KINDS.includes(it.kind) && it.kind !== kind) { kind = it.kind; ls.set('kind', kind); }
+      render();
+      $('#title').value = it.title; if (it.platform) $('#plat').value = it.platform; $('#by').value = it.by || '';
+      if (it.format) $('#fmt').value = it.format;
     }
   } catch (e) { toast(e.message, true); $('#title').focus(); }
   $('#look').textContent = t('look'); render();
@@ -657,12 +906,14 @@ async function lookup() {
 $('#look').onclick = lookup;
 $('#upc').onkeydown = (e) => { if (e.key === 'Enter') lookup(); };
 $('#title').oninput = check;
-document.querySelectorAll('#kind [data-k]').forEach((b) => b.onclick = () => { kind = b.dataset.k; ls.set('kind', kind); render(); });
 $('#send').onclick = async () => {
   if (busy) return; busy = true; check();
   try {
-    await api('/api/collection/inbox', { method: 'POST', body: JSON.stringify({ type: 'item', item: { kind, title: $('#title').value.trim(), platform: kind === 'board' ? '' : $('#plat').value.trim(), ownership: $('#own').value, art: found && found.art || '', upc: $('#upc').value } }) });
-    toast(t('sent')); $('#title').value = ''; $('#upc').value = ''; $('#found').hidden = true; found = null;
+    const f = found && found.kind === kind ? found : {};
+    const item = { ...f, kind, title: $('#title').value.trim(), platform: kind === 'video' ? $('#plat').value.trim() : '', ownership: kind === 'video' ? $('#own').value : '', art: f.art || '', upc: $('#upc').value,
+      by: kind === 'video' || kind === 'board' ? '' : $('#by').value.trim(), format: FMTS[kind] ? $('#fmt').value : '' };
+    await api('/api/collection/inbox', { method: 'POST', body: JSON.stringify({ type: 'item', item }) });
+    toast(t('sent')); $('#title').value = ''; $('#upc').value = ''; $('#by').value = ''; $('#found').hidden = true; found = null;
     if (navigator.vibrate) navigator.vibrate(20);
   } catch (e) { toast(e.message, true); }
   busy = false; check();
@@ -675,7 +926,7 @@ function opts(sel, headers, cur, none) {
   headers.forEach((h, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = h || ('#' + (i + 1)); sel.append(o); });
   sel.value = String(cur == null ? -1 : cur);
 }
-function mapNow() { return { title: +$('#mTitle').value, platform: +$('#mPlat').value, players: +$('#mPlayers').value, kind: $('#mKind').value }; }
+function mapNow() { return { title: +$('#mTitle').value, platform: +$('#mPlat').value, by: +$('#mBy').value, players: +$('#mPlayers').value, kind: $('#mKind').value }; }
 let mapTouched = false;
 async function parse() {
   parsed = null; check();
@@ -684,7 +935,7 @@ async function parse() {
   try {
     parsed = await api('/api/collection/parse', { method: 'POST', body: JSON.stringify({ text: fileText, preset, map: preset === 'generic' && mapTouched ? mapNow() : null }) });
     if (parsed.map && !mapTouched) {
-      opts($('#mTitle'), parsed.headers, parsed.map.title, false); opts($('#mPlat'), parsed.headers, parsed.map.platform, true); opts($('#mPlayers'), parsed.headers, parsed.map.players, true);
+      opts($('#mTitle'), parsed.headers, parsed.map.title, false); opts($('#mPlat'), parsed.headers, parsed.map.platform, true); opts($('#mPlayers'), parsed.headers, parsed.map.players, true); opts($('#mBy'), parsed.headers, parsed.map.by, true);
       $('#mKind').value = parsed.map.kind || 'video';
     }
   } catch (e) { parsed = { error: e.message }; }
@@ -696,10 +947,12 @@ function preview() {
   if (!parsed) { p.hidden = true; return; }
   p.hidden = false; p.textContent = '';
   if (parsed.error) { p.textContent = parsed.error; return; }
-  const n = document.createElement('div'); n.className = 'n'; n.textContent = t('games')(parsed.count);
+  const n = document.createElement('div'); n.className = 'n';
+  const ks = Object.entries(parsed.kinds || {});
+  n.textContent = ks.length ? ks.map(([k, c]) => c + ' ' + ((T[lang].kinds || T.en.kinds)[k] || [k, k])[c === 1 ? 0 : 1]).join(' · ') : t('games')(parsed.count);
   const d = document.createElement('div'); d.className = 'd'; d.textContent = t('found')(parsed.presetName, parsed.wishes, parsed.skipped);
   const ul = document.createElement('ul');
-  for (const s of parsed.sample || []) { const li = document.createElement('li'); li.dir = 'auto'; li.textContent = s.title + (s.platform ? ' · ' + s.platform : '') + (s.players ? ' · ' + s.players.join('–') : ''); ul.append(li); }
+  for (const s of parsed.sample || []) { const li = document.createElement('li'); li.dir = 'auto'; li.textContent = s.title + (s.by ? ' · ' + s.by : '') + (s.platform ? ' · ' + s.platform : '') + (s.players ? ' · ' + s.players.join('–') : ''); ul.append(li); }
   p.append(n, d, ul);
 }
 $('#pick').onchange = async () => {
@@ -710,7 +963,7 @@ $('#pick').onchange = async () => {
   parse();
 };
 $('#preset').onchange = () => { ls.set('preset', $('#preset').value); $('#hint').textContent = HINTS[$('#preset').value] || ''; mapTouched = false; parse(); };
-['#mTitle', '#mPlat', '#mPlayers', '#mKind'].forEach((s) => $(s).onchange = () => { mapTouched = true; parse(); });
+['#mTitle', '#mPlat', '#mBy', '#mPlayers', '#mKind'].forEach((s) => $(s).onchange = () => { mapTouched = true; parse(); });
 $('#upload').onclick = async () => {
   if (busy || !parsed) return; busy = true; check();
   try {
@@ -722,7 +975,8 @@ $('#upload').onclick = async () => {
 };
 document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; ls.set('tab', tab); stopCam(); render(); });
 $('#lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; ls.set('lang', lang); render(); };
-const q = new URLSearchParams(location.search); if (q.get('tab')) tab = q.get('tab') === 'file' ? 'file' : 'add'; if (q.get('kind') === 'board') kind = 'board';
+const q = new URLSearchParams(location.search); if (q.get('tab')) tab = q.get('tab') === 'file' ? 'file' : 'add'; if (KINDS.includes(q.get('kind'))) kind = q.get('kind');
+if (!KINDS.includes(kind)) kind = 'video';
 render();
 })();
 </script>

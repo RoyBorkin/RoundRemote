@@ -5,7 +5,7 @@
 import { h, iconBtn, onCircle, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { player } from '../core/player.js';
-import { store } from '../core/store.js';
+import { store, isLite } from '../core/store.js';
 import { go } from '../core/router.js';
 import { getService } from '../providers/registry.js';
 import { fmtTime, angleFromCenter, distFromCenter, clamp } from '../core/util.js';
@@ -411,7 +411,7 @@ export function MediaScreen() {
     el.classList.toggle('clock-on', !!store.get('mediaClock'));
     el.classList.toggle('facts-on', !!store.get('mediaIdleFacts'));
     el.classList.toggle('no-pill', store.get('showDevicePill') === false);
-    el.classList.toggle('lite-bg', !!store.get('liteMode'));
+    el.classList.toggle('lite-bg', isLite());
     el.dataset.hide = (store.get('mediaHide') || []).join(' ');
     render(player.state);
   };

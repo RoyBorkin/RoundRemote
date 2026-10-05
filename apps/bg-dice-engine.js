@@ -2,6 +2,7 @@
 // Board Games — the dice tray: pre-rendered flat "3D-looking" dice faces + a little 2D physics (throw, bounce off the
 // round tray wall, knock into each other, tumble with a squash that reads as rolling, settle).
 // One canvas covers the page; the tray is a circle (fractions of the page size). Only redraws while something moves.
+import { toLocal, localRect } from '../js/core/util.js';
 
 export const TYPES = {
   d4: { sides: 4, shape: 'tri', color: '#f59e0b', name: 'd4' },
@@ -141,10 +142,11 @@ export function createTray(host, { tray = { cx: 0.5, cy: 0.5, r: 0.3 }, onHit, o
   let dirty = true, rolling = false, t = 0, arranging = false;
 
   function resize() {
-    const r = host.getBoundingClientRect();
-    if (!r.width) return;
+    // its layout size: right while the app is turned (js/core/orientation.js) or the page is still scaling in
+    const w0 = host.clientWidth, h0 = host.clientHeight;
+    if (!w0) return;
     dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = r.width; H = r.height;
+    W = w0; H = h0;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     const oldR = R, ocx = cx, ocy = cy;
     cx = tray.cx * W; cy = tray.cy * H; R = tray.r * Math.min(W, H);
@@ -344,8 +346,9 @@ export function createTray(host, { tray = { cx: 0.5, cy: 0.5, r: 0.3 }, onHit, o
   }
 
   const onDown = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const r = localRect(cv), [px, py] = toLocal(e.clientX, e.clientY);
+    const k = W / (r.width || W || 1);   // screen px → tray px (a page transition may still scale it)
+    const x = (px - r.left) * k, y = (py - r.top) * k;
     let best = null, bd = Infinity;
     for (const b of bodies) { const d = Math.hypot(b.x - x, b.y - y); if (d < b.size * 0.62 && d < bd) { bd = d; best = b; } }
     if (best && onTap) { onTap(best, e); }

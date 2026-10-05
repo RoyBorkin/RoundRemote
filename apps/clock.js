@@ -3,6 +3,7 @@
 // World (cities on a 24-hour ring, day and night) and Alarms (they play your music, or a built-in sound).
 // Inspired by abel-otegbola/clock-app (world clocks, alarm, stopwatch); the stopwatch and timer live in the Timer app.
 import { h } from '../js/ui/dom.js';
+import { toLocal, localRect } from '../js/core/util.js';
 import { icon } from '../js/ui/icons.js';
 import { curve, listRow, topPanel } from '../js/ui/overlay.js';
 import { wantsKeyboard } from '../js/ui/keyboard.js';
@@ -295,12 +296,14 @@ export default {
     let drag = null, dragMoved = false;
     root.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.ck-corner, .ck-dots, .switch')) return;
-      drag = { x: e.clientX, y: e.clientY, id: e.pointerId, horiz: null, w: root.getBoundingClientRect().width };
+      const [x, y] = toLocal(e.clientX, e.clientY);   // the app may be turned (js/core/orientation.js): swipe along its own axes
+      drag = { x, y, id: e.pointerId, horiz: null, w: localRect(root).width };
       dragMoved = false;
     });
     root.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      const [px, py] = toLocal(e.clientX, e.clientY);
+      const dx = px - drag.x, dy = py - drag.y;
       if (drag.horiz === null && Math.hypot(dx, dy) > 10) {
         drag.horiz = Math.abs(dx) > Math.abs(dy) * 1.1;
         if (drag.horiz) { try { root.setPointerCapture(e.pointerId); } catch {} }

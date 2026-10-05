@@ -11,7 +11,7 @@
 import { h, clear } from '../ui/dom.js';
 import { store } from '../core/store.js';
 import { getLyrics, lineAt } from '../lyrics/lrc.js';
-import { clamp } from '../core/util.js';
+import { clamp, localRect, frameDeg } from '../core/util.js';
 import { fluidStyle, typoStyle } from './lyrics-extra.js';
 import { bwStyle, handStyle } from './lyrics-kinetic2.js';
 import { popStyle, pastelStyle, comicStyle, neonStyle } from './lyrics-kinetic3.js';
@@ -199,10 +199,12 @@ function kineticStyle(box, lyr, api) {
     return g;
   }
   function scatter(g) {
-    const br = box.getBoundingClientRect();
+    // positions in the app's own frame (it may be turned: js/core/orientation.js), so the words fly outwards on screen
+    const deg = frameDeg();
+    const br = localRect(box, deg);
     const cx = br.left + br.width / 2, cy = br.top + br.height / 2;
     for (const s of g.children) {
-      const r = s.getBoundingClientRect();
+      const r = localRect(s, deg);
       const vx = r.left + r.width / 2 - cx, vy = r.top + r.height / 2 - cy;
       const m = Math.hypot(vx, vy) || 1;
       s.style.setProperty('--ox', `${((vx / m) * 26).toFixed(1)}cqmin`);

@@ -5,6 +5,7 @@
 // gently, then can pause the music; optionally dims Home Assistant lights over 10 minutes. A calm, low-CPU backdrop
 // and a screen-dim overlay (tap to wake). The sound keeps playing on other screens until you stop it.
 import { h } from '../js/ui/dom.js';
+import { toLocal, localRect } from '../js/core/util.js';
 import { icon } from '../js/ui/icons.js';
 import { topPanel } from '../js/ui/overlay.js';
 import * as N from './noise-engine.js';
@@ -140,13 +141,14 @@ export default {
       k.append(face, h('div.ns-kname', sname(m.id), h('span.ns-kv')));
       // drag up / down (or around) to set the volume; a tap opens the sound picker
       let y0 = 0, v0 = 0, moved = false, id = null;
-      face.addEventListener('pointerdown', (e) => { id = e.pointerId; y0 = e.clientY; v0 = N.state().mix[i]?.vol ?? 0.7; moved = false; face.setPointerCapture(id); });
+      // up / down along the app's own axis (it may be turned: js/core/orientation.js)
+      face.addEventListener('pointerdown', (e) => { id = e.pointerId; y0 = toLocal(e.clientX, e.clientY)[1]; v0 = N.state().mix[i]?.vol ?? 0.7; moved = false; face.setPointerCapture(id); });
       face.addEventListener('pointermove', (e) => {
         if (e.pointerId !== id) return;
-        const dy = y0 - e.clientY;
+        const dy = y0 - toLocal(e.clientX, e.clientY)[1];
         if (!moved && Math.abs(dy) < 6) return;
         moved = true;
-        const r = face.getBoundingClientRect().height;
+        const r = face.offsetHeight || localRect(face).height;
         N.setVolume(m.id, v0 + dy / (r * 1.6));
       });
       const up = (e) => { if (e.pointerId !== id) return; id = null; if (!moved) soundPanel(i); else app.sfx('tick'); };
@@ -160,8 +162,8 @@ export default {
     {
       let on = false;
       const setFrom = (e) => {
-        const r = master.getBoundingClientRect();
-        let a = (Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180) / Math.PI;
+        const r = localRect(master), [x, y] = toLocal(e.clientX, e.clientY);
+        let a = (Math.atan2(x - (r.left + r.width / 2), -(y - (r.top + r.height / 2))) * 180) / Math.PI;
         a = Math.max(-KA, Math.min(KA, a));
         N.setMaster((a + KA) / (2 * KA));
       };

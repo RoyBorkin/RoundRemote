@@ -1,0 +1,2 @@
+# /etc/udev/rules.d/99-roundremote-backlight.rules — DSI panels with a software backlight: let the video group set it.
+SUBSYSTEM=="backlight", ACTION=="add", RUN+="/bin/chgrp video /sys%p/brightness /sys%p/bl_power", RUN+="/bin/chmod g+w /sys%p/brightness /sys%p/bl_power"

@@ -125,15 +125,53 @@ export function qs(obj) {
   return p.toString();
 }
 
+// ---- the app's own (unrotated) frame: js/core/orientation.js may rotate #app with CSS; pointer maths that compares
+// clientX/Y with element positions uses these so drags, dials and canvases keep working at 90°, 180°, 45°…
+/** Set by js/core/orientation.js: { el: #app, active: rotation in use }. */
+export const frame = { el: null, active: false };
+/** The rotation (degrees, clockwise) #app is drawn with right now — mid-animation too. */
+export function frameDeg() {
+  if (!frame.active || !frame.el) return 0;
+  const v = parseFloat(getComputedStyle(frame.el).rotate);
+  return Number.isFinite(v) ? v : 0;
+}
+/** A screen point (clientX/Y) → the same point in the unrotated app frame (what getBoundingClientRect would give with no rotation). */
+export function toLocal(x, y, deg = frameDeg()) {
+  if (!deg) return [x, y];
+  const r = frame.el.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const t = (-deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  const dx = x - cx, dy = y - cy;
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+}
+/** getBoundingClientRect() in the unrotated app frame. Takes an element (exact at any angle) or a DOMRect (exact at multiples of 90°). */
+export function localRect(target, deg = frameDeg()) {
+  const r = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
+  if (!deg) return r;
+  const [cx, cy] = toLocal(r.left + r.width / 2, r.top + r.height / 2, deg);
+  const t = (deg * Math.PI) / 180, c = Math.abs(Math.cos(t)), s = Math.abs(Math.sin(t));
+  let w, h;
+  const w0 = target.offsetWidth ?? target.clientWidth, h0 = target.offsetHeight ?? target.clientHeight;
+  if (w0 && h0) { const k = r.width / (w0 * c + h0 * s || 1); w = w0 * k; h = h0 * k; }
+  else {
+    const d = c * c - s * s;
+    if (Math.abs(d) > 0.15) { w = (r.width * c - r.height * s) / d; h = (r.height * c - r.width * s) / d; }
+    else w = h = r.width / (c + s);   // ~45° and no layout size: assume square
+  }
+  return { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2, width: w, height: h, x: cx - w / 2, y: cy - h / 2 };
+}
+
 /** Angle (radians) from the element's centre to a point, 0 = 12 o'clock, clockwise positive. */
 export function angleFromCenter(el, x, y) {
-  const r = el.getBoundingClientRect();
+  const r = localRect(el);
+  [x, y] = toLocal(x, y);
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   return Math.atan2(x - cx, -(y - cy));
 }
 
 export function distFromCenter(el, x, y) {
-  const r = el.getBoundingClientRect();
+  const r = localRect(el);
+  [x, y] = toLocal(x, y);
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   return Math.hypot(x - cx, y - cy) / (r.width / 2); // 0 centre .. 1 edge
 }

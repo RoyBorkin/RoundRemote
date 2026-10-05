@@ -16,6 +16,7 @@
 // a held key keeps a slider going and every press turns a spinner a little.
 import { rhythmGame, DIFF_OPTION, judgeColor } from './kit.js';
 import { THEME, TAU, clamp, ease, angDiff } from '../games/kit.js';
+import { localRect, toLocal } from '../js/core/util.js';
 
 // ---- difficulty design (Easy … Master)
 const AR_MS = [1600, 1300, 1000, 800, 600];          // approach time: how long a circle is shown before its beat
@@ -453,8 +454,8 @@ export default {
     const mouseMode = () => mouse.over && mouse.moved > g.R * 0.15;
     const onMouseMove = (e) => {
       if (e.pointerType !== 'mouse') return;
-      const rc = g.canvas.getBoundingClientRect();
-      const x = (e.clientX - rc.left) * (g.S / (rc.width || 1)), y = (e.clientY - rc.top) * (g.S / (rc.height || 1));
+      const rc = localRect(g.canvas), [ex, ey] = toLocal(e.clientX, e.clientY);
+      const x = (ex - rc.left) * (g.S / (rc.width || 1)), y = (ey - rc.top) * (g.S / (rc.height || 1));
       if (mouse.over) mouse.moved += Math.hypot(x - mouse.x, y - mouse.y);
       // a mouse moving with a hit key held (and no button down) spins spinners
       if (R.state === 'play' && keysDown.size && !ptrs.has(e.pointerId)) spinMove(mouse, x, y);

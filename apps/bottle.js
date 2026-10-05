@@ -6,6 +6,7 @@
 // Options: "Chicken = do a task" (chickening out flips the card to a penalty task — from the Tasks pool or a short
 // built-in list; refusing that too is a double chicken) and 18+ mode (age check once; mixed or adult-only cards).
 import { clear } from '../js/ui/dom.js';
+import { toLocal, localRect } from '../js/core/util.js';
 import { themeEvents } from '../js/core/theme.js';
 import { THEME, TAU, clamp } from '../games/kit.js';
 import * as T from './tasks-store.js';
@@ -187,24 +188,27 @@ export default {
     }
 
     // ------------------------------------------------------------ drag / flick
-    const center = () => { const r = cv.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; };
+    // points in the app's own frame (it may be turned: js/core/orientation.js)
+    const center = () => { const r = localRect(cv); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; };
     const angleAt = (x, y) => { const [cx, cy] = center(); return Math.atan2(x - cx, -(y - cy)); };
     cv.addEventListener('pointerdown', (e) => {
       if (overlay || e.button > 0) return;
       const [cx, cy, w] = center();
-      if (Math.hypot(e.clientX - cx, e.clientY - cy) > w * 0.36) return;
+      const [x, y] = toLocal(e.clientX, e.clientY);
+      if (Math.hypot(x - cx, y - cy) > w * 0.36) return;
       if (spinning && Math.abs(omega) > 4) return;  // let it spin
       spinning = false; omega = 0;
-      const a = angleAt(e.clientX, e.clientY);
-      drag = { id: e.pointerId, a0: a, last: a, unwrapped: 0, theta0: theta, x: e.clientX, y: e.clientY, moved: 0, samples: [[e.timeStamp, 0]] };
+      const a = angleAt(x, y);
+      drag = { id: e.pointerId, a0: a, last: a, unwrapped: 0, theta0: theta, x, y, moved: 0, samples: [[e.timeStamp, 0]] };
       cv.setPointerCapture(e.pointerId);
     });
     cv.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      const a = angleAt(e.clientX, e.clientY);
+      const [x, y] = toLocal(e.clientX, e.clientY);
+      const a = angleAt(x, y);
       let d = a - drag.last; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU;
       drag.last = a; drag.unwrapped += d;
-      drag.moved = Math.max(drag.moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
+      drag.moved = Math.max(drag.moved, Math.hypot(x - drag.x, y - drag.y));
       const before = theta;
       theta = drag.theta0 + drag.unwrapped;
       tickSound(before, theta);

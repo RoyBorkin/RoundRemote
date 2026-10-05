@@ -1,6 +1,6 @@
 // © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round Remote — boot, routing, OAuth redirects, keyboard shortcuts, idle dimming.
-import { store } from './core/store.js';
+import { store, isLite } from './core/store.js';
 import { initTheme } from './core/theme.js';
 import { player } from './core/player.js';
 import { initRouter, register, go, currentScreen } from './core/router.js';
@@ -77,9 +77,12 @@ if (['animated', 'kinetic'].includes(store.get('lyricsStyle'))) {
 }
 
 // ---------- low-power look ----------
-const applyLite = () => app.classList.toggle('lite', !!store.get('liteMode'));
+const applyLite = () => app.classList.toggle('lite', isLite());   // Reduce effects, or Battery saver (js/core/power.js)
 applyLite();
-store.on('change:liteMode', applyLite);
+['liteMode', 'batterySaver', 'saverActions'].forEach((k) => store.on(`change:${k}`, applyLite));
+// screen rotation (Pi motion sensor / this device's sensor / manual) and Battery saver + screen-off (Settings → Device)
+import('./core/orientation.js').then((m) => m.startOrientation(app)).catch((e) => console.warn('orientation', e));
+import('./core/power.js').then((m) => m.startPower(app)).catch((e) => console.warn('power', e));
 
 // ---------- idle dimming ----------
 let lastInput = Date.now();

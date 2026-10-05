@@ -4,6 +4,7 @@
 // When time is up your music plays (a playlist, or the song that was on) — or a built-in alarm sound — with a big Stop.
 // Timers keep running when you leave the app (they ring on any screen while Round Remote is open).
 import { h } from '../js/ui/dom.js';
+import { toLocal, localRect } from '../js/core/util.js';
 import { icon } from '../js/ui/icons.js';
 import { topPanel } from '../js/ui/overlay.js';
 import { store } from '../js/core/store.js';
@@ -296,16 +297,19 @@ export default {
       let dial = null;
       svg.addEventListener('pointerdown', (e) => {
         if (mode !== 'timer' || tView !== 'set') return;
-        const r = svg.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        const d = Math.hypot(e.clientX - cx, e.clientY - cy) / (r.width / 2);
+        // in the app's own frame (it may be turned: js/core/orientation.js)
+        const r = localRect(svg), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const [x, y] = toLocal(e.clientX, e.clientY);
+        const d = Math.hypot(x - cx, y - cy) / (r.width / 2);
         if (d < 0.62) return;
-        dial = { cx, cy, a: Math.atan2(e.clientX - cx, cy - e.clientY), acc: 0 };
+        dial = { cx, cy, a: Math.atan2(x - cx, cy - y), acc: 0 };
         svg.setPointerCapture(e.pointerId);
         svg.classList.add('turning');
       });
       svg.addEventListener('pointermove', (e) => {
         if (!dial) return;
-        const a = Math.atan2(e.clientX - dial.cx, dial.cy - e.clientY);
+        const [x, y] = toLocal(e.clientX, e.clientY);
+        const a = Math.atan2(x - dial.cx, dial.cy - y);
         let da = a - dial.a; if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU;
         dial.a = a; dial.acc += da;
         const step = TAU / 60;
@@ -392,7 +396,8 @@ export default {
       const VMAX = vol[N], SAND = 0.62;    // sand fills 62 % of one bulb
       const levelFor = (v) => { for (let i = 1; i <= N; i++) if (vol[i] >= v) return (i - 1 + (v - vol[i - 1]) / (vol[i] - vol[i - 1])) / N; return 1; };
       function resize() {
-        const r = canvas.getBoundingClientRect();
+        // its layout size (also right when the app is turned: js/core/orientation.js)
+        const r = { width: canvas.clientWidth, height: canvas.clientHeight };
         dpr = Math.min(2, window.devicePixelRatio || 1);
         S = r.width;
         canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);

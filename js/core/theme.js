@@ -12,7 +12,7 @@
 //   slate    — Slate: calm minimal dashboard, thin rings, light typography
 //   vivid    — Vivid: modern minimal cards with bold gradient accents
 //   bauhaus  — Bauhaus: Swiss-style flat colour, bold grotesk type, no effects
-import { store } from './store.js';
+import { store, isLite } from './store.js';
 import { Emitter } from './util.js';
 
 export const THEMES = [
@@ -165,7 +165,7 @@ function computeTheme() {
 /** What the Home screen background should draw (spec for js/ui/backdrops.js). */
 export function backdropSpec(id = store.get('theme')) {
   const t = themeById(id), cfg = themeConfig(t.id);
-  return { ...cfg.bg, theme: t.id, mode: cfg.mode, c1: cfg.c1, c2: cfg.c2, lite: !!store.get('liteMode') };
+  return { ...cfg.bg, theme: t.id, mode: cfg.mode, c1: cfg.c1, c2: cfg.c2, lite: isLite(), ...(store.get('batterySaver') ? { animated: false } : {}) };
 }
 
 /** Apply the saved theme to the app (call at start and after any change). */

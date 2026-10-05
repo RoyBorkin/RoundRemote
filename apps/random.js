@@ -318,8 +318,8 @@ export default {
       };
       function drawWheel() {
         if (!canvas) return;
-        const r = canvas.getBoundingClientRect();
-        const dpr = Math.min(2, window.devicePixelRatio || 1), S = r.width;
+        // its layout size (also right when the app is turned: js/core/orientation.js)
+        const dpr = Math.min(2, window.devicePixelRatio || 1), S = canvas.clientWidth;
         if (!S) return;
         canvas.width = canvas.height = Math.round(S * dpr);
         ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

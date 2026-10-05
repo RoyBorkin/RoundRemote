@@ -11,6 +11,8 @@ bridge/streamsdk.json
 bridge/roon-state.json
 bridge/tasks.json
 bridge/collection.json
+bridge/blanks.json
+bridge/system-state.json
 bridge/profiles/
 bridge/node_modules/
 bridge/package-lock.json

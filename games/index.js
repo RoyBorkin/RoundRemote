@@ -63,6 +63,12 @@ export const GAMES = [
     icon: c(12, 12, 3.2) + 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14z' + c(19.5, 7.5, 2.4) },
   { id: 'rope', file: './rope.js', name: 'Rope Snip', color: '#fb7185', blurb: 'Cut the ropes to swing the sweet into the hungry critter. Grab all three stars.',
     icon: 'M11 1h2v10h-2z' + c(12, 14.5, 4) + 'M17 18l4-4 1 1-4 4zM2 15l1-1 4 4-1 1z' },
+  { id: 'petakiot', file: './petakiot.js', name: 'Notes Game', color: '#f59e0b', party: true, blurb: 'פתקיות — everyone adds names from their phone; explain, one word, then act them out against the clock.',
+    icon: 'M4 3h11l5 5v13H4zm10 1.5V9h4.5zM7 12h10v1.6H7zm0 3.5h10v1.6H7zm0 3.5h6v1.6H7z' },
+  { id: 'codewords', file: './codewords.js', name: 'Code Words', color: '#ef4444', party: true, blurb: 'Two teams, one grid of words. Spymasters see the key on their phones and give one-word clues.',
+    icon: 'M3 3h5v5H3zm6.5 0h5v5h-5zM16 3h5v5h-5zM3 9.5h5v5H3zm6.5 0h5v5h-5zM16 9.5h5v5h-5zM3 16h5v5H3zm6.5 0h5v5h-5zM16 16h5v5h-5z' },
+  { id: 'blanks', file: './blanks.js', name: 'Fill the Blank', color: '#111827', party: true, blurb: 'A party card game for groups — everyone plays from their phone, the judge picks the funniest answer.',
+    icon: 'M3 4h11v16H3zm2 3v1.6h7V7zm0 3.5v1.6h5v-1.6zM15.5 6.5l5.2 1.4-3.6 13.5-5.2-1.4.6-2.1 3.3.9 2.6-9.8-3.5-.9z' },
 ];
 
 // The Rhythm category's games (rhythm/index.js) run in the same shell: found here too, loaded from rhythm/.

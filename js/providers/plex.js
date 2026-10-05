@@ -3,7 +3,7 @@
 // advertise as players, via your Plex Media Server. Sign-in uses a plex.tv PIN: either
 // type the 4-character code at plex.tv/link on your phone, or sign in on this screen.
 import { Provider } from './base.js';
-import { store } from '../core/store.js';
+import { store, pollMs } from '../core/store.js';
 import { http, qs, uid, sleep } from '../core/util.js';
 import { bridgeBase, bridgeFetch, bridgeZones } from './bridge.js';
 import { directZones, directKey } from '../core/tvapp.js';
@@ -129,7 +129,7 @@ export class PlexProvider extends Provider {
     this.publish({ status: 'loading', message: 'Connecting to Plex…' });
     try { await this._connectServer(); } catch (e) { this.publish({ status: 'error', message: e.message }); }
     await this.refresh().catch(() => {});
-    const loop = () => { this.timer = setTimeout(async () => { await this.refresh().catch(() => {}); if (this.timer) loop(); }, document.hidden ? 8000 : Math.max(1500, store.get('pollMs'))); };
+    const loop = () => { this.timer = setTimeout(async () => { await this.refresh().catch(() => {}); if (this.timer) loop(); }, document.hidden ? 8000 : Math.max(1500, pollMs())); };
     loop();
   }
   stop() { clearTimeout(this.timer); this.timer = null; }

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home → music streamer (Fosi S3 and other StreamUnlimited StreamSDK streamers): one round screen.
 //   • a big VOLUME RING around the rim — drag it anywhere like a knob (relative, so a stray tap never jumps the
 //     volume), or turn the rotary knob / mouse wheel / ← → ↑ ↓; the number flashes over the artwork

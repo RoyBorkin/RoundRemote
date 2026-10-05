@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Spin Beat: turns a rhythm/chart.js chart into Spin Beat notes (types, colours, spins) — pure, no DOM, so it
 // can be tested in node. Used by rhythm/spin.js.
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

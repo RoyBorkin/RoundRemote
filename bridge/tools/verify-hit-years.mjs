@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Check every song's year in rhythm/hits-songs.js (Hitster's deck: SONGS and the Israeli IL_SONGS) against MusicBrainz
 // (first-release-date of matching recordings). Songs with two spellings (Hebrew t / a and Latin ta / aa) are searched both ways.
 // Run on a computer that can reach musicbrainz.org (from the RoundRemote folder):  node bridge/tools/verify-hit-years.mjs > report.txt

@@ -1,11 +1,14 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Truths, dares & tasks for the Tasks / Truth or Dare apps — players add their own from their phones.
 //   GET  /tasks?s=<session>          a small mobile page (players scan the QR code on the round display)
 //   GET  /api/tasks/info             { ips, port, publicUrl, rev, count } — the display builds the QR link from this
 //   GET  /api/tasks?since=<rev>      items changed after <rev> (tombstones included): { rev, items }
 //        &session=<id>               …only that session's live items (the phone page's list)
 //   POST /api/tasks                  add one item { type, text, author, tags, session } or sync many { items: [...] }
-//   PUT  /api/tasks/<id>             edit { text, type, tags }
+//   PUT  /api/tasks/<id>             edit { text, type, tags }  (tag '18+' = adults only: hidden until 18+ mode is on)
 //   DELETE /api/tasks/<id>           delete (kept as a tombstone so every display learns about it)
+// Displays also sync their edits of the built-in starter items (e.g. one marked 18+) as overrides under the item's
+// own b:<lang>:… id (GET answers `overrides: true` so a display knows this bridge keeps them); phones never see those.
 // Everything is kept forever in bridge/tasks.json (config: "tasks": { "file": "tasks.json", "publicUrl": "" }).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,7 +43,9 @@ const newId = () => 't_' + Date.now().toString(36) + crypto.randomBytes(4).toStr
 
 /** Validate and store one item; returns the stored item, or null when the stored copy is newer. */
 function upsert(input, { fromDisplay = false } = {}) {
-  const id = /^[\w:.-]{4,48}$/.test(input.id || '') && !String(input.id).startsWith('b:') ? input.id : null;
+  const raw = String(input.id || '');
+  // built-in overrides (b:<lang>:x?<t|d|k>:<n>) come only from a display's sync
+  const id = /^[\w:.-]{4,48}$/.test(raw) && (!raw.startsWith('b:') || (fromDisplay && /^b:[a-z]{2}:x?[tdk]:\d{1,4}$/.test(raw)) || db.items[raw]) ? raw : null;
   const old = id ? db.items[id] : null;
   const now = Date.now();
   const updated = fromDisplay && +input.updated > 0 ? Math.min(+input.updated, now + 60000) : now;
@@ -64,7 +69,7 @@ function upsert(input, { fromDisplay = false } = {}) {
     created: old?.created || (fromDisplay && +input.created > 0 ? Math.min(+input.created, now) : now),
     updated, rev: ++db.rev,
   };
-  if (input.device || old?.device) item.device = str(input.device || old.device, 40);
+  if (input.device || old?.device) item.device = str(old?.device || input.device, 40);  // the device that first added it (its phone may edit it)
   db.items[item.id] = item;
   return item;
 }
@@ -105,7 +110,7 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
   if (!originAllowed(req)) return json(res, 403, { error: `origin ${req.headers.origin} not allowed` });
   try {
     if (p === '/api/tasks/info') {
-      const live = Object.values(db.items).filter((i) => !i.deleted).length;
+      const live = Object.values(db.items).filter((i) => !i.deleted && !i.id.startsWith('b:')).length;
       return json(res, 200, { app: 'roundremote-tasks', ips: lanIps(), port: req.socket.localPort, publicUrl: cfg.tasks?.publicUrl || '', rev: db.rev, count: live });
     }
     if (p === '/api/tasks') {
@@ -115,7 +120,7 @@ export async function route(req, res, url, { cfg, cors, json, readJson, originAl
         let items = Object.values(db.items).filter((i) => (i.rev || 0) > since);
         if (session !== null) items = items.filter((i) => !i.deleted && i.session === session);
         items.sort((a, b) => a.rev - b.rev);
-        return json(res, 200, { rev: db.rev, items });
+        return json(res, 200, { rev: db.rev, items, overrides: true });
       }
       if (req.method === 'POST') {
         if (limited(req)) return json(res, 429, { error: 'Slow down a little' });
@@ -194,14 +199,25 @@ textarea.in{min-height:110px;resize:vertical;unicode-bidi:plaintext}
 .tabs{display:flex;gap:8px;margin:20px 2px 10px;align-items:center}
 .tabs h2{font-size:16px;margin:0}
 .tabs .chip{padding:5px 11px;font-size:13px}
-.item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:8px;animation:pop .35s ease}
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:8px}
+.item.new{animation:pop .35s ease}
 @keyframes pop{from{transform:scale(.96);opacity:0}}
 .badge{flex:none;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 8px;border-radius:99px;color:#fff;background:var(--k);margin-top:2px}
 .item .t{flex:1;min-width:0;unicode-bidi:plaintext;word-wrap:break-word}
 .item .m{font-size:12px;color:var(--dim);margin-top:3px}
 .item .x{flex:none;width:30px;height:30px;border-radius:50%;color:var(--dim);font-size:18px;line-height:30px}
+.adult{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--card2);border:1px solid var(--line);cursor:pointer;user-select:none}
+.adult input{appearance:none;-webkit-appearance:none;flex:none;width:24px;height:24px;margin:0;border-radius:7px;border:2px solid var(--dim);display:grid;place-items:center;transition:.15s}
+.adult input:checked{background:var(--err);border-color:var(--err)}
+.adult input:checked::after{content:'';width:6px;height:11px;border:solid #fff;border-width:0 3px 3px 0;transform:translateY(-1px) rotate(45deg)}
+.adult b{color:var(--err);font-weight:800}
+.adult .h{display:block;font-size:12px;color:var(--dim);margin-top:1px}
+.adult.on{border-color:color-mix(in srgb,var(--err) 60%,transparent)}
+.a18{flex:none;align-self:center;font-size:12px;font-weight:800;padding:5px 9px;border-radius:99px;border:1.5px dashed var(--dim);color:var(--dim)}
+.a18.on{border-style:solid;border-color:var(--err);background:var(--err);color:#fff}
+span.a18{border-style:solid;border-color:var(--err);color:var(--err);padding:2px 7px;font-size:11px}
 .empty{color:var(--dim);text-align:center;padding:20px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;background:var(--fg);color:var(--bg);padding:11px 20px;border-radius:99px;font-weight:700;transition:.25s;pointer-events:none;z-index:9;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;background:var(--fg);color:var(--bg);padding:11px 20px;border-radius:22px;width:max-content;font-weight:700;transition:.25s;pointer-events:none;z-index:9;max-width:90%;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)} .toast.err{background:var(--err);color:#fff}
 [hidden]{display:none!important}
 </style></head>
@@ -221,6 +237,7 @@ textarea.in{min-height:110px;resize:vertical;unicode-bidi:plaintext}
     <textarea class="in" id="text" maxlength="${MAX_TEXT}" dir="auto"></textarea>
     <div class="count" id="cnt"></div>
     <div class="chips" id="tags"></div>
+    <label class="adult" id="adultRow"><input type="checkbox" id="adultChk"><span><b>18+</b> <span data-t="adultOnly"></span><span class="h" data-t="adultHint"></span></span></label>
     <button class="big" id="add" disabled></button>
   </section>
   <div class="tabs"><h2 data-t="list"></h2><span style="flex:1"></span><button class="chip on" data-f="all"></button><button class="chip" data-f="mine"></button></div>
@@ -240,12 +257,16 @@ const T = {
     truth: 'Truth', dare: 'Dare', task: 'Task', addT: 'Add truth', addD: 'Add dare', addK: 'Add task',
     phT: 'Ask a question everyone has to answer honestly…', phD: 'Dare someone to do something fun…', phK: 'A challenge for the whole group…',
     family: 'Family', party: 'Party', funny: 'Funny', active: 'Active', '18+': '18+',
+    adultOnly: 'adults only', adultHint: adult ? 'Only drawn while the display’s 18+ mode is on' : 'Hidden on the display until its 18+ mode is turned on',
+    mark18: 'Mark as 18+ (adults only)', hidden18: 'Marked 18+ — hidden until the display’s 18+ mode is on',
     list: 'Added this game', listAll: 'Recently added', all: 'Everyone', mine: 'Mine', added: 'Added! It’s on the display now ✓', none: 'Nothing yet — be the first!',
     noName: 'Type your name first', offline: 'Can’t reach the display’s bridge', del: 'Delete this?', ago: (m) => m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago' },
   he: { title: 'אמת או חובה', session: 'משחק', yourName: 'איך קוראים לך?', continue: 'יאללה', hi: 'היי,', change: 'שינוי',
     truth: 'אמת', dare: 'חובה', task: 'משימה', addT: 'הוסף אמת', addD: 'הוסף חובה', addK: 'הוסף משימה',
     phT: 'שאלה שכולם צריכים לענות עליה בכנות…', phD: 'אתגר מישהו לעשות משהו כיף…', phK: 'משימה לכל הקבוצה…',
     family: 'משפחה', party: 'מסיבה', funny: 'מצחיק', active: 'תנועה', '18+': '18+',
+    adultOnly: 'למבוגרים בלבד', adultHint: adult ? 'יוגרל רק כשמצב 18+ פועל במסך' : 'מוסתר במסך עד שמפעילים בו מצב 18+',
+    mark18: 'סימון כ-18+ (למבוגרים בלבד)', hidden18: 'סומן 18+ — מוסתר עד שמצב 18+ פועל במסך',
     list: 'נוספו במשחק הזה', listAll: 'נוספו לאחרונה', all: 'כולם', mine: 'שלי', added: 'נוסף! זה כבר על המסך ✓', none: 'עוד אין כלום — תהיו הראשונים!',
     noName: 'קודם כתבו את השם', offline: 'אין חיבור לגשר של המסך', del: 'למחוק?', ago: (m) => m < 1 ? 'עכשיו' : m < 60 ? 'לפני ' + m + ' דק׳' : 'לפני ' + Math.round(m / 60) + ' שע׳' },
 };
@@ -253,7 +274,11 @@ let lang = ls.get('lang') || (/^(he|iw)/i.test(navigator.language || '') ? 'he' 
 const t = (k) => T[lang][k] ?? T.en[k] ?? k;
 const COL = { truth: 'var(--truth)', dare: 'var(--dare)', task: 'var(--task)' };
 let type = ls.get('type') || 'truth', tags = new Set(), filter = 'all', rev = 0, items = new Map(), busy = false;
-const TAGS = ['family', 'party', 'funny', 'active'].concat(adult ? ['18+'] : []);
+const seen = new Set();  // ids already on screen: only rows that are new get the pop-in animation (no flicker on refresh)
+const TAGS = ['family', 'party', 'funny', 'active'];
+const ADULT = /^(18\\+?|adults?|nsfw)$/i;
+const isAdult = (i) => (i.tags || []).some((x) => ADULT.test(x));
+const adultTags = (list, on) => { const rest = list.filter((x) => !ADULT.test(x)); return on ? rest.filter((x) => x !== 'family').concat('18+') : (rest.length ? rest : ['family']); };
 
 function toast(msg, err) { const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toast.t); toast.t = setTimeout(() => el.className = 'toast', 2200); }
 function render() {
@@ -276,21 +301,36 @@ function render() {
   $('#add').textContent = t({ truth: 'addT', dare: 'addD', task: 'addK' }[type]);
   const tg = $('#tags'); tg.textContent = '';
   for (const k of TAGS) { const b = document.createElement('button'); b.className = 'chip' + (tags.has(k) ? ' on' : ''); b.textContent = t(k); b.onclick = () => { tags.has(k) ? tags.delete(k) : tags.add(k); render(); }; tg.append(b); }
+  $('#adultRow').classList.toggle('on', $('#adultChk').checked);
   count(); list();
 }
 function count() { const n = $('#text').value.length; $('#cnt').textContent = n + ' / ${MAX_TEXT}'; $('#add').disabled = busy || !$('#text').value.trim(); }
 function list() {
   const el = $('#list'); el.textContent = '';
-  const arr = [...items.values()].filter((i) => !i.deleted && (filter === 'all' || i.device === device)).sort((a, b) => b.created - a.created).slice(0, 200);
+  const arr = [...items.values()].filter((i) => !i.deleted && !String(i.id).startsWith('b:') && (filter === 'all' || i.device === device)
+    && (adult || i.device === device || !isAdult(i)))  // others' 18+ items only while the display is in 18+ mode
+    .sort((a, b) => b.created - a.created).slice(0, 200);
   if (!arr.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = t('none'); el.append(e); return; }
   for (const i of arr) {
-    const row = document.createElement('div'); row.className = 'item'; row.style.setProperty('--k', COL[i.type] || COL.task);
+    const row = document.createElement('div'); row.className = 'item' + (seen.has(i.id) ? '' : ' new'); seen.add(i.id); row.style.setProperty('--k', COL[i.type] || COL.task);
     const b = document.createElement('span'); b.className = 'badge'; b.textContent = t(i.type);
     const tx = document.createElement('div'); tx.className = 't';
     const p = document.createElement('div'); p.dir = 'auto'; p.textContent = i.text;
     const m = document.createElement('div'); m.className = 'm'; m.dir = 'auto';
-    m.textContent = [i.author, t('ago')(Math.floor((Date.now() - i.created) / 60000)), ...(i.tags || []).filter((x) => x !== 'family').map((x) => '#' + x)].filter(Boolean).join(' · ');
+    m.textContent = [i.author, t('ago')(Math.floor((Date.now() - i.created) / 60000)), ...(i.tags || []).filter((x) => x !== 'family' && !ADULT.test(x)).map((x) => '#' + x)].filter(Boolean).join(' · ');
     tx.append(p, m); row.append(b, tx);
+    if (i.device === device) {  // your own items: tap 18+ to mark / unmark them
+      const on = isAdult(i), a = document.createElement('button');
+      a.className = 'a18' + (on ? ' on' : ''); a.textContent = '18+'; a.title = t('mark18'); a.setAttribute('aria-label', t('mark18')); a.setAttribute('aria-pressed', String(on));
+      a.onclick = async () => {
+        try {
+          const d = await api('/api/tasks/' + encodeURIComponent(i.id), { method: 'PUT', body: JSON.stringify({ tags: adultTags(i.tags || [], !on) }) });
+          if (d.item) items.set(d.item.id, d.item); list();
+          if (!on && !adult) toast(t('hidden18'));
+        } catch (e) { toast(e.message, true); }
+      };
+      row.append(a);
+    } else if (isAdult(i)) { const a = document.createElement('span'); a.className = 'a18'; a.textContent = '18+'; row.append(a); }
     if (i.device === device) {
       const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.setAttribute('aria-label', 'delete');
       x.onclick = async () => { if (!confirm(t('del'))) return; try { await api('/api/tasks/' + encodeURIComponent(i.id), { method: 'DELETE' }); items.delete(i.id); list(); } catch (e) { toast(e.message, true); } };
@@ -316,17 +356,19 @@ async function poll() {
 $('#lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; ls.set('lang', lang); render(); };
 $('#name').value = ls.get('name') || '';
 $('#nameGo').onclick = () => { const v = $('#name').value.trim(); if (!v) return toast(t('noName'), true); ls.set('name', v.slice(0, 40)); render(); $('#text').focus(); };
-$('#name').onkeydown = (e) => { if (e.key === 'Enter') $('#nameGo').click(); };
+$('#name').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#nameGo').click(); } };   // (no stray newline in the box that gets the focus)
 $('#rename').onclick = () => { ls.set('name', ''); render(); $('#name').focus(); };
 $('#text').oninput = count;
+$('#adultChk').onchange = () => $('#adultRow').classList.toggle('on', $('#adultChk').checked);
 document.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
 $('#add').onclick = async () => {
   const text = $('#text').value.trim(); if (!text || busy) return;
   busy = true; count();
   try {
-    const d = await api('/api/tasks', { method: 'POST', body: JSON.stringify({ type, text, tags: tags.size ? [...tags] : ['family'], author: ls.get('name') || '', session, device }) });
+    const x18 = $('#adultChk').checked, base = tags.size ? [...tags] : ['family'];
+    const d = await api('/api/tasks', { method: 'POST', body: JSON.stringify({ type, text, tags: x18 ? adultTags(base, true) : base, author: ls.get('name') || '', session, device }) });
     if (d.item) items.set(d.item.id, d.item);
-    $('#text').value = ''; toast(t('added')); list();
+    $('#text').value = ''; toast(x18 && !adult ? t('hidden18') : t('added')); list();
     if (navigator.vibrate) navigator.vibrate(20);
   } catch (e) { toast(/fetch|network/i.test(e.message) ? t('offline') : e.message, true); }
   busy = false; count();

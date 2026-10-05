@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Library views for Movies & TV — the same items drawn nine ways:
 //   list · posters · grid · flow (iPod / Mac Cover Flow) · rings (one full-screen ring at a time)
 //   watch (Apple Watch honeycomb) · dvd (DVD cases) · disc (discs) · dvddisc (case with the disc sliding out)
@@ -145,7 +146,7 @@ export function createItemsView(view, { onPick, onNeedMore, row }) {
     const page = (e) => {
       const p = e.watched ? 1 : e.progress || 0;
       const ring = `<svg viewBox="0 0 100 100" class="mvr-svg"><circle cx="50" cy="50" r="${R}" class="mvr-track"/><circle cx="50" cy="50" r="${R}" class="mvr-fill" stroke-dasharray="${(CIRC * p).toFixed(1)} ${CIRC.toFixed(1)}" transform="rotate(-90 50 50)"/></svg>`;
-      return h('div.mvr-page', h('button.mvr-ring', { type: 'button', onclick: tap(e), html: ring }, pic(e, 'mvr-img')), caption(e, 'mvr-cap'));
+      return h('div.mvr-page', h('button.mvr-ring', { type: 'button', 'aria-label': e.title || e.name || null, onclick: tap(e), html: ring }, pic(e, 'mvr-img')), caption(e, 'mvr-cap'));
     };
     const onScroll = () => {
       const i = Math.round(el.scrollLeft / (el.clientWidth || 1));

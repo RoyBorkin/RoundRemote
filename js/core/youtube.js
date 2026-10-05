@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Shared YouTube plumbing: IFrame player API loader, YouTube Data API v3 (search, your
 // playlists), optional Google sign-in (for your playlists), and the music-video finder used
 // by the Video view for every other service.

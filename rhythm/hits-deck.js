@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster's deck: the built-in songs plus the ones "Update song lists" downloaded (hits-update.js), filtered by the
 // time period (the start card's Songs option), the song languages and the blocked genres (setup screen, remembered).
 import { store } from '../js/core/store.js';

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Rules: a searchable, curved list of games; each opens a scrolling reader with big type,
 // section headers, text size buttons, a scroll-progress arc and knob/arrow scrolling.
 import { h, clear } from '../js/ui/dom.js';

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Games category: every game, in the order they sit on the Games ring.
 // Each game lives in its own file in this folder and is only loaded when you open it.
 // (Names are our own; several games are round takes on well-known arcade classics.)

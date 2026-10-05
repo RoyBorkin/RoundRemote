@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Client for the bridge's audio features (bridge/lib/audio.js):
 //  • the sound of the computer running the bridge, captured by ffmpeg and streamed as raw mono s16le PCM
 //  • tempo lookup by Spotify ID / title + artist

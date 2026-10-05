@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Create an Apple Music developer token (JWT, ES256) from your MusicKit private key.
 //   node tools/apple-token.js <TEAM_ID> <KEY_ID> <path/to/AuthKey_KEYID.p8> [days=150]
 // Paste the output into Round Remote → Settings → Apple developer token,

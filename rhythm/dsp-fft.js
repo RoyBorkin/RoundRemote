@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Radix-2 FFT for real input (size n = power of two), computed as an n/2-point complex FFT plus the
 // usual split step. Tables are built once per size; forward() allocates nothing.
 // Used by the rhythm analyser (rhythm/analyzer.js). Plain ES module, runs in Workers and Node.

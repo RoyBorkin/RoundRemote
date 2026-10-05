@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Module worker around analyzePCM (see analyzeInWorker in rhythm/analyzer.js).
 // Protocol: worker → { type: 'ready' } once loaded; main → { type: 'analyze', samples, sampleRate, key, source };
 // worker → { type: 'progress', p } … then { type: 'done', analysis } or { type: 'error', message }.

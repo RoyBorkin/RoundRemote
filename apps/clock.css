@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Clock app (apps/clock.js). Everything is sized in cqmin of the round app box. */
 .ck { position: absolute; inset: 0; overflow: hidden; touch-action: none; --hand2: #ff5a4f; --sun: #ffb238; --night: #5b6fd8; }
 #app[data-mode="light"] .ck { --sun: #e08a00; --night: #4057c8; }

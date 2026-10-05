@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster — a music party game. The app plays a mystery song on the music service you chose; the player
 // whose turn it is places it in their timeline of years (before, between or after the cards they already have).
 // The reveal flips the card: right spot → the card stays, wrong → it's gone. Four modes (the start card):

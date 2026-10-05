@@ -1,4 +1,5 @@
 @echo off
+REM (c) 2026 Roy Borkin. All rights reserved. See LICENSE.
 REM Round Remote bridge for Windows: Roon, UPnP/DLNA and Google Cast from this PC.
 REM The GitHub Pages app finds it automatically (Chrome asks once to allow local network access).
 cd /d "%~dp0bridge"

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Sound features for the Tone Visual view.
 //
 // Round Remote is a *remote*: the music plays on your speaker / TV / phone, so the

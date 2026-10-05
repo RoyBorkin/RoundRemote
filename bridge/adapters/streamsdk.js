@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // StreamUnlimited StreamSDK ("NSDK") streamers — Fosi Audio S3 and the other network streamers built on
 // StreamUnlimited's Stream810/Stream800 modules. Their web UI (http://<ip>/webclient) talks to a small JSON
 // API on port 80, and so do we:

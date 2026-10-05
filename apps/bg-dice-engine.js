@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games — the dice tray: pre-rendered flat "3D-looking" dice faces + a little 2D physics (throw, bounce off the
 // round tray wall, knock into each other, tumble with a squash that reads as rolling, settle).
 // One canvas covers the page; the tray is a circle (fractions of the page size). Only redraws while something moves.

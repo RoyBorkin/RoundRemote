@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The main remote screen: progress ring around the edge (drag to seek), transport
 // controls, and one of three visualisations in the middle (info / vinyl / lyrics).
 import { h, iconBtn, onCircle } from '../ui/dom.js';

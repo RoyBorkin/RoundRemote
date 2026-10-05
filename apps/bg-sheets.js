@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → score sheets: Yahtzee (full sheet, upper bonus, Yahtzee bonuses, reads the last 5d6 roll from Dice),
 // Uno (round winner collects card values, first to 500) and Rummikub (losers subtract their tiles, winner collects).
 import { h, clear } from '../js/ui/dom.js';
@@ -52,7 +53,8 @@ function yahtzee(el, ctx) {
     clear(grid);
     const P = S.players, cols = `minmax(0, 1fr) repeat(${P.length}, ${P.length > 3 ? 8 : 10}cqmin)`;
     const row = (cls, label, sub, cells) => h(`div.bg-clue-row.bg-yz-row${cls}`, { style: { gridTemplateColumns: cols } }, h('div.bg-yz-l', h('b', label), sub ? h('small', sub) : null), cells);
-    const cell = (p, k) => { const v = sc(p)[k]; return h(`button.bg-yz-c${v == null ? '.blank' : v === 0 ? '.zero' : ''}`, { type: 'button', onclick: () => choose(p, k) }, v == null ? '' : String(v)); };
+    const nameOf = (k) => ([...UP, ...LOW].find((x) => x[0] === k) || [k, k])[1];
+    const cell = (p, k) => { const v = sc(p)[k]; return h(`button.bg-yz-c${v == null ? '.blank' : v === 0 ? '.zero' : ''}`, { type: 'button', 'aria-label': `${p.name} · ${nameOf(k)}${v == null ? '' : ` · ${v}`}`, onclick: () => choose(p, k) }, v == null ? '' : String(v)); };
     grid.append(h('div.bg-clue-row.head', { style: { gridTemplateColumns: cols } }, h('span'), P.map((p) => h('button.bg-clue-ch', { type: 'button', style: { color: p.color }, onclick: () => editPlayers(app, { players: S.players, min: 1, max: 6, onChange: () => { save(); render(); } }) }, p.name.replace(/^player\s*/i, 'P').slice(0, 6)))));
     grid.append(h('div.bg-clue-sec', 'Upper section'));
     for (const [k, label, n] of UP) grid.append(row('', label, `count × ${n}`, P.map((p) => cell(p, k))));
@@ -60,7 +62,7 @@ function yahtzee(el, ctx) {
     grid.append(row('.calc', 'Bonus', '+35', P.map((p) => h('span.bg-yz-v', bonus(p) ? '35' : h('small', `${Math.max(0, 63 - upper(p))} to go`)))));
     grid.append(h('div.bg-clue-sec', 'Lower section'));
     for (const [k, label, sub] of LOW) grid.append(row('', label, sub, P.map((p) => cell(p, k))));
-    grid.append(row('', 'Yahtzee bonus', '+100 each', P.map((p) => h('button.bg-yz-c', { type: 'button', onclick: () => yBonus(p) }, sc(p).yb ? `${sc(p).yb}×` : ''))));
+    grid.append(row('', 'Yahtzee bonus', '+100 each', P.map((p) => h('button.bg-yz-c', { type: 'button', 'aria-label': `${p.name} · Yahtzee bonus`, onclick: () => yBonus(p) }, sc(p).yb ? `${sc(p).yb}×` : ''))));
     grid.append(row('.calc.tot', 'Total', '', P.map((p) => h('span.bg-yz-v', String(total(p))))));
     grid.scrollTop = st;
     const d = dice5();

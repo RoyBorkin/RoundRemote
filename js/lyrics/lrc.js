@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Lyrics: LRC parsing (incl. enhanced word timestamps) + LRCLIB lookup with caching.
 import { http, qs, normalizeText } from '../core/util.js';
 

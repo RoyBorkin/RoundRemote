@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Compact on-screen keyboard shaped to fit the lower half of a round display.
 // English and Hebrew layouts (🌐 key switches; the last choice is remembered).
 import { h } from './dom.js';

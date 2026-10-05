@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Google Cast adapter: mDNS discovery + castv2 media namespace. Shows whatever app is
 // casting (Spotify, YouTube Music, TIDAL, Qobuz, …) and controls it.
 import { createRequire } from 'node:module';

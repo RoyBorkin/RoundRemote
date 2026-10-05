@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Tasks Manager (apps/tasks.js) */
 .tk .tk-page { position: absolute; inset: 0; transition: opacity .3s var(--ease), transform .35s var(--ease); }
 .tk[data-page="list"] .tk-qrpage, .tk[data-page="qr"] .tk-listpage { opacity: 0; pointer-events: none; transform: scale(.96); }
@@ -21,9 +22,10 @@
 
 /* list */
 .tk-list { position: absolute; left: 11%; right: 11%; top: 30.5%; bottom: 22%; padding: 5% 0 12%; }
-.tk-row { display: block; width: 100%; text-align: start; padding: 1.7cqmin 3.2cqmin 1.7cqmin 3.6cqmin; margin: 0 0 1.2cqmin; border-radius: 3cqmin;
+.tk-row { position: relative; margin: 0 0 1.2cqmin; border-radius: 3cqmin; overflow: hidden;
   background: var(--glass); border: 1px solid var(--line); border-inline-start: .8cqmin solid var(--k); transform-origin: 50% 50%; transition: background .2s; }
-.tk-row:active { background: var(--glass-2); }
+.tk-row:has(.tk-row-b:active) { background: var(--glass-2); }
+.tk-row-b { display: block; width: 100%; text-align: start; padding: 1.7cqmin 11cqmin 1.7cqmin 3.6cqmin; }
 .tk-row-t { font-size: 3cqmin; font-weight: 600; line-height: 1.28; unicode-bidi: plaintext; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tk-row-m { margin-top: .6cqmin; font-size: 2.05cqmin; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
 .tk-row.new { animation: tk-new 2.4s var(--ease); }
@@ -107,3 +109,28 @@
 .tk[data-page="qr"] .tk-pop { top: 84%; width: 54cqmin; padding: 2cqmin 3cqmin; border-radius: 99px; }
 .tk[data-page="qr"] .tk-pop-h { margin-bottom: .4cqmin; font-size: 2.1cqmin; }
 .tk[data-page="qr"] .tk-pop-t { font-size: 2.7cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 18+ per entry: the chip on each row (tap to mark / unmark), the add sheet toggle and the item sheet switch */
+.tk-x18 { display: inline-grid; place-items: center; min-width: 7.4cqmin; height: 5cqmin; padding: 0 1.4cqmin; border-radius: 99px; font-size: 2cqmin; font-weight: 800;
+  letter-spacing: -.01em; color: var(--dim); border: .3cqmin dashed color-mix(in srgb, var(--dim) 80%, transparent); background: transparent;
+  transition: background .2s, color .2s, border-color .2s, transform .18s var(--spring); }
+.tk-x18.on, .tk-x18.static { color: #fff; background: var(--danger); border: .3cqmin solid var(--danger); }
+.tk-x18:active { transform: scale(.9); }
+.tk-row > .tk-x18 { position: absolute; inset-inline-end: 2cqmin; top: 50%; translate: 0 -50%; }
+.tk-row > .tk-x18::before { content: ''; position: absolute; inset: -1.6cqmin -1.6cqmin; }
+.tk-row:not(.x) > .tk-x18 { color: var(--muted); opacity: .7; }
+.tk-x18.lg { height: 7.6cqmin; min-width: 11cqmin; padding: 0 2.8cqmin 0 2.2cqmin; font-size: 2.8cqmin; display: inline-flex; gap: 1.4cqmin; color: var(--muted); }
+.tk-x18.lg::before { content: ''; width: 2.8cqmin; height: 2.8cqmin; border-radius: .8cqmin; border: .35cqmin solid currentColor; box-sizing: border-box; }
+.tk-x18.lg.on { color: #fff; }
+.tk-x18.lg.on::before { background: #fff; border-color: #fff;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z M9.5 16.2 4.8 11.5l-1.6 1.6 6.3 6.3L21 7.9l-1.6-1.6z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 100% 100%; }
+.tk-add-row { display: flex; align-items: center; justify-content: center; gap: 2.4cqmin; }
+.tk-item-x18 { width: 100%; display: flex; align-items: center; gap: 2.2cqmin; padding: 1.2cqmin 2.6cqmin; border-radius: 3cqmin; text-align: start;
+  background: var(--glass); border: 1px solid transparent; font-size: 2.7cqmin; font-weight: 700; }
+.tk-item-x18.on { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--glass)); }
+.tk-item-x18-l { flex: 1; min-width: 0; }
+.tk-item-x18 .tk-set-sub { font-size: 2cqmin; }
+.tk-item-x18 .tk-x18 { height: 4.6cqmin; min-width: 7cqmin; }
+.tk-item-x18:not(.on) .tk-x18.static { background: transparent; color: var(--dim); border-style: dashed; border-color: var(--dim); }
+#app[data-theme="bauhaus"] .tk-x18, #app[data-theme="bauhaus"] .tk-item-x18 { border-radius: 0; }

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Tic Tac Toe — the classic 3×3, drawn as glowing neon strokes on the round screen.
 // 1P vs COM (Easy / Normal / Hard): a run of rounds, win +3, draw +1, until COM wins.
 // 2 players on one screen: first to 3 wins; fewer rounds = a more dominant win.

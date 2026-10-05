@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Randomizer (apps/random.js) */
 .rn { position: absolute; inset: 0; --tc: #22d3ee; --tct: var(--tc); }
 #app[data-mode="light"] .rn { --tct: color-mix(in srgb, var(--tc) 58%, rgb(var(--ink))); }
@@ -165,6 +166,9 @@
 
 /* shuffle */
 .rn-srcs { top: 21.5%; max-width: 64cqmin; display: flex; gap: 1cqmin; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; padding: .6cqmin 1cqmin; }
+/* more lists than fit: the row scrolls sideways — fade its far end instead of a hard cut (and stay centred when it fits) */
+.rn-srcs { justify-content: safe center; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 7cqmin), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 7cqmin), transparent); }
+.rn-srcs:not(:has(.chip:nth-child(3))) { -webkit-mask-image: none; mask-image: none; }
 .rn-srcs::-webkit-scrollbar { display: none; }
 .rn-srcs .chip { flex: none; white-space: nowrap; max-width: 30cqmin; overflow: hidden; text-overflow: ellipsis; }
 .rn-order { top: 50%; width: 62cqmin; height: 46cqmin; display: flex; flex-direction: column; flex-wrap: wrap; align-content: center; justify-content: center; gap: .8cqmin 3cqmin; }

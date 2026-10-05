@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* ==========================================================================
    Board Games Companion (apps/boardgames.js + apps/bg-*.js). Sizes in cqmin (the app box is a size container).
    ========================================================================== */
@@ -563,3 +564,88 @@
 .bg-rd-sz { left: 6.6%; width: 7.6cqmin; height: 7.6cqmin; font-weight: 800; font-family: var(--display); }
 .bg-rd-sz.a { top: 57%; font-size: 2.4cqmin; } .bg-rd-sz.b { top: 43%; font-size: 3.8cqmin; }
 .bg-type[aria-label="Add d6"] svg { stroke: #a8a29e; }
+
+/* Catan · costs & trade cheat sheet */
+.bg-cat-costs { position: absolute; inset: 0; }
+.bg-cat-costs[hidden] { display: none; }
+.bg-cat-cost-list { position: absolute; left: 50%; top: 24.5%; transform: translateX(-50%); width: 72%; display: flex; flex-direction: column; gap: .9cqmin; }
+.bg-cat-cost { display: flex; align-items: center; gap: 1.4cqmin; padding: .8cqmin 1.2cqmin .8cqmin 2.6cqmin; border-radius: 3cqmin; background: var(--glass); border: 1px solid var(--line); }
+.bg-cat-cost-l { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.bg-cat-cost-l b { font-size: 2.55cqmin; display: flex; gap: 1cqmin; align-items: baseline; white-space: nowrap; }
+.bg-cat-cost-l b span { font-size: 1.8cqmin; font-weight: 600; color: var(--dim); }
+.bg-cat-cost-l small { font-size: 1.65cqmin; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-cat-cost-r { display: flex; gap: .6cqmin; flex: none; }
+.bg-cat-res { width: 5cqmin; height: 5cqmin; border-radius: 1.3cqmin; display: grid; place-items: center; background: var(--rc); box-shadow: inset 0 -.4cqmin 0 rgb(0 0 0 / .22); }
+.bg-cat-res svg { width: 68%; height: 68%; fill: #fff; }
+.bg-cat-trade { position: absolute; left: 50%; top: 59%; transform: translateX(-50%); display: flex; gap: 1.2cqmin; }
+.bg-cat-tr { width: 17.5cqmin; padding: 1cqmin .6cqmin; border-radius: 2.6cqmin; text-align: center; background: color-mix(in srgb, var(--pc) 14%, var(--glass)); border: 1px solid color-mix(in srgb, var(--pc) 35%, transparent); display: flex; flex-direction: column; line-height: 1.15; }
+.bg-cat-tr b { font-family: var(--display); font-size: 3.6cqmin; font-weight: 800; }
+.bg-cat-tr small { font-size: 1.6cqmin; font-weight: 800; white-space: nowrap; }
+.bg-cat-tr em { font-style: normal; font-size: 1.5cqmin; font-weight: 600; color: var(--muted); }
+.bg-cat-legend { position: absolute; left: 50%; top: 71.6%; transform: translateX(-50%); display: flex; gap: 1.4cqmin; }
+.bg-cat-lg { display: flex; flex-direction: column; align-items: center; gap: .3cqmin; }
+.bg-cat-lg .bg-cat-res { width: 4cqmin; height: 4cqmin; }
+.bg-cat-lg small { font-size: 1.45cqmin; font-weight: 700; color: var(--muted); }
+.bg-cat-notes { position: absolute; left: 50%; top: 79.4%; transform: translateX(-50%); width: 52%; text-align: center; }
+.bg-cat-notes p { margin: 0 0 .5cqmin; font-size: 1.5cqmin; line-height: 1.3; color: var(--muted); }
+.bg-cat-notes b { color: var(--fg); }
+
+/* Talisman */
+.bg-tal-chips { position: absolute; left: 50%; top: 27.2%; transform: translate(-50%, -50%); display: flex; gap: 1.3cqmin; align-items: center; }
+.bg-tal-chips[hidden] { display: none; }
+.bg-tal-chips .bg-ttr-chip.dead { opacity: .45; text-decoration: line-through; }
+.bg-tal-plus { width: 6.4cqmin; height: 6.4cqmin; font-size: 3cqmin; }
+.bg-tal-page { position: absolute; inset: 0; }
+.bg-tal-page[hidden] { display: none; }
+.bg-tal-name { position: absolute; left: 50%; top: 35.6%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; line-height: 1.1; max-width: 60%; }
+.bg-tal-name b { font-family: var(--display); font-size: 3.6cqmin; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; color: color-mix(in srgb, var(--c) 55%, rgb(var(--ink))); }
+.bg-tal-name small { font-size: 1.8cqmin; font-weight: 700; color: var(--muted); }
+.bg-tal-stats { position: absolute; left: 50%; top: 40.6%; transform: translateX(-50%); width: 74%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1cqmin; }
+.bg-tal-stat, .bg-tal-tro { display: flex; flex-direction: column; align-items: center; gap: .3cqmin; padding: .8cqmin .4cqmin 1cqmin; border-radius: 2.6cqmin; background: color-mix(in srgb, var(--sc, var(--pc)) 12%, var(--glass)); border: 1px solid color-mix(in srgb, var(--sc, var(--pc)) 32%, transparent); }
+.bg-tal-stat > small, .bg-tal-tro > small { font-size: 1.6cqmin; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--sc, var(--pc)) 60%, rgb(var(--ink))); }
+.bg-tal-sv { display: flex; align-items: center; gap: .8cqmin; }
+.bg-tal-sv .bg-step-b { width: 5.4cqmin; height: 5.4cqmin; font-size: 3cqmin; }
+.bg-tal-sv b { min-width: 5cqmin; text-align: center; font-family: var(--display); font-size: 4.6cqmin; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bg-tal-stat.toad b { color: #65a30d; }
+.bg-tal-trow { display: flex; gap: 1.2cqmin; }
+.bg-tal-tr { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.bg-tal-tr span { font-size: 1.4cqmin; font-weight: 800; color: var(--dim); }
+.bg-tal-tr b { font-family: var(--display); font-size: 3cqmin; font-weight: 800; }
+.bg-tal-tr .chip { padding: .2cqmin 1.4cqmin; font-size: 1.7cqmin; min-height: 0; }
+.bg-tal-row2 { position: absolute; left: 50%; top: 69.4%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: .8cqmin; align-items: center; }
+.bg-tal-row2 .chip { padding: .7cqmin 1.9cqmin; font-size: 1.9cqmin; }
+.bg-tal-acts { position: absolute; left: 50%; top: 80.4%; transform: translate(-50%, -50%); display: flex; gap: 1cqmin; white-space: nowrap; }
+.bg-tal-acts .pill.small { font-size: 1.9cqmin; padding: 1cqmin 2cqmin; }
+.bg-tal-acts .pill.on { background: #65a30d; color: #fff; }
+.bg-tal-mode { position: absolute; left: 50%; top: 34.4%; transform: translate(-50%, -50%); }
+.bg-tal-mode .chip { padding: .8cqmin 2cqmin; font-size: 1.95cqmin; }
+.bg-tal-duel { position: absolute; left: 50%; top: 52.6%; transform: translate(-50%, -50%); width: 74%; display: flex; align-items: center; justify-content: space-between; }
+.bg-tal-side { width: 40%; display: flex; flex-direction: column; align-items: center; gap: .7cqmin; }
+.bg-tal-side > small { font-size: 1.8cqmin; font-weight: 800; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-tal-side > b { font-family: var(--display); font-size: 5.6cqmin; font-weight: 800; line-height: 1; }
+.bg-tal-side.foe > b { color: var(--danger); }
+.bg-tal-mod { display: flex; align-items: center; gap: .6cqmin; font-size: 1.7cqmin; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.bg-tal-mod .bg-step-b { width: 4.6cqmin; height: 4.6cqmin; font-size: 2.6cqmin; }
+.bg-tal-total { font-family: var(--display); font-size: 3cqmin; font-weight: 800; min-height: 3.4cqmin; }
+.bg-tal-vs { font-family: var(--display); font-size: 3.4cqmin; font-weight: 800; color: var(--dim); }
+.bg-tal-res { position: absolute; left: 50%; top: 71.4%; transform: translate(-50%, -50%); font-family: var(--display); font-size: 3cqmin; font-weight: 800; white-space: nowrap; color: var(--muted); }
+.bg-tal-res[data-r="win"] { color: #16a34a; } .bg-tal-res[data-r="lose"] { color: var(--danger); } .bg-tal-res[data-r="tie"] { color: var(--fg); }
+.bg-tal-bacts { position: absolute; left: 50%; top: 78.2%; transform: translate(-50%, -50%); display: flex; gap: 1cqmin; white-space: nowrap; }
+.bg-tal-bacts .pill.small { font-size: 1.9cqmin; padding: 1cqmin 2cqmin; }
+.bg-tal-roll { top: 88%; }
+.bg-tal-die { width: 9cqmin; height: 9cqmin; border-radius: 1.8cqmin; padding: 1.1cqmin; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); background: #fff; box-shadow: inset 0 -.6cqmin 0 rgb(0 0 0 / .14), 0 .6cqmin 1.6cqmin rgb(var(--shade) / .3); }
+.bg-tal-die.foe { background: #1f2937; }
+.bg-tal-die i { width: 70%; height: 70%; margin: auto; border-radius: 50%; }
+.bg-tal-die i.on { background: #111827; }
+.bg-tal-die.foe i.on { background: #fca5a5; }
+.bg-tal-die.me { background: color-mix(in srgb, var(--pc) 22%, #fff); }
+.bg-tal-die.rolling { animation: bg-tal-tumble .42s ease-in-out infinite; }
+@keyframes bg-tal-tumble { 25% { transform: rotate(-14deg) translateY(-.8cqmin); } 75% { transform: rotate(12deg) translateY(.4cqmin); } }
+.bg-tal-die.big { width: 17cqmin; height: 17cqmin; border-radius: 3.4cqmin; padding: 2cqmin; }
+.bg-tal-diebtn { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); }
+.bg-tal-turn { position: absolute; left: 50%; top: 27.2%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: .9cqmin; font-size: 2.3cqmin; font-weight: 600; color: var(--muted); white-space: nowrap; max-width: 64%; }
+.bg-tal-turn i { width: 2.2cqmin; height: 2.2cqmin; border-radius: 50%; background: var(--c); flex: none; }
+.bg-tal-turn b { color: var(--fg); font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+.bg-tal-mv { position: absolute; left: 50%; top: 62%; transform: translate(-50%, -50%); width: 64%; text-align: center; font-size: 2.4cqmin; font-weight: 700; line-height: 1.3; }
+.bg-tal-mvsub { position: absolute; left: 50%; top: 68.4%; transform: translate(-50%, -50%); font-size: 1.9cqmin; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; }
+.bg-tal-macts { top: 76%; }

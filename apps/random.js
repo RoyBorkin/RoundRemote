@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Randomizer: a ring of little random tools — number, colour, letter (Latin / Hebrew), who goes first (a spinning
 // wheel of names), teams, yes / no / maybe, pick from your own lists, and shuffle an order.
 // Names and list items can be Hebrew: everything that shows them uses dir="auto".

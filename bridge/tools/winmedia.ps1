@@ -1,3 +1,4 @@
+# (c) 2026 Roy Borkin. All rights reserved. See LICENSE.
 # Round Remote bridge helper for Windows: reads and controls every app that shows up in the Windows
 # media flyout (Global System Media Transport Controls) — the Apple Music app, iTunes, Spotify, Cider,
 # Sidra, Chrome/Edge/Firefox playing YouTube or YouTube Music, VLC, …

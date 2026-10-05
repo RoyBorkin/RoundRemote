@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Minimal screen router: one full-screen view at a time, cross-faded.
 const screens = new Map();
 let root = null, current = null, currentName = null;

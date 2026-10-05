@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Two extra lyric styles:
 //   fluid – in the spirit of Lyricify / BetterLyrics / Apple Music: a flowing, blurred
 //           album-art colour field; big bold lines that glide with a staggered spring

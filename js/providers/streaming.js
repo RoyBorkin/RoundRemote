@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Netflix, Disney+ and YouTube in Movies & TV. These apps have no remote-control API of their own, so the
 // tile follows the app wherever it's running on a TV the bridge knows:
 //   • Google TV / Android TV (paired in Media → Google TV): which app is open, the remote, open the app

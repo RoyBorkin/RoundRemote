@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Jungle Speed: cards left per player (80 dealt evenly), finishing places, a flip-pace timer that
 // walks around the table, a two-player "totem grab" reflex duel, and the rules.
 import { h, clear } from '../js/ui/dom.js';

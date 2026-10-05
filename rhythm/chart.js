@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Analysis → note chart (deterministic). See RHYTHM_GUIDE.md "chart.js".
 //   makeChart(analysis, { lanes, difficulty 0..4, seed, holds, chords, leadMs, authored })
 //   → { notes: [{ t, lane, dur, s, b, p, beat, chord }], bpm, beats, durMs, difficulty, seed, lanes }

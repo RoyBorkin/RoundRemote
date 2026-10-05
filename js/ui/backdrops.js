@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home-screen backgrounds ("backdrops") drawn on a canvas behind the clock and the service ring.
 //
 //   mountBackdrop(host, spec)        → { set(spec), destroy() }   a <canvas class="backdrop"> filling host

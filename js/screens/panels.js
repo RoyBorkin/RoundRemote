@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round overlay panels opened from the player: playlists, search, devices, volume, options.
 import { h, iconBtn, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -466,7 +467,7 @@ export function buildTvRemote(body, { showApps = true } = {}) {
     catch (e) { toast(errMsg(e), { kind: 'error' }); }
   }, 'tvk tv-type');
   const micBtn = iconBtn('mic', 'Google Assistant', () => { const z = direct(); if (z) directAssistant(z).catch((e) => toast(errMsg(e), { kind: 'error' })); }, 'tvk tv-mic');
-  body.append(
+  body.append(...[
     svg, ok,
     key('power', 'Power', 'power', 'tv-power'),
     key('mute', 'Mute', 'mute', 'tv-mute'),
@@ -477,7 +478,7 @@ export function buildTvRemote(body, { showApps = true } = {}) {
     key('play', 'Play / pause', 'playpause', 'tv-pp'),
     key('plus', 'Volume up', 'volup', 'tv-vup', true),
     typeBtn, micBtn,
-    now,
+    now].filter(Boolean)
   );
   const paint = (st) => {
     const t = st.track;

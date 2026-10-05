@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rush Hour levels — 4 packs × 12, each [board, optimal moves].
 // Board: 36 chars, row-major 6×6, top row first. 'A' = the red car (row 3, exits right), other letters =
 // cars (2 cells) / trucks (3 cells), 'o' = empty, 'x' = wall. One move = one vehicle slid any distance.

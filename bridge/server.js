@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round Remote bridge — runs on the Pi (or any always-on machine on your LAN).
 //  • serves the app itself at http://<host>:8765/  (so the Pi needs no internet for the UI)
 //  • exposes Roon / UPnP / AirPlay (shairport-sync) / Google Cast zones over HTTP + SSE
@@ -298,6 +299,7 @@ async function proxy(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  { const m = url.pathname.match(/^\/(?:api\/)?(collection|dj|trivia|movienight)(?:\/|$)/); if (m) return (await import(`./lib/${m[1]}.js`)).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname }); }  // phone pages + APIs for the Collection, Party DJ, Trivia and Movie Night apps (lib/<name>.js)
   if (/^\/(api\/)?tasks(\/|$)/.test(url.pathname)) return (await import('./lib/tasks.js')).route(req, res, url, { cfg, cors, json, readJson, originAllowed, dir: __dirname });  // Tasks app: phone page + /api/tasks (lib/tasks.js)
   if (url.pathname.startsWith('/api/')) {
     cors(req, res);

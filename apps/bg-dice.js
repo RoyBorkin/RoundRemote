@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Dice: 1–12 dice (d4…d20, d100 as a pair of d10s) with hold & re-roll, modifier, advantage,
 // history and shake-to-roll; Battle (Risk-style attacker vs defender) and Duel (high roll wins, 2–6 players).
 import { h, clear } from '../js/ui/dom.js';

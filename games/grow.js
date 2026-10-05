@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Grow — hold anywhere and a bubble grows under your finger. Let go to keep it: the bigger, the more
 // points. If it touches the edge (or one of the drifting spikes) it pops and you lose a life.
 // Each round adds a spike. Three lives.

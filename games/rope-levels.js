@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rope Snip — level data and the deterministic rope physics (no imports, so the tests / solver can run it headless).
 //
 // Coordinates: the round screen is the unit circle, centre (0, 0), x to the right, y DOWN (1 = the edge).

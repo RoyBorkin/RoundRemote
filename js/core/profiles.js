@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Settings profiles: copy every setting of this round display to another one — as a file, or kept
 // on the bridge (bridge/profiles/) so a new display on the same network can load it with one tap
 // or straight from its start-up address (…/?profile=Living%20room).

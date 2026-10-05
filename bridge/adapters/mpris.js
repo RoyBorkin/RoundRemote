@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // MPRIS — the standard remote-control interface of Linux media players — through `playerctl`
 // (sudo apt install playerctl). One zone per running player, for example:
 //   • Sidra (Apple Music for Linux: https://github.com/wimpysworld/sidra)

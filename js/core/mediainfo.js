@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Fun facts for movies and TV shows: sentences from the Wikipedia article (film or series) plus facts
 // built from the library's own metadata (director, release date, runtime, rating, cast, studio…).
 // Hebrew titles are looked up on he.wikipedia.org and get Hebrew metadata facts.

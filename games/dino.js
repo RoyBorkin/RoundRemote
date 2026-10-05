@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Dino Run — our own little dino runs along the ground across the lower part of the circle, drawn flat and
 // 8-bit (pixel sprites in games/dino-pixels.js, snapped to a chunky pixel grid). Tap / space to jump (hold for
 // a bit more height), swipe down / ArrowDown to duck (and to drop fast in the air). Cacti come in ones, twos and

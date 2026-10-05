@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Minesweeper — a round minefield. The field is a dartboard: concentric rings split into sectors
 // (inner rings have fewer, so every cell stays about the same size). A cell's neighbours are the cells
 // left and right of it on its ring plus every cell of the rings inside / outside whose span overlaps or

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // PlayStation (Home → PlayStation): your PSN profile, presence, the game you're playing, recent games,
 // trophies and friends online — all through the bridge (bridge/adapters/psn.js signs in with an NPSSO token
 // and keeps the PSN tokens). Console wake / standby goes through Home Assistant (ps5-mqtt add-on or the

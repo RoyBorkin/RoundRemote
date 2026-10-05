@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Movies & shows screen: "Now playing" (title, season/episode, progress ring, time passed / left,
 // skip, previous / next episode, info, cast, fun facts, suggestions, collection, audio & subtitles)
 // and "Library" (Plex / Jellyfin). Google TV gets a full-screen D-pad remote instead.

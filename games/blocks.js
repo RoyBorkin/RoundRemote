@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Block Destroyer — Breakout for the round screen. Your paddle is an arc on the rim that follows your
 // finger; bounce the ball into the rings of blocks in the middle and clear every breakable one. Strong
 // blocks take several hits, metal never breaks, explosive ones take their neighbours with them, and in

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm: the song being played, what the app has learned about it (analyses + versions), and learning itself.
 //
 // A song is identified by a key (service id + track id, e.g. 'demo:d1', 'spotify:4uLU6hMC…'). Learning a song
@@ -51,8 +52,12 @@ export function songKey(provider, track) {
 export function currentSong() {
   const p = player.provider, t = player.state.track;
   if (!p || !t || p.section === 'media' || p.section === 'home') return null;
-  return { key: songKey(p, t), track: t, provider: p, title: t.title || '', artist: t.artist || '' };
+  const raw = songKey(p, t);
+  return { key: aliases.get(raw) || raw, track: t, provider: p, title: t.title || '', artist: t.artist || '' };
 }
+// a song replayed from the library that the service now reports under another id (found by search): same song
+const aliases = new Map();
+export function aliasSong(liveKey, savedKey) { if (liveKey && savedKey && liveKey !== savedKey) aliases.set(liveKey, savedKey); }
 // the song a game round is being played with (it stays put when the remote moves on to the next track)
 let active = null;
 export function setActiveSong(song) { active = song || null; }
@@ -83,7 +88,8 @@ export async function newVersion(key) {
   const base = await selectedVersion(key);
   if (!base) return null;
   const seed = list.reduce((m, v) => Math.max(m, v.seed || 1), 1) + 1;
-  const v = { ...base, id: `v-${Date.now()}-${uidPart()}`, seed, created: Date.now(), name: nextName(list) };
+  // (a new chart starts with no plays of its own)
+  const v = { ...base, id: `v-${Date.now()}-${uidPart()}`, seed, created: Date.now(), name: nextName(list), stats: {}, statsSince: Date.now(), plays: 0, lastPlayed: 0, lastGame: null, lastDiff: null };
   await rstore.put('versions', v);
   selectVersion(key, v.id);
   return v;
@@ -124,16 +130,201 @@ export async function setVersionOffset(key, id, ms) {
 export function needsRelearn(key) { return relearn.has(key); }
 /** Number of learned songs (for Settings). */
 export async function learnedSongCount() { return new Set((await rstore.all('versions')).map((v) => v.key)).size; }
+/** Rename a version (the Library). */
+export async function renameVersion(key, id, name) {
+  const v = (await versions(key)).find((x) => x.id === id);
+  name = String(name || '').trim().slice(0, 32);
+  if (!v || !name) return null;
+  v.name = name;
+  await rstore.put('versions', v);
+  return v;
+}
 
-/** Save a fresh analysis with its first version (seed 1); the new version becomes the selected one. */
-export async function saveAnalysis(analysis, { title = '', artist = '' } = {}) {
+// ---------------------------------------------------------------- the Library: replay data & play stats
+// Every version record carries what's needed to play its song again (service + track id/uri + title, artist, album,
+// art, length — `track`, from trackMeta()) and its own play stats:
+//   stats[game][difficulty] = { plays, best, grade, acc, fc, last, lastScore, lastGrade }   (+ v.plays, v.lastPlayed,
+//   v.lastGame, v.lastDiff). Older records without them fall back to the song key, v.title / v.artist and the shell's
+//   top-5 lists (gameScores keys `${game}:play:${difficulty}[:speed]:${songKey}` — per song, not per version).
+/** The rhythm games that play along with a song (every one but Hitster). */
+export const SONG_GAMES = ['frets', 'tiles', 'chrono', 'circles', 'spin'];
+export const DIFF_IDS = ['easy', 'medium', 'hard', 'expert', 'master'];
+export const GRADES = ['S', 'A', 'B', 'C', 'D', 'F'];
+/** Higher = better (S 6 … F 1, none 0). */
+export const gradeRank = (g) => { const i = GRADES.indexOf(g); return i < 0 ? 0 : GRADES.length - i; };
+/** The service id inside a song key ('' for keys made from artist + title). */
+export function serviceOfKey(key) { const k = String(key || ''), i = k.indexOf(':'); const s = i > 0 ? k.slice(0, i) : ''; return s === 'song' ? '' : s; }
+
+/** Big inline artwork (the Demo's 512 px data URLs) is kept as a 160 px thumbnail. */
+async function smallArt(url) {
+  if (!url || !url.startsWith('data:') || url.length < 12000 || typeof document === 'undefined') return url || '';
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = c.height = 160;
+    c.getContext('2d').drawImage(img, 0, 0, 160, 160);
+    return c.toDataURL('image/jpeg', 0.82);
+  } catch { return ''; }
+}
+/** What the Library needs to play a track again: { service, id, uri, albumUri, title, artist, album, art, durationMs }. */
+export async function trackMeta(provider, track) {
+  if (!track) return null;
+  return {
+    service: provider?.id || '', id: track.id ?? null, uri: track.uri || null, albumUri: track.albumUri || null,
+    title: track.title || '', artist: track.artist || '', album: track.album || '',
+    art: await smallArt(track.art || ''), durationMs: +track.durationMs || 0,
+  };
+}
+/** Older versions (learned before the Library) get the track's details the next time their song is played. */
+export async function ensureTrackMeta(version, song) {
+  if (!version || !song?.track || (version.track && (version.track.art || !song.track.art))) return version;
+  const v = (await versions(version.key)).find((x) => x.id === version.id);
+  if (!v) return version;
+  v.track = { ...(await trackMeta(song.provider, song.track)), ...(v.track || {}) };
+  if (!v.track.art && song.track.art) v.track.art = await smallArt(song.track.art);
+  v.service ||= v.track.service || serviceOfKey(v.key);
+  v.title ||= v.track.title; v.artist ||= v.track.artist;
+  await rstore.put('versions', v);
+  Object.assign(version, { track: v.track, service: v.service });
+  return v;
+}
+/**
+ * A finished round (kit.js): plays + 1, best score / grade / accuracy, full combo, last played — for this version,
+ * game and difficulty. r = { game, diff, score, grade, acc, fc }
+ */
+export async function recordPlay(version, r, song = null) {
+  if (!version?.id || !r?.game) return null;
+  const v = (await versions(version.key)).find((x) => x.id === version.id);
+  if (!v) return null;
+  const now = Date.now();
+  if (!v.stats) v.statsSince = now;   // a version from before the Library: its stats start now
+  const cell = ((v.stats ||= {})[r.game] ||= {})[r.diff] ||= { plays: 0 };
+  const score = Math.round(+r.score || 0);
+  cell.plays = (cell.plays || 0) + 1;
+  cell.last = now; cell.lastScore = score; cell.lastGrade = r.grade || '';
+  if (cell.best == null || score > cell.best) { cell.best = score; cell.grade = r.grade || ''; }
+  if ((+r.acc || 0) > (cell.acc || 0)) cell.acc = +r.acc;
+  if (r.fc) cell.fc = true;
+  v.plays = (v.plays || 0) + 1;
+  v.lastPlayed = now; v.lastGame = r.game; v.lastDiff = r.diff;
+  if (song?.track && !v.track) v.track = await trackMeta(song.provider, song.track);
+  v.service ||= v.track?.service || serviceOfKey(v.key);
+  await rstore.put('versions', v);
+  return v;
+}
+/**
+ * Per game & difficulty from the shell's top-5 lists of one song: { game: { diff: { plays, best, grade } } } — only
+ * entries older than `before` (rounds from before the Library kept its own stats; later ones are counted already).
+ */
+export function legacyBest(key, before = Infinity) {
+  const out = {};
+  const all = store.get('gameScores') || {};
+  for (const [k, list] of Object.entries(all)) {
+    if (!list?.length || !k.endsWith(`:${key}`)) continue;
+    const head = k.slice(0, k.length - key.length - 1).split(':');   // game, mode, difficulty[, speed]
+    const [game, mode, diff] = head;
+    if (!SONG_GAMES.includes(game) || mode !== 'play' || !DIFF_IDS.includes(diff) || head.length > (game === 'tiles' ? 4 : 3)) continue;
+    const old = list.filter((e) => !(e.at >= before));
+    if (!old.length) continue;
+    const cell = ((out[game] ||= {})[diff] ||= { plays: 0, best: null, grade: '' });
+    cell.plays += old.length;
+    for (const e of old) {
+      if (cell.best == null || e.score > cell.best) { cell.best = e.score; cell.grade = /·\s*([SABCDF])\s*$/.exec(e.label || '')?.[1] || ''; }
+    }
+  }
+  return out;
+}
+/** Merge cells: plays add up (or the larger of stats vs. top-5 count), best = the higher score. */
+function mergeCell(a, b, addPlays = true) {
+  if (!a) return b ? { ...b } : null;
+  if (!b) return { ...a };
+  const hi = (b.best ?? -1) > (a.best ?? -1) ? b : a;
+  return {
+    plays: addPlays ? (a.plays || 0) + (b.plays || 0) : Math.max(a.plays || 0, b.plays || 0),
+    best: hi.best, grade: hi.grade || '', acc: Math.max(a.acc || 0, b.acc || 0) || undefined, fc: !!(a.fc || b.fc),
+    last: Math.max(a.last || 0, b.last || 0) || undefined,
+  };
+}
+/** The best of a stats object: { grade, score, game, diff } (best grade, then score) or null. */
+export function topOf(stats) {
+  let top = null;
+  for (const [game, diffs] of Object.entries(stats || {})) {
+    for (const [diff, c] of Object.entries(diffs || {})) {
+      if (c?.best == null) continue;
+      const r = gradeRank(c.grade);
+      if (!top || r > top.rank || (r === top.rank && c.best > top.score)) top = { grade: c.grade || '', score: c.best, game, diff, rank: r };
+    }
+  }
+  return top;
+}
+/**
+ * Every saved song, with its versions and stats:
+ * [{ key, service, track, title, artist, art, versions, selectedId, plays, lastPlayed, created, best, top }]
+ *   best = { game: { diff: { plays, best, grade, fc, acc } } } over all versions (and the top-5 lists); top = topOf(best).
+ */
+export async function songLibrary() {
+  const byKey = new Map();
+  for (const v of await rstore.all('versions')) {
+    if (!v?.key) continue;
+    if (!byKey.has(v.key)) byKey.set(v.key, []);
+    byKey.get(v.key).push(v);
+  }
+  const out = [];
+  for (const [key, vs] of byKey) {
+    vs.sort((a, b) => (a.created || 0) - (b.created || 0));
+    const withMeta = [...vs].reverse().find((v) => v.track) || null;
+    const last = vs[vs.length - 1];
+    const sid = serviceOfKey(key);
+    const track = {
+      service: sid, id: sid ? key.slice(sid.length + 1) : null, uri: null, albumUri: null, album: '', art: '', durationMs: 0,
+      ...(withMeta?.track || {}),
+    };
+    track.service ||= withMeta?.service || sid;
+    track.title ||= last.title || ''; track.artist ||= last.artist || '';
+    let best = {};
+    for (const v of vs) {
+      for (const [game, diffs] of Object.entries(v.stats || {})) {
+        for (const [diff, c] of Object.entries(diffs || {})) ((best[game] ||= {})[diff] = mergeCell(best[game]?.[diff], c, true));
+      }
+    }
+    // the top-5 lists stand in for rounds from before the versions kept stats (none, once every version has)
+    const old = legacyBest(key, vs.reduce((m, v) => Math.min(m, v.statsSince ?? Infinity), Infinity));
+    for (const [game, diffs] of Object.entries(old)) {
+      for (const [diff, c] of Object.entries(diffs)) ((best[game] ||= {})[diff] = mergeCell(best[game]?.[diff], c, false));
+    }
+    const statPlays = vs.reduce((s, v) => s + (v.plays || 0), 0);
+    let cellPlays = 0;
+    for (const diffs of Object.values(best)) for (const c of Object.values(diffs)) cellPlays += c.plays || 0;
+    out.push({
+      key, service: track.service, track, title: track.title, artist: track.artist, art: track.art || '',
+      versions: vs, selectedId: selectedVersionId(key) && vs.some((v) => v.id === selectedVersionId(key)) ? selectedVersionId(key) : last.id,
+      plays: Math.max(statPlays, cellPlays),
+      lastPlayed: vs.reduce((m, v) => Math.max(m, v.lastPlayed || 0), 0),
+      created: vs[0].created || 0, best, top: topOf(best),
+    });
+  }
+  return out;
+}
+
+/**
+ * Save a fresh analysis with its first version (seed 1); the new version becomes the selected one.
+ * meta (trackMeta()) is kept with both records so the Library can play the song again later.
+ */
+export async function saveAnalysis(analysis, { title = '', artist = '', meta = null } = {}) {
   const key = analysis.key;
   analysis.id ||= `a-${Date.now()}-${uidPart()}`;
   analysis.created ||= Date.now();
+  if (meta) analysis.track = meta;
   await rstore.put('analyses', analysis);
   cache.set(analysis.id, analysis);
   const list = await versions(key);
-  const v = { id: `v-${Date.now()}-${uidPart()}`, key, analysisId: analysis.id, seed: 1, source: analysis.source, created: Date.now(), name: nextName(list), title, artist, offsetMs: 0 };
+  const v = {
+    id: `v-${Date.now()}-${uidPart()}`, key, analysisId: analysis.id, seed: 1, source: analysis.source, created: Date.now(), name: nextName(list),
+    title: meta?.title || title, artist: meta?.artist || artist, offsetMs: 0,
+    service: meta?.service || serviceOfKey(key), track: meta, stats: {}, statsSince: Date.now(), plays: 0, lastPlayed: 0,
+  };
   if (analysis.chart) Object.assign(v, { charter: analysis.chart.charter || '', chartMd5: analysis.chart.md5 || '' });
   await rstore.put('versions', v);
   selectVersion(key, v.id);
@@ -516,7 +707,8 @@ export function learnJob(track, { method = store.get('rhythmSource') || 'auto', 
     set({ phase: 'save', progress: 1, text: 'Saving…' });
     analysis.key = key;
     analysis.source ||= job.source;
-    const version = await saveAnalysis(analysis, { title: track.title, artist: track.artist });
+    const meta = await trackMeta(provider, track).catch(() => null);
+    const version = await saveAnalysis(analysis, { title: track.title, artist: track.artist, meta });
     set({ phase: 'done', text: 'Learned!' });
     resetClock();
     return { analysis, version };

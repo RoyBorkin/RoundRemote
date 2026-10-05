@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Demo provider: a fully simulated player (fictional songs, original lyrics, generated artwork)
 // so every screen can be tried with no account — and so the app can be tested offline.
 import { Provider } from './base.js';

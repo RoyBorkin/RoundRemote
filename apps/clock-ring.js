@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Shared by the Clock (alarms) and Timer apps: the full-screen "ringing" overlay, the built-in alarm sounds
 // (Web Audio, no files), starting the user's music (a playlist from a service, or the song that was playing),
 // and the "What plays" editor used in both apps' settings.
@@ -9,6 +10,7 @@ import { icon } from '../js/ui/icons.js';
 import { openPanel, curve, listRow, emptyNote, spinner, toast } from '../js/ui/overlay.js';
 import { player } from '../js/core/player.js';
 import { provider as providerById, getService } from '../js/providers/registry.js';
+import { notify, stopAlert } from '../js/core/alerts.js';
 
 // ------------------------------------------------------------------ styles (injected once; both apps need them)
 const CSS = `
@@ -218,7 +220,8 @@ export const isRinging = () => !!current;
 
 /**
  * Show the ringing screen and start the sound/music.
- * opts: { time: '07:30' (big text), title, color, what: cfg, snooze: 'Snooze' | '+1 min' | null, onSnooze, onStop, icon }
+ * opts: { time: '07:30' (big text), title, color, what: cfg, snooze: 'Snooze' | '+1 min' | null, onSnooze, onStop, icon,
+ *         source: 'clock' | 'timer' | 'hourglass' (smart-home alerts, Settings → Alerts), message }
  * Returns a handle { close() }.
  */
 export function ring(opts) {
@@ -234,7 +237,7 @@ export function ring(opts) {
     timeEl,
     h('div.rk-title', { dir: 'auto' }, opts.title || ''),
     sub);
-  let sound = null, closed = false;
+  let sound = null, closed = false, alertP = null;
   const handle = {
     el,
     setTime(t) { timeEl.textContent = t; },
@@ -242,6 +245,7 @@ export function ring(opts) {
       if (closed) return;
       closed = true;
       sound?.stop(pause);
+      alertP?.then((a) => stopAlert(a)).catch(() => {});   // lights back, speaker quiet
       if (current === handle) current = null;
       window.removeEventListener('keydown', onKey, true);
       clearInterval(awake);
@@ -271,6 +275,10 @@ export function ring(opts) {
   const awake = setInterval(nudgeAwake, 4000);
   root.append(el);
   current = handle;
+  // the smart home too (lights, speaker, phone…), as set up in Settings → Alerts
+  try {
+    alertP = notify({ title: opts.title || 'Alarm', message: opts.message || (opts.source === 'clock' || !opts.source ? `It’s ${opts.time}` : 'Time is up'), level: opts.level || 'alarm', source: opts.source || 'clock' }).catch(() => null);
+  } catch { alertP = null; }
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
   startWhat(opts.what).then((s) => {
     if (closed) { s.stop(true); return; }

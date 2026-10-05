@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Fake zones for testing the app ↔ bridge path without real devices (RR_MOCK=1).
 const TRACKS = [
   { id: 'm1', title: 'Harbor Static', artist: 'Mock Orchestra', album: 'Test Signals', durationMs: 201000 },

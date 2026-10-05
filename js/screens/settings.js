@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Settings: everything persists in this browser (localStorage). On the Pi you can also
 // pre-fill keys via bridge/config.json so nothing has to be typed on the round screen.
 import { h, iconBtn, onCircle, badge, clear } from '../ui/dom.js';
@@ -23,6 +24,7 @@ import { THEMES, MODES, SWATCHES, themeConfig, setThemeConfig, resetThemeConfig,
 import { BACKDROPS, drawBackdropPreview } from '../ui/backdrops.js';
 import { SOURCES, forgetAll, learnedSongCount } from '../../rhythm/session.js';
 import { openCalibration } from '../../rhythm/hub.js';
+import { alertsSection } from './settings-alerts.js';
 
 export const VERSION = '2.0.0';
 
@@ -35,7 +37,7 @@ export function SettingsScreen() {
   const section = (t) => h('div.section', t);
   // the big headers (Theme, General, Music…), with a row of chips at the top to jump to them
   const GROUPS = [['theme', 'Theme', 'image'], ['general', 'General', 'settings'], ['music', 'Music', 'note'], ['media', 'Movies & TV', 'film'],
-    ['home', 'Home', 'house'], ['games', 'Games', 'gamepad'], ['rhythm', 'Rhythm', 'rhythm'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
+    ['home', 'Home', 'house'], ['alerts', 'Alerts', 'megaphone'], ['games', 'Games', 'gamepad'], ['rhythm', 'Rhythm', 'rhythm'], ['connect', 'Connection', 'link'], ['profiles', 'Profiles & about', 'about']];
   const groupEls = {};
   const group = (id) => {
     const [, title, ic] = GROUPS.find((g) => g[0] === id);
@@ -143,6 +145,9 @@ export function SettingsScreen() {
     ...['homeassistant', 'googlehome'].map((id) => SERVICES.find((x) => x.id === id)).filter(Boolean).map((s) => h('button.row', { type: 'button', onclick: () => go('connect', { id: s.id }) },
       badge(s, 'sm'), h('div.row-text', h('div.row-title', s.name), h('div.row-sub', provider(s.id).isAuthed?.() ? 'Set up — tap to change' : 'Tap to set up')))),
 
+    group('alerts'),
+    ...alertsSection(),
+
     group('games'),
     section('Games'),
     toggle('Game sound', () => store.get('gameSound') !== false, (v) => store.set('gameSound', v)),
@@ -197,7 +202,7 @@ export function SettingsScreen() {
       };
       return h('div.center', b);
     })(),
-    h('div.credit', 'Made by Roy Borkin'),
+    h('div.credit', '© 2026 Roy Borkin · All rights reserved'),
     h('div.spacer'),
   );
   curve(list);

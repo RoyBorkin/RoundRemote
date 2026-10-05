@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster's texts in English and Hebrew, the language setting, the genres and the song-language groups.
 // Everything Hitster shows comes from here (tr), so a new screen is in both languages from the start.
 import { store } from '../js/core/store.js';

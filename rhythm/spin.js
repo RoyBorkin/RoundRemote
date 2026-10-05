@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Spin Beat — a round take on spinning-wheel DJ rhythm games.
 // A turntable fills the lower half of the round screen; its rim is split into two colours (amber / blue).
 // Notes race down a curving track to the catch point on top of the wheel. Turn the wheel so the colour at the

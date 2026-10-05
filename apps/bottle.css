@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Truth or Dare (apps/bottle.js) */
 .bt .bt-cv { position: absolute; left: 0; top: 0; touch-action: none; transition: opacity .35s var(--ease); }
 .bt.has-overlay .bt-cv { opacity: .3; }
@@ -22,6 +23,14 @@
   background: var(--glass); border: 1px solid var(--line); transition: opacity .3s; }
 .bt-mode button { padding: 1cqmin 2.2cqmin; border-radius: 99px; font-size: 2.1cqmin; font-weight: 700; color: var(--muted); white-space: nowrap; transition: background .25s, color .25s; }
 .bt-mode button.on { background: var(--ac); color: #14101c; }
+.bt-mode { align-items: center; }
+.bt-18 { display: grid; place-items: center; flex: none; height: 4.6cqmin; padding: 0 1.3cqmin; margin: 0 .4cqmin; border-radius: 99px; font-size: 1.9cqmin; font-weight: 800;
+  letter-spacing: .02em; color: var(--danger); border: .35cqmin solid color-mix(in srgb, var(--danger) 75%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent);
+  animation: bt-p-in .45s var(--spring) both; }
+.bt-mode .bt-18 { animation-name: bt-18-in; }
+@keyframes bt-18-in { from { transform: scale(.4); opacity: 0; } }
+.bt-18.lg { height: 6.4cqmin; width: 6.4cqmin; padding: 0; margin: 0; border-radius: 50%; font-size: 2.2cqmin; animation: none; opacity: .45; }
+.bt-x18 .bt-18.lg { opacity: 1; }
 .bt-hint { position: absolute; left: 50%; top: 71.6%; transform: translate(-50%, -50%); font-size: 2.3cqmin; color: var(--muted); white-space: nowrap; pointer-events: none;
   max-width: 50cqmin; overflow: hidden; text-overflow: ellipsis; transition: opacity .3s; unicode-bidi: plaintext; }
 .bt-hint.strong { font-family: var(--display); font-size: 3.4cqmin; font-weight: 800; color: var(--fg); animation: bt-hint-in .45s var(--spring); }
@@ -59,7 +68,10 @@
   animation: bt-flip .55s var(--spring); }
 @keyframes bt-flip { from { opacity: 0; transform: translate(-50%, -50%) perspective(120cqmin) rotateY(80deg) scale(.8); } }
 .bt-card-h { display: flex; flex-direction: column; align-items: center; gap: .6cqmin; }
-.bt-card-type { font-size: 2.6cqmin; font-weight: 800; letter-spacing: .28em; text-transform: uppercase; color: var(--k); padding-inline-start: .28em; }
+.bt-card-type { font-size: 2.6cqmin; font-weight: 800; letter-spacing: .28em; text-transform: uppercase; color: var(--k); padding-inline-start: .28em; display: flex; align-items: center; gap: 1.2cqmin; }
+.bt-card-18 { font-size: 1.8cqmin; letter-spacing: .02em; padding: .3cqmin 1cqmin; border-radius: 99px; color: var(--danger); border: .3cqmin solid color-mix(in srgb, var(--danger) 75%, transparent); }
+.bt-card.penalty { border-style: dashed; }
+.bt-card.penalty .bt-card-for { color: color-mix(in srgb, var(--k) 55%, rgb(var(--ink))); font-weight: 600; }
 .bt-card-for { font-size: 2.4cqmin; color: var(--muted); unicode-bidi: plaintext; }
 .bt-card-t { font-family: var(--display); font-size: 4.6cqmin; font-weight: 700; line-height: 1.25; max-height: 30cqmin; overflow: auto; unicode-bidi: plaintext; text-wrap: balance; }
 .bt-card-t.l { font-size: 3.9cqmin; }
@@ -73,6 +85,8 @@
 #app .bt-card .pill.primary.bt-done { background: var(--k); color: #14101c; box-shadow: 0 1cqmin 4cqmin color-mix(in srgb, var(--k) 35%, transparent); }
 .bt-chicken { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .bt-again { width: 8cqmin; height: 8cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 3.6cqmin; background: var(--glass); border: 1px solid var(--line); color: var(--muted); }
+.bt-card.penalty .bt-card-acts { gap: 1.4cqmin; }
+.bt-card.penalty .bt-card-acts .pill { white-space: nowrap; padding: 2cqmin 3.4cqmin; }
 
 /* panels */
 .bt-panel .panel-body { left: 14%; right: 14%; }
@@ -82,6 +96,9 @@
 .bt-row-sub { font-size: 2.1cqmin; color: var(--muted); font-weight: 500; margin-top: .3cqmin; }
 .bt-center { text-align: center; }
 .bt-sh { width: 100%; text-align: center; font-size: 2cqmin; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-top: 2cqmin; }
+.bt-sh.sub { margin-top: .4cqmin; letter-spacing: .14em; }
+.bt-row .switch { margin-inline-start: auto; }
+.bt-row .bt-row-l { min-width: 0; }
 .bt-plist .chips .chip { font-size: 2.5cqmin; }
 .bt-dot { width: 2.4cqmin; height: 2.4cqmin; border-radius: 50%; background: var(--pc); flex: none; display: inline-block; }
 .bt-prow { width: 100%; display: flex; align-items: center; gap: 2.2cqmin; padding: .8cqmin 1.2cqmin .8cqmin 3cqmin; border-radius: 99px; background: var(--glass); }
@@ -93,7 +110,10 @@
 .bt-srow { padding: 1.6cqmin 3cqmin; border-radius: 99px; background: var(--glass); font-size: 3cqmin; }
 .bt-srow-n { display: flex; align-items: center; gap: 1.6cqmin; text-align: start; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bt-srow b { font-size: 3.4cqmin; font-variant-numeric: tabular-nums; }
-.bt-ch-n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.bt-ch-n { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bt-ch-n small { font-size: 2cqmin; color: var(--ok); }
+.bt-ch-n.bt-dbl { color: var(--danger); font-weight: 800; }
+.bt-plist.dbl :is(.bt-shead, .bt-srow) { grid-template-columns: 1fr 9cqmin 12cqmin 9cqmin; padding-inline: 2.4cqmin; }
 .bt-srow.lead { background: color-mix(in srgb, var(--pc) 22%, transparent); }
 
 /* themes */
@@ -104,5 +124,6 @@
 #app[data-theme="bauhaus"] .bt-ch.big { box-shadow: none; }
 #app[data-theme="bauhaus"] .bt-ib { background: rgb(var(--ink)); color: var(--bg); border: 0; }
 #app[data-theme="bauhaus"] .bt-mode { border: .35cqmin solid rgb(var(--ink)); background: var(--surface); }
+#app[data-theme="bauhaus"] .bt-card.penalty { border-style: dashed; }
 #app[data-mode="light"] .bt-card { box-shadow: 0 2cqmin 6cqmin rgb(var(--shade) / .18); }
 #app[data-mode="light"] .bt-choose { box-shadow: 0 2cqmin 6cqmin rgb(var(--shade) / .16); }

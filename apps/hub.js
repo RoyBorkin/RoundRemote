@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Apps category: every app on a ring (like the Games ring). Tap one to see it in the middle, tap Open
 // (or the middle) to start it. Drag around the ring, scroll, or use ← → to move through them.
 import { h, iconBtn } from '../js/ui/dom.js';

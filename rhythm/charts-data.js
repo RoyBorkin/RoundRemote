@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Community note charts (Clone Hero / Rock Band / Guitar Hero, as indexed by Chorus Encore) → the Rhythm Analysis.
 // Pure functions — no DOM, no network — shared by the browser (rhythm/charts.js) and the bridge (bridge/lib/charts.js).
 //

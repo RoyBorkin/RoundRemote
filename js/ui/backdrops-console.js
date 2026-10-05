@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home-screen backdrops inspired by game-console menus (original renderings — no logos or symbols):
 //   waves(E, colour, style)  'ps3' (XMB ribbons of thin lines), 'psp' (one glowing band of layered sheets),
 //                            'xmb' (the XMB theme: sheets + one ribbon)

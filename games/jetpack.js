@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Jetpack Dash — a side-scrolling lab corridor. Hold to fire the jetpack and climb, let go to drop.
 // Dodge zappers (some spin), missiles (announced by a blinking warning on the right) and, later,
 // lasers that charge up across the whole corridor. Coins come in lines, waves and little shapes.

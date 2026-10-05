@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Tiny hyperscript helper: h('div.cls#id', {onclick, style:{}, attrs}, ...children)
 import { icon } from './icons.js';
 

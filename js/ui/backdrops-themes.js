@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home-screen backdrops: each theme's own background (used by kind 'theme' in js/ui/backdrops.js).
 // Every scene is build(E) → { draw(ctx, t) } where E is the environment from backdrops.js
 // ({ W, H, S, cx, cy, px, mode, light, oled, c1, c2, lite, few, ctx }); t is seconds of animation

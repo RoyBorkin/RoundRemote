@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Persistent settings + per-service auth storage (localStorage, guarded).
 import { Emitter } from './util.js';
 
@@ -87,6 +88,28 @@ export const DEFAULTS = Object.freeze({
   ghCommands: null,            // Google Home command tiles [{ label, cmd, icon }] (null = the default set)
   ghSpeak: true,               // play Google Assistant's spoken answers on this display
   ghLanguage: '',              // Assistant language ('' = the browser's)
+  // Smart-home alerts (Settings → Alerts, js/core/alerts.js): how apps get your attention through the home
+  alerts: {
+    on: true,                  // master switch
+    lights: [],                // HA light entities to flash
+    lightStyle: 'pulse',       // pulse (colour on/off a few times) | flash (the light's own flash) | solid (colour for a while)
+    colors: { info: '#3b82f6', warn: '#f59e0b', alarm: '#ef4444' },
+    speaker: '',               // HA media_player for the chime / speech
+    chime: true,               // play a chime first
+    chimeUrl: '',              // own chime sound URL ('' = sounds/alert-chime.wav from this app)
+    speech: true,              // speak the message (text-to-speech)
+    tts: '',                   // TTS engine: tts.* entity or tts.*_say service ('' = the first one found)
+    volume: null,              // speaker volume for alerts, 0–100 (null = leave it); restored afterwards
+    resume: true,              // resume what the speaker was playing before the alert (media_play → play_media → select_source)
+    notify: '',                // HA notify service for phone notifications (e.g. mobile_app_pixel_8)
+    script: '',                // script.* or scene.* to run
+    gh: false,                 // broadcast on Google Home speakers (Google Assistant through the bridge)
+    levels: { info: ['lights'], warn: ['lights', 'sound', 'phone'], alarm: ['lights', 'sound', 'phone', 'script', 'gh'] },
+    sources: {},               // per app: false = off (missing = on)
+    quiet: false, quietFrom: 22 * 60, quietTo: 7 * 60,   // quiet hours (minutes after midnight)
+    quietAlarms: true,         // alarms still go through in quiet hours
+    repeatSec: 30,             // alarms: lights + speaker again every N s until stopped (0 = once)
+  },
   // Look
   theme: 'classic',            // classic | glass | soft | slate | vivid | bauhaus (js/core/theme.js)
   themeCfg: {},                // per theme: { mode: dark|oled|light, c1, c2, follow }

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // 2048 — swipe to slide every tile; two equal tiles that bump join into their sum.
 // Score = the sum of all the tiles you made by joining. Reach 2048 (and keep going).
 import { clamp, ease, pick, THEME } from './kit.js';

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Cider (https://cider.sh) — the Apple Music desktop app for Windows, macOS and Linux — through its
 // local REST API (the same one the official CiderDeck Stream Deck plugin uses).
 //

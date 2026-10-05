@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // RPS Battle — rock-paper-scissors armies on a 7×6 checkerboard (a round take on the old ICQ game).
 // Each side hides a FLAG and a TRAP among its 14 soldiers; the other 12 carry hidden rock, paper or
 // scissors. Move one soldier a step per turn; walk into an enemy to battle (the winner's weapon is

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Every music service implements this interface. The UI only ever talks to a Provider
 // through the Player controller, so adding a service = adding one provider file.
 import { Emitter } from '../core/util.js';

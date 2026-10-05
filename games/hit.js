@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hit Circle — a reflex game. Circles pop up around the round screen, each with an approach ring that
 // shrinks onto it. Tap the circle the moment its ring closes: ±60 ms is Perfect, then Good, then OK.
 // Let a ring close without tapping and you lose a life (three in all). Good hits build a combo and a

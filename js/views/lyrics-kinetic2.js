@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Two more Kinetic Type variants, modelled on reference lyric videos:
 //   bw   – "Black & White" (after the classic "Do I Wanna Know" kinetic video):
 //          heavy geometric caps on pure black, a different scene for every line:

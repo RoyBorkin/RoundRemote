@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* ==========================================================================
    Themes (Settings → Theme). js/core/theme.js sets the colours on #app and
    data-theme / data-mode / data-accent; this file gives each theme its shapes and effects.
@@ -239,6 +240,8 @@
 /* ------------------------------------------------------------------ Click Wheel (inspired by the iPod classic) */
 #app[data-theme="ipod"] { --wheel: linear-gradient(180deg, #ffffff, #dcdde2); --wheel-b: #c3c6cd; --sel: linear-gradient(180deg, color-mix(in srgb, var(--c1) 65%, #fff), var(--c1)); }
 #app[data-theme="ipod"]:is([data-mode="dark"], [data-mode="oled"]) { --wheel: linear-gradient(180deg, #3a3c41, #1f2023); --wheel-b: #4a4d53; }
+/* light mode: the immersive player views stay dark (css/app.css) — so does the click-wheel metal there (else white icons on white buttons) */
+#app[data-theme="ipod"][data-mode="light"] :is(.player:not([data-view="info"]), .ink-dark) { --wheel: linear-gradient(180deg, #3a3c41, #1f2023); --wheel-b: #4a4d53; }
 #app[data-theme="ipod"] :is(.ibtn, .chip, .pill, .device-pill, .now-mini, .toast, .home-mode, .g-btn, .g-chip, .tog, .g-np, .m-tabs, .field-input) {
   background: var(--wheel); border: 1px solid var(--wheel-b); backdrop-filter: none; -webkit-backdrop-filter: none;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), 0 .5cqmin 1.4cqmin rgb(var(--shade) / .25); color: rgb(var(--ink) / .7);

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 2: the whole round screen becomes a record. Spin it with a finger to scrub
 // backward/forward (with fling inertia); the tone arm tracks song progress.
 // Settings → Music → Vinyl · Tape · CD ("Player", store key vinylDeck) can swap the record for a

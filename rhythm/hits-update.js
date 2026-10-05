@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster's "Update song lists": more well-known songs from Wikidata, kept on this device for good (IndexedDB, or
 // localStorage when IndexedDB isn't there) and merged with the built-in deck (hits-deck.js) — de-duplicated, never removed.
 //

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Themes: the look of the whole app (Music, Movies & TV, Home, Games, Settings).
 //
 // Six themes, each with a main colour, a secondary colour and a mode — Dark, OLED (true black) or Light.

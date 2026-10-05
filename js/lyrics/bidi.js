@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Right-to-left detection for lyrics (Hebrew, Arabic, Persian, Urdu, Syriac…).
 // A line counts as RTL when it has more right-to-left letters than left-to-right ones,
 // so a Hebrew line with an English word or two still reads right to left.

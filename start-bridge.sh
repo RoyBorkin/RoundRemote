@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
 # Round Remote bridge for macOS / Linux: Roon, UPnP/DLNA, Google Cast (and AirPlay on Linux).
 # The GitHub Pages app finds it automatically (Chrome asks once to allow local network access).
 set -e

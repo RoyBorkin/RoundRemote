@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 6: Fun Facts — facts about the song, the album and the artist, one at a time over the
 // blurred artwork. Facts come from Wikipedia and MusicBrainz (see core/songinfo.js); the Demo has
 // its own. A new fact appears every N seconds (Settings → Fun Facts, or the button on the right);

@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* ==========================================================================
    Round Remote — styles for a circular touch display (designed at 720×720).
    All sizes use cqmin (1% of the round screen), so it scales to any circle.
@@ -139,7 +140,7 @@ input { font: inherit; color: inherit; }
 .svc .badge { transition: transform .2s var(--spring); }
 /* the control size (XS…XL) scales Home too */
 .svc { scale: var(--ui, 1); }
-.home-center { scale: min(var(--ui, 1), 1.04); }
+.home-center { scale: calc(min(var(--ui, 1), 1.04) * var(--fit, 1)); }   /* --fit: home.js shrinks it if the ring gets in the way */
 .home.has-backdrop { background: transparent; }
 .home.has-backdrop .home-glow { display: none; }
 .home > .backdrop { z-index: 0; }
@@ -169,20 +170,30 @@ input { font: inherit; color: inherit; }
 .home-settings { margin-top: 3cqmin; width: 9.5cqmin; height: 9.5cqmin; font-size: 4.4cqmin; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Music ⇄ Movies & TV switch */
-.home-mode { display: flex; gap: .3cqmin; margin-top: 2cqmin; padding: .6cqmin; border-radius: 4cqmin; background: rgb(var(--ink) / .06); border: 1px solid var(--line); }
-/* six categories (Music · Media · Home · Games · Rhythm · Settings) fit between the service tiles at every control size */
-.hm-btn { display: flex; flex-direction: column; align-items: center; gap: .4cqmin; width: 7cqmin; padding: 1.1cqmin 0 .9cqmin; border-radius: 2.8cqmin; font-size: 1.5cqmin; font-weight: 700; color: var(--dim); transition: background .25s, color .25s; }
+/* The main menu: three stacked pills — Music · Media · Rhythm / Home · Apps · Games / Settings — on a shared column
+   grid (Settings sits under Apps), narrowing toward the bottom of the circle. Sized to fit inside the ring of
+   services at every control size, with or without the now-playing pill below. */
+.home-menu { display: flex; flex-direction: column; align-items: center; gap: .55cqmin; margin-top: 1.8cqmin; }
+.home-mode { display: flex; gap: .3cqmin; padding: .45cqmin; border-radius: 99px; background: rgb(var(--ink) / .06); border: 1px solid var(--line); }
+.hm-btn { display: flex; align-items: center; justify-content: center; gap: .9cqmin; width: 13.4cqmin; height: 5cqmin; padding: 0 1cqmin; border-radius: 99px;
+  font-size: 2cqmin; font-weight: 700; color: var(--muted); transition: background .25s, color .25s, transform .15s; }
 .hm-btn span { white-space: nowrap; letter-spacing: -.01em; }
-.hm-btn .ic { font-size: 3.6cqmin; width: 3.6cqmin; height: 3.6cqmin; }
+.hm-btn .ic { flex: none; font-size: 3cqmin; width: 3cqmin; height: 3cqmin; }
 .hm-btn.on { background: var(--fg); color: var(--on-fg); }
 .hm-btn:active { transform: scale(.94); }
+.hm-btn:focus-visible { outline: .45cqmin solid var(--accent); outline-offset: .25cqmin; }
+/* with the now-playing pill too: drop the brand line and tighten the clock so it all stays inside the ring */
+.home.np .brand { display: none; }
+.home.np .clock { font-size: 10.6cqmin; margin-top: 0; }
+.home.np .home-menu { margin-top: 1.5cqmin; }
+.home.np .now-mini { margin-top: 1.8cqmin; }
 .svc-ring.swap .svc { animation: pop-in-2 .5s var(--spring) both; }
 @keyframes pop-in-2 { from { opacity: 0; transform: scale(.4) rotate(-20deg); } }
 .home[data-mode="media"] .svc .badge { width: 14cqmin; height: 14cqmin; }
 .home[data-mode="media"] .svc-name { font-size: 2.4cqmin; }
 .home[data-mode="home"] .svc .badge { width: 15cqmin; height: 15cqmin; }
 .home[data-mode="home"] .svc-name { font-size: 2.5cqmin; }
+.home:is([data-mode="media"], [data-mode="home"]) .svc { scale: min(var(--ui, 1), 1.04); }   /* already big: XL doesn't grow them further */
 .home[data-mode="home"] .home-glow { background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%); }
 .home[data-mode="media"] .home-glow { background: radial-gradient(circle, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--accent-2) 10%, transparent) 50%, transparent 70%); }
 
@@ -1099,6 +1110,10 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
   font-size: calc(2.3cqmin * var(--ui, 1)); font-weight: 600; color: rgb(var(--ink) / .8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-shadow: 0 0 1cqmin rgb(var(--paper) / .9);
 }
+/* the Ferrofluid lamp is always white: dark song line on it, in every theme mode */
+.player[data-view="tone"]:has(.tv-host[data-v="ferro"]) .mini-meta { color: rgb(24 26 30 / .85); text-shadow: 0 0 1cqmin rgb(255 255 255 / .9); }
+#app .player[data-view="tone"]:has(.tv-host[data-v="ferro"]) :is(.ibtn:not(.vbtn):not(.play), .view-switch, .device-pill) { background-color: rgb(0 0 0 / .5); }
+#app[data-theme="xmb"] .player[data-view="tone"]:has(.tv-host[data-v="ferro"]) .ibtn.play { background-color: rgb(0 0 0 / .5); }   /* XMB's glassy play button */
 .player[data-view="tone"] .ibtn:not(.ctl):not(.vbtn) { background-color: rgb(var(--paper) / .45); }
 .player[data-view="tone"] .view-switch { padding: .5cqmin 1cqmin; border-radius: 99px; background: rgb(var(--paper) / .5); }
 
@@ -1315,7 +1330,8 @@ code.uri { font-family: var(--mono); font-size: 2.2cqmin; padding: 1.2cqmin 2.4c
 
 .svc { transition: left .5s var(--ease), top .5s var(--ease); }
 .svc[hidden] { display: none; }
-.home-hint { position: absolute; left: 50%; top: 71%; transform: translateX(-50%); width: 46%; text-align: center; font-size: 2.1cqmin; color: var(--muted); }
+.home-hint { margin-top: 1.6cqmin; max-width: 100%; text-align: center; font-size: 2.1cqmin; line-height: 1.35; color: var(--muted); }   /* last in the centre column */
+.home-hint:empty { display: none; }
 /* Hebrew / mixed-direction text shows in the right order everywhere */
 .info-title span, .info-artist, .info-album, .row-title, .row-sub, .mini-meta, .now-text b, .now-text small,
 /* Right-to-left lyrics (Hebrew, Arabic…): lines carry dir="rtl"; fills run from the right */

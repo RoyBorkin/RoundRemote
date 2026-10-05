@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Pull a lively accent colour out of album artwork (falls back silently if the image
 // server doesn't allow CORS reads).
 const cache = new Map();

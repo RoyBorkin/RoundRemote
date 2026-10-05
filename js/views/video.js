@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 4: Video — like the classic Info view, but the background is a video.
 //  • YouTube / YouTube Music: the song's own video (the provider's player sits behind).
 //  • Every other service: the song's official music video, found on YouTube (needs a free

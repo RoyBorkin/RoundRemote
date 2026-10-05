@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The app screen: a round box that hosts one app from apps/<file>.js, plus the chrome every app shares —
 // a Back button (top), the app's title, Escape = back. Apps build their own UI with DOM (see apps/index.js).
 import { h, iconBtn, clear } from '../js/ui/dom.js';

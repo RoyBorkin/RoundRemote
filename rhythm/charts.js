@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Chart library client: finds the song that plays among the community charts indexed by Chorus Encore (enchor.us —
 // the Clone Hero / Rock Band / Guitar Hero fan charts) and turns a chosen chart into an Analysis.
 // The network part normally runs on the bridge (bridge/lib/charts.js — no CORS limits there); the browser tries

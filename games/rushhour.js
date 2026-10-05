@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rush Hour — the sliding-block traffic puzzle on a 6×6 board. Cars (2 cells) and trucks (3 cells) only slide
 // along their own direction; get the red car out through the gate on the right of the third row.
 // Four packs of 12 generated levels (see rushhour-levels.js). A round = a run through one pack: pick levels

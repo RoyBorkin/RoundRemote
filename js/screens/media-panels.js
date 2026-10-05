@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round panels for the Movies & shows screen: info, cast, fun facts, suggestions, collection,
 // audio & subtitles, and the screen's options (background etc.).
 import { h, clear } from '../ui/dom.js';

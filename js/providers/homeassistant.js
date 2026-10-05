@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home Assistant: live state of your home over its WebSocket API (a long-lived access token from your
 // HA profile page), with areas (rooms), and service calls to control everything.
 // When the app runs on https (GitHub Pages) and Home Assistant is plain http on your network, the browser

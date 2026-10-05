@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home Assistant on a round screen: entity tiles, quick actions, and a round control panel per device
 // (brightness / temperature / position / speed / volume dials, colours, modes, cameras, sensors).
 import { h, clear, onLongPress } from '../ui/dom.js';
@@ -107,6 +108,7 @@ export function entityTile(hass, id, { onOpen, editing = false, isFav = false, o
     orb.classList.toggle('pic', !!pic);
     name.textContent = hass.entityName(s);
     st.textContent = stateText(s);
+    orb.setAttribute('aria-label', `${name.textContent} · ${st.textContent}`);
   };
   paint();
   const open = () => onOpen?.(id);

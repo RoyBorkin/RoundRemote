@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Song information from free public sources that work straight from the browser (no keys):
 //   • Wikipedia (song, album and artist articles) – text for Fun Facts, photos for the slideshow
 //   • MusicBrainz – release year, first release date, how many releases, artist origin & start year

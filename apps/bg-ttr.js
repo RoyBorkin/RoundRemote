@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Ticket to Ride: tap route lengths per player (USA: 1→1, 2→2, 3→4, 4→7, 5→10, 6→15; Europe adds
 // 8→21 and stations), trains left of 45, destination tickets (+ completed / − failed), the 10-point longest-route bonus
 // and the final table.

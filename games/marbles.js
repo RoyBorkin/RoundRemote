@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Marble Chain — a chain of marbles rolls along a track toward the vortex. Aim the orb, shoot marbles into
 // the chain; three or more of a colour touching pop. When the gap closes and the colours meeting there match,
 // they pop too (a chain reaction). Clear the whole chain to move on to the next level.

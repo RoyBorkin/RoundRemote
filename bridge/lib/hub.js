@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Zone registry shared by all adapters. Adapters push normalized zones in; the HTTP
 // server streams them to the app over Server-Sent Events.
 import { EventEmitter } from 'node:events';

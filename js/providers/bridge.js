@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Provider for everything that lives on your local network and needs the companion
 // bridge (bridge/server.js): Roon, UPnP/DLNA, AirPlay (shairport-sync), Google Cast.
 // Tidal and Qobuz have no public remote-control API, so their tiles attach to whichever

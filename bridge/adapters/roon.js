@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Roon adapter — uses Roon's official extension API.
 // Install once:  npm run roon   (pulls RoonLabs' node-roon-api packages from GitHub)
 // Then enable "Round Remote" in Roon → Settings → Extensions.

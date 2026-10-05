@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Floppy Bird — tap to flap, gravity does the rest. Glide through the gaps between the glass pillars;
 // every pair you pass is a point. Touch a pillar, the ground or fly off the top and it's over.
 // Everything is laid out in units of R so it fits the round screen at any size.

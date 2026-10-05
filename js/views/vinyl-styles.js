@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Vinyl view looks: record designs, record colours and tone-arm designs.
 // The record design + colour are applied as classes / CSS variables on .view-vinyl (css/vinyl.css);
 // the tone arm is drawn here as SVG. Every arm uses the same pivot, length and `.arm-rot`

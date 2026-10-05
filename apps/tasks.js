@@ -1,11 +1,16 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Tasks Manager: the truths, dares and tasks that Truth or Dare draws from. Built-in starter packs plus
 // everything players add — on the display, or from their phones by scanning the QR code (the bridge serves
 // the page; see bridge/lib/tasks.js). Sessions: "New game session" starts a fresh one, and the All / This
 // session filter (shared with Truth or Dare) picks between everything ever made and what this game added.
+// Any entry — built-in, added here or from a phone — can be marked 18+ (the chip on its row, the switch in its
+// sheet, or when adding); 18+ entries only show and get drawn while 18+ mode is on.
 import { clear } from '../js/ui/dom.js';
 import { curve } from '../js/ui/overlay.js';
+import { createKeyboard, wantsKeyboard } from '../js/ui/keyboard.js';
 import { qrSvg } from './qr.js';
 import * as T from './tasks-store.js';
+import { PACKS } from './tasks-packs.js';
 
 const { TYPES, TYPE_META, TAG_NAMES } = T;
 
@@ -73,11 +78,15 @@ export default {
         return;
       }
       for (const it of items) {
+        const x = T.isAdult(it);
         const meta = [it.author && `by ${it.author}`, it.builtin ? (it.builtin === 'he' ? 'Starter pack · עברית' : 'Starter pack') : ago(it.created),
-          ...(it.tags || []).filter((t) => t !== 'family').map((t) => `#${TAG_NAMES[t] || t}`)].filter(Boolean).join(' · ');
-        const row = h(`button.tk-row${it.id === highlight ? '.new' : ''}`, { type: 'button', '--k': TYPE_META[it.type].color, dataset: { id: it.id }, onclick: () => openItem(it.id) },
-          h('div.tk-row-t', { dir: 'auto' }, it.text),
-          h('div.tk-row-m', { dir: 'auto' }, meta));
+          ...(it.tags || []).filter((t) => t !== 'family' && !T.isAdult({ tags: [t] })).map((t) => `#${TAG_NAMES[t] || t}`)].filter(Boolean).join(' · ');
+        const row = h(`div.tk-row${it.id === highlight ? '.new' : ''}${x ? '.x' : ''}`, { '--k': TYPE_META[it.type].color, dataset: { id: it.id } },
+          h('button.tk-row-b', { type: 'button', onclick: () => openItem(it.id) },
+            h('div.tk-row-t', { dir: 'auto' }, it.text),
+            h('div.tk-row-m', { dir: 'auto' }, meta)),
+          h(`button.tk-x18${x ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(x), 'aria-label': '18+ (adults only)', title: x ? '18+ — tap to unmark' : 'Mark as 18+',
+            onclick: () => mark18(it.id, !x) }, '18+'));
         list.append(row);
       }
       reCurve();
@@ -89,18 +98,60 @@ export default {
     }
     function render() { renderTabs(); renderFilter(); if (page === 'list') renderList(); else renderQrCount(); }
 
+    // ------------------------------------------------------------ 18+ per entry
+    const HIDDEN18 = 'Hidden — 18+ mode is off';
+    /** Mark / unmark one entry as 18+. While 18+ mode is off a newly marked entry leaves the list right away. */
+    function mark18(id, on) {
+      if (!T.setAdult(id, on)) return false;
+      app.sfx(on ? 'pop' : 'tap'); app.vibrate(10);
+      const hidden = on && !T.settings().adult;
+      app.toast(hidden ? HIDDEN18 : on ? 'Marked 18+' : 'No longer 18+');
+      return hidden;
+    }
+
     // ------------------------------------------------------------ add / edit
     async function add(t = type) {
-      const v = await app.editText({ title: `New ${TYPE_META[t].name.toLowerCase()}`, placeholder: t === 'truth' ? 'A question to answer honestly…' : t === 'dare' ? 'Dare someone to…' : 'A challenge for everyone…', okLabel: 'Add' });
-      if (!v) return;
-      const it = T.addItem({ type: t, text: v, tags: ['family'] });
+      const r = await addSheet(t);
+      if (!r) return;
+      const it = T.addItem({ type: t, text: r.text, tags: r.x18 ? T.adultTags(['family'], true) : ['family'] });
       if (!it) return;
       app.sfx('pop'); app.vibrate(15);
       if (type !== t) { type = t; app.save('tab', t); }
-      highlight = it.id;
+      const hidden = r.x18 && !T.settings().adult;
+      highlight = hidden ? null : it.id;
       if (page !== 'list') showPage('list');
       render();
-      app.toast(`${TYPE_META[t].name} added`);
+      app.toast(hidden ? `${TYPE_META[t].name} added · ${HIDDEN18}` : `${TYPE_META[t].name} added${r.x18 ? ' (18+)' : ''}`);
+    }
+    /** The add sheet: the text (on-screen keyboard on touch screens, like editText) plus an 18+ toggle. */
+    function addSheet(t) {
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = (v) => { if (!done) { done = true; resolve(v); } };
+        app.openPanel({
+          title: `New ${TYPE_META[t].name.toLowerCase()}`, className: 'edit-panel kbd-open tk-add-panel',
+          onClose: () => finish(null),
+          build(body, panel) {
+            let x18 = false;
+            const input = h('input.edit-input', { type: 'text', placeholder: t === 'truth' ? 'A question to answer honestly…' : t === 'dare' ? 'Dare someone to…' : 'A challenge for everyone…',
+              autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', dir: 'auto' });
+            const submit = (v = input.value) => { v = String(v).trim(); finish(v ? { text: v, x18 } : null); panel.close(); };
+            const tog = h('button.tk-x18.lg', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': '18+ (adults only)',
+              onclick: () => { x18 = !x18; tog.classList.toggle('on', x18); tog.setAttribute('aria-checked', String(x18)); app.sfx('tap'); } }, '18+');
+            body.append(input, h('div.tk-add-row', tog, h('button.pill.primary', { type: 'button', onclick: () => submit() }, 'Add')));
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+            if (wantsKeyboard()) {
+              input.readOnly = true;
+              const kb = createKeyboard(input, { onEnter: (v) => submit(v) });
+              kb.setEnterIcon('check');
+              panel.el.appendChild(kb);
+            } else {
+              panel.el.classList.remove('kbd-open');
+              setTimeout(() => input.focus(), 200);
+            }
+          },
+        });
+      });
     }
 
     function openItem(id) {
@@ -116,7 +167,8 @@ export default {
             const s = T.settings();
             const typeChips = h('div.chips', TYPES.map((k) => h(`button.chip${k === it.type ? '.on' : ''}`, { type: 'button', '--k': TYPE_META[k].color,
               onclick: () => { T.updateItem(id, { type: k }); type = k; app.save('tab', k); draw(); } }, TYPE_META[k].name)));
-            const tagList = T.TAGS.filter((t) => t !== '18+' || s.adult || (it.tags || []).includes('18+'));
+            const tagList = T.TAGS.filter((t) => t !== '18+');  // 18+ has its own switch below
+            const x = T.isAdult(it);
             const tagChips = h('div.chips.multi', tagList.map((t) => h(`button.chip${(it.tags || []).includes(t) ? '.on' : ''}`, { type: 'button',
               onclick: () => { const set = new Set(it.tags || []); set.has(t) ? set.delete(t) : set.add(t); T.updateItem(id, { tags: [...set] }); draw(); } }, TAG_NAMES[t])));
             const meta = [it.author && `by ${it.author}`, it.builtin ? 'Starter pack' : it.created && new Date(it.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
@@ -125,6 +177,10 @@ export default {
               h('button.tk-item-text', { type: 'button', dir: 'auto', onclick: edit }, it.text),
               h('div.tk-item-meta', { dir: 'auto' }, meta),
               typeChips, tagChips,
+              h(`div.tk-item-x18${x ? '.on' : ''}`, h('span.tk-x18.static', '18+'),
+                h('div.tk-item-x18-l', h('div', 'Adults only'), h('div.tk-set-sub', x ? (s.adult ? 'Shown — 18+ mode is on' : 'Hidden while 18+ mode is off') : 'Shown to everyone')),
+                h(`button.switch${x ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(x), 'aria-label': '18+ (adults only)',
+                  onclick: () => { if (mark18(id, !x)) panel.close(); else draw(); } })),
               h('div.tk-item-acts',
                 h('button.pill', { type: 'button', onclick: edit }, 'Edit'),
                 h('button.pill.danger', { type: 'button', onclick: () => { T.removeItem(id); app.sfx('drop'); app.toast('Deleted'); panel.close(); } }, 'Delete')));
@@ -147,22 +203,25 @@ export default {
           const box = h('div.tk-set.list');
           body.append(box);
           const sw = (on, fn) => h(`button.switch${on ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(on), onclick: fn });
-          const row = (label, sub, right) => h('div.tk-set-row', h('div.tk-set-l', h('div', label), sub ? h('div.tk-set-sub', sub) : null), right);
+          const row = (label, sub, right) => { if (right?.classList?.contains('switch') && !right.hasAttribute('aria-label')) right.setAttribute('aria-label', label); return h('div.tk-set-row', h('div.tk-set-l', h('div', label), sub ? h('div.tk-set-sub', sub) : null), right); };
           const draw = () => {
             clear(box);
             const s = T.settings(), ses = T.session();
             const n = T.pool({ filter: 'session', type: null }).length;
-            const nAll = (lang) => (T.allItems().filter((i) => i.builtin === lang).length);
+            const nAll = (lang) => (s.packs[lang] ? T.allItems() : PACKS[lang].items).filter((i) => i.builtin === lang && (s.adult || !T.isAdult(i))).length;
             box.append(
               h('div.tk-set-h', 'Game session'),
               h('div.tk-set-ses', h('div.tk-set-code', ses.id), h('div.tk-set-sub', `Started ${ago(ses.started)} · ${n} item${n === 1 ? '' : 's'} added`)),
               h('button.pill.primary', { type: 'button', onclick: () => { T.newSession(); app.sfx('score'); app.toast(`New session ${T.session().id}`); draw(); } }, 'New game session'),
               h('div.tk-set-h', 'Players'),
               row('Your name', s.name || 'Shown on items added here', h('button.pill', { type: 'button', onclick: async () => { const v = await app.editText({ title: 'Your name', value: s.name, placeholder: 'e.g. Mom' }); if (v !== null) { T.setSettings({ name: v }); draw(); } } }, 'Edit')),
-              row('18+ items', s.adult ? 'Shown in lists and games' : 'Hidden — family friendly', sw(s.adult, () => { T.setSettings({ adult: !s.adult }); draw(); })),
+              row('18+ mode', s.adult ? 'Adult items shown in lists and games' : 'Hidden — family friendly', sw(s.adult, async () => {
+                if (!s.adult && !(await T.confirmAdult(app))) return;
+                T.setSettings(s.adult ? { adult: false, tags: s.tags.filter((t) => t !== '18+') } : { adult: true }); draw();
+              })),
               h('div.tk-set-h', 'Starter packs'),
-              row('English', `${nAll('en') || 160} truths, dares & tasks`, sw(s.packs.en, () => { T.setSettings({ packs: { ...s.packs, en: !s.packs.en } }); draw(); })),
-              row('עברית', `${nAll('he') || 90} אמת, חובה ומשימות`, sw(s.packs.he, () => { T.setSettings({ packs: { ...s.packs, he: !s.packs.he } }); draw(); })),
+              row('English', `${nAll('en')} truths, dares & tasks`, sw(s.packs.en, () => { T.setSettings({ packs: { ...s.packs, en: !s.packs.en } }); draw(); })),
+              row('עברית', `${nAll('he')} אמת, חובה ומשימות`, sw(s.packs.he, () => { T.setSettings({ packs: { ...s.packs, he: !s.packs.he } }); draw(); })),
               h('button.pill', { type: 'button', onclick: () => { T.resetPacks(); app.toast('Starter packs restored'); draw(); } }, 'Restore starter packs'),
               h('div.tk-set-h', 'Phones'),
               h('div.tk-set-sub.tk-set-note', T.bridge.status === 'ok' ? 'Connected to the bridge — players can add items by scanning the QR code. Everything is kept forever.' : 'The bridge isn’t reachable, so phones can’t add items right now. Start bridge/server.js on this network. You can still add items here.'),

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Twister: the spinner. Left/right × hand/foot × red/blue/yellow/green, a big call, optional auto-spin
 // every N seconds and a spoken call (English or Hebrew) through speechSynthesis.
 import { h } from '../js/ui/dom.js';

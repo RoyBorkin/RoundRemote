@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Four in a Row — drop discs into a 7×6 board, line up four. Discs slide down behind a glassy frame
 // with a little bounce. 1P vs COM (Easy / Normal / Hard): a run of rounds, win +3, draw +1, until COM
 // wins. 2 players on one screen: first to 3 wins; fewer rounds = a more dominant win.

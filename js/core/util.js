@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Small, dependency-free helpers shared across the app.
 
 export class Emitter {

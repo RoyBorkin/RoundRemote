@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Coin: a gold coin that tosses and spins in 3D (CSS transforms), with stats, streaks and best-of-N.
 import { h } from '../js/ui/dom.js';
 import { seg, celebrate } from './bg-ui.js';

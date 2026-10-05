@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Clock alarms: saved alarms + the background scheduler that rings them.
 //
 // startAlarms() is idempotent. The Clock app calls it when it opens; from then on the scheduler keeps running in the
@@ -92,7 +93,7 @@ function fire(a) {
   const n = new Date();
   const mins = a.snoozeMin || 9;
   ringing = ring({
-    time: fmtHM(n.getHours(), n.getMinutes()), title: a.label || 'Alarm', color: COLOR, icon: 'clock', what: a.what,
+    time: fmtHM(n.getHours(), n.getMinutes()), title: a.label || 'Alarm', color: COLOR, icon: 'clock', what: a.what, source: 'clock',
     snooze: `Snooze ${mins}′`, snoozeIcon: 'moon',
     onSnooze: () => {
       const until = Date.now() + mins * 60000;

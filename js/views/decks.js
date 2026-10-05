@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The other "players" of the Vinyl view (js/views/vinyl.js picks one): a cassette and a CD
 // (data side or label side). Each behaves like the record: the motor eases up and down with
 // play/pause, dragging scrubs through the song (with fling momentum), seeking animates, and the

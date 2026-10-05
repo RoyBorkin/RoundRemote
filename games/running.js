@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Running Circle — a reflex game. Your ball runs around a glowing ring; spikes and blocks sit on the inside
 // or the outside of the line. Tap to hop across to the other side. Every obstacle passed is a point, gems
 // are a bonus, and the ball keeps speeding up. Patterns are planned ahead so there's always time to react.

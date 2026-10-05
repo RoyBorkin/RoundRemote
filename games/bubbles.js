@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Bubble Shooter — a cluster of bubbles sits around a glowing core in the middle of the screen and
 // slowly turns. Your shooter rides the rim: touch / drag to aim (it always fires at the centre), let go
 // to shoot. Three or more of a colour pop; anything no longer hanging on the core flies away for a bonus.

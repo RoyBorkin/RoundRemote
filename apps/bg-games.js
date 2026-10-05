@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Games: a ring of companions for favourite games (each its own page/module).
 import { ringMenu, IC } from './bg-ui.js';
 
@@ -11,6 +12,7 @@ export const COMPANIONS = [
   { id: 'jungle', name: 'Jungle Speed', color: '#65a30d', icon: IC.totem, file: './bg-jungle.js', blurb: 'Cards left per player, a flip pace timer and a two-player reflex duel.' },
   { id: 'yahtzee', name: 'Yahtzee', color: '#dc2626', icon: IC.cup, file: './bg-sheets.js', opts: { kind: 'yahtzee' }, blurb: 'Full score sheet with the upper bonus and Yahtzee bonuses — reads your dice.' },
   { id: 'uno', name: 'Uno', color: '#eab308', icon: IC.unocard, file: './bg-sheets.js', opts: { kind: 'uno' }, blurb: 'Round scoring by card values — first to 500 wins.' },
+  { id: 'talisman', name: 'Talisman', color: '#7c3aed', icon: IC.crown, file: './bg-talisman.js', blurb: 'Hero sheets (Strength, Craft, Life, Fate, Gold, trophies, toad), a battle helper and the movement die.' },
   { id: 'rummikub', name: 'Rummikub', color: '#8b5cf6', icon: IC.tile, file: './bg-sheets.js', opts: { kind: 'rummikub' }, blurb: 'Round scoring: losers subtract their tiles, the winner collects.' },
 ];
 

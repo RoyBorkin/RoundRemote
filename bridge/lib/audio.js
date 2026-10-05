@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Audio for the Rhythm category (no dependencies besides an `ffmpeg` binary):
 //  • capture of THIS computer's sound output with ffmpeg → raw mono s16le PCM streamed over chunked HTTP
 //    (one ffmpeg for all listeners, started with the first, stopped 5 s after the last one leaves)

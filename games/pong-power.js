@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Circle Pong — the power-ups of the "Power-ups" mode: what each one is and its flat round icon.
 import { TAU, THEME } from './kit.js';
 

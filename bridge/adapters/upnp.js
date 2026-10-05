@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // UPnP AV / DLNA renderer adapter: SSDP discovery + AVTransport/RenderingControl SOAP.
 // Works with WiiM, Bluesound, Denon/Marantz HEOS, Sonos (UPnP), BubbleUPnP, Volumio,
 // moOde/upmpdcli, gmrender… Tidal/Qobuz streams on these renderers are detected from

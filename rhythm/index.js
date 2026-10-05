@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Rhythm category: its six music games, in the order they sit on the Rhythm ring.
 // They run in the games shell (route 'game' with { id }); games/index.js finds them through rhythmById /
 // loadRhythmGame, and their quit / back buttons return to the Rhythm screen (home: 'rhythm').

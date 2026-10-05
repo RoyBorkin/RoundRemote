@@ -8,13 +8,24 @@
 
   "psn": { "npsso": "", "language": "en-US", "playactor": { "bin": "playactor", "ip": "", "hostId": "" } },
 
-  "steam": { "apiKey": "", "steamId": "", "language": "english", "control": true },
+  "steam": { "apiKey": "", "steamId": "", "language": "english", "control": true, "owned": true },
 
   "streamsdk": { "host": "" },
 
   "airplay": { "metadataPipe": "/tmp/shairport-sync-metadata", "bus": "system", "name": "Round Display" },
 
   "tasks": { "file": "tasks.json", "publicUrl": "" },
+
+  "collection": {
+    "file": "collection.json",
+    "publicUrl": "",
+    "bgg": { "username": "", "token": "" },
+    "pricecharting": { "token": "" },
+    "rawg": { "username": "", "key": "" },
+    "watchFile": "",
+    "watchPreset": "auto",
+    "upcLookup": true
+  },
 
   "audio": {
     "enabled": true,

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Reading ONLY the note chart out of a Clone Hero .sng package — never its audio, video or images.
 // Shared by the bridge (bridge/lib/charts.js, Node) and the browser (rhythm/charts.js); no DOM, no Node APIs.
 //

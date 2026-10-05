@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Perfect Circle — draw a circle in one go. While you draw, the stroke shows how round it is (green = on the
 // circle, red = off) with a live estimate; when you let go the ideal circle is laid over it and you get a
 // percentage. Each drawing is one round; the chart keeps your five best circles.

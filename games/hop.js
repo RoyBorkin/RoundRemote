@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Sketch Jump — an endless bouncer on a page of graph paper. A little round critter (orange puff with a
 // beak and a sprout on its head) bounces by itself; steer it left and right from ledge to ledge while the
 // page scrolls up. It wraps across the notebook margins. Springs launch it, a balloon lifts it, scribble

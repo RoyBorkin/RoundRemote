@@ -1,6 +1,10 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm: where learned songs live — a tiny IndexedDB wrapper (database 'rr-rhythm').
 //   analyses  keyed by analysis id   (one Analysis object per "learn" of a song; see RHYTHM_GUIDE)
 //   versions  keyed by version id    (index 'key' = song key) — a version = an analysis + a chart seed
+// For the Library both also keep `track` = { service, id, uri, albumUri, title, artist, album, art, durationMs } (to
+// play the song again later), and a version its play stats (`stats[game][difficulty]`, `plays`, `lastPlayed`; see
+// session.js). Older records without them still load: the song key and `title` / `artist` stand in.
 // If IndexedDB can't be opened (private mode, old browser, blocked storage) everything keeps working
 // in memory for this session.
 const DB = 'rr-rhythm';

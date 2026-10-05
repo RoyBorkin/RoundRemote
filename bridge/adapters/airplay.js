@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // AirPlay adapter — the Pi becomes an AirPlay 1/2 speaker via shairport-sync, and this
 // adapter shows what the phone/Mac is streaming (metadata pipe) and remote-controls it
 // back over D-Bus (play/pause/next/previous/volume). Seeking isn't possible over AirPlay.
@@ -6,6 +7,7 @@
 //   metadata = { enabled = "yes"; include_cover_art = "yes"; pipe_name = "/tmp/shairport-sync-metadata"; };
 //   and D-Bus enabled (dbus_service_bus = "system";)   — pi/setup.sh configures this.
 import fs from 'node:fs';
+import net from 'node:net';
 import { execFile } from 'node:child_process';
 import { log } from '../lib/util.js';
 
@@ -85,7 +87,15 @@ export function create({ hub, cfg, setStatus }) {
     }
     setStatus('listening to shairport-sync');
     publish();
-    stream = fs.createReadStream(conf.metadataPipe, { encoding: 'utf8' });
+    // The pipe is a FIFO: opened non-blocking and read through a net.Socket (epoll), never with a blocking read on
+    // the thread pool — a FIFO without a writer (shairport-sync not running) would otherwise hold a pool thread
+    // forever, and the bridge could not exit (process.exit waits for that thread).
+    let fd;
+    try { fd = fs.openSync(conf.metadataPipe, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK); }
+    catch (e) { setStatus(`pipe error: ${e.message}`); retryT = setTimeout(open, 10000); return; }
+    try { stream = fs.fstatSync(fd).isFIFO() ? new net.Socket({ fd, readable: true, writable: false }) : fs.createReadStream(null, { fd }); }
+    catch (e) { try { fs.closeSync(fd); } catch {} setStatus(`pipe error: ${e.message}`); retryT = setTimeout(open, 10000); return; }
+    stream.setEncoding('utf8');
     stream.on('data', (chunk) => {
       buf += chunk;
       let m, last = 0;
@@ -97,7 +107,8 @@ export function create({ hub, cfg, setStatus }) {
       buf = buf.slice(last);
       if (buf.length > 5e6) buf = '';
     });
-    const reopen = () => { stream = null; retryT = setTimeout(open, 1000); };
+    const mine = stream;
+    const reopen = () => { mine.destroy(); if (stream !== mine) return; stream = null; clearTimeout(retryT); retryT = setTimeout(open, 1000); };
     stream.on('end', reopen);
     stream.on('error', (e) => { setStatus(`pipe error: ${e.message}`); reopen(); });
   }
@@ -113,7 +124,7 @@ export function create({ hub, cfg, setStatus }) {
   return {
     id: 'airplay',
     async start() { open(); },
-    stop() { clearTimeout(retryT); stream?.destroy(); },
+    stop() { clearTimeout(retryT); stream?.destroy(); stream = null; },
     async command(_id, cmd, value) {
       if (cmd === 'play') { await dbus('RemoteControl', 'Play'); st.playing = true; st.sampledAt = Date.now(); }
       else if (cmd === 'pause') { await dbus('RemoteControl', 'Pause'); st.progressMs = snapshot(); st.sampledAt = Date.now(); st.playing = false; }

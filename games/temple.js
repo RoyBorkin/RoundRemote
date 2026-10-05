@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Temple Dash — run along an ancient stone path hanging over a dark void, seen from behind the runner.
 // The path turns 90° at corners (swipe left/right near the corner or you run off the edge); between
 // corners a swipe changes lane. Swipe up to jump (logs, gaps), down to slide (stone arches).

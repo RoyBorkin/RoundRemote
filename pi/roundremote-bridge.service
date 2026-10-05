@@ -1,3 +1,4 @@
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
 [Unit]
 Description=Round Remote bridge (Roon / UPnP / AirPlay / Cast + app server)
 After=network-online.target shairport-sync.service

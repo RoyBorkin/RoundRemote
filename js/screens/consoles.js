@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home → PlayStation / Steam: a round "console" screen.
 //   • Now     — the game being played, large in the middle over its blurred art, status ring + trophy /
 //               achievement progress arc around the rim, console power (PS) or Big Picture / launch (Steam)
@@ -12,6 +13,7 @@ import { go } from '../core/router.js';
 import { store } from '../core/store.js';
 import { getService, provider } from '../providers/registry.js';
 import { bridgeBase } from '../providers/bridge.js';
+import { heartButton } from '../../apps/wishlist-store.js';
 
 const TROPHY_D = 'M7 3h10v2h3.5v3.2A4.3 4.3 0 0 1 16.4 12.5a5.2 5.2 0 0 1-3.4 2.9V18h3v3H8v-3h3v-2.6a5.2 5.2 0 0 1-3.4-2.9A4.3 4.3 0 0 1 3.5 8.2V5H7V3zm0 4H5.5v1.2A2.3 2.3 0 0 0 7 10.4V7zm10 0v3.4a2.3 2.3 0 0 0 1.5-2.2V7H17z';
 const trophyIc = (cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${TROPHY_D}"/></svg>`;
@@ -56,7 +58,7 @@ function psnModel(d) {
     recent: (d.recent || []).map((r) => ({ key: r.titleId, name: r.name, art: r.art, shape: 'square', playing: now && (r.titleId === d.now.titleId || r.name === d.now.name),
       sub: [r.platform, hoursText(r.playtimeMin), ago(r.lastPlayed)].filter(Boolean).join(' · ') })),
     friends: d.friends ? { total: d.friends.total, online: d.friends.online.map((f) => ({ name: f.onlineId, avatar: f.avatar, key: f.game ? 'ingame' : 'online',
-      sub: f.game ? f.game.name : `Online${f.platform ? ` · ${f.platform}` : ''}`, art: f.game?.icon || '', shape: 'square' })) } : null,
+      sub: f.game ? f.game.name : `Online${f.platform ? ` · ${f.platform}` : ''}`, art: f.game?.icon || '', game: f.game?.name || '', gameId: f.game?.titleId, shape: 'square' })) } : null,
     errors: d.errors || {},
   };
 }
@@ -76,11 +78,11 @@ function steamModel(d) {
       game: a ? { name: a.name, pct: a.percent, current: a.current, unlocked: a.unlocked, total: a.total,
         recent: a.recent.map((x) => ({ name: x.name, desc: x.desc, icon: x.icon, at: x.at, rate: x.rate })),
         next: a.next.map((x) => ({ name: x.name, desc: x.desc, icon: x.icon, rate: x.rate })) } : null },
-    recent: (d.recent || []).map((r) => ({ key: r.appid, appid: r.appid, name: r.name, art: r.header, shape: 'wide', playing: now && r.appid === now.appid,
+    recent: (d.recent || []).map((r) => ({ key: r.appid, appid: r.appid, name: r.name, art: r.header, capsule: r.capsule, shape: 'wide', playing: now && r.appid === now.appid,
       sub: [`${r.hours.toLocaleString()} h`, r.hours2w ? `${r.hours2w} h past 2 weeks` : ''].filter(Boolean).join(' · ') })),
     friends: d.friends ? { total: d.friends.total, private: d.friends.private, online: d.friends.online.map((f) => ({ name: f.name, avatar: f.avatar,
       key: f.game ? 'ingame' : ['away', 'snooze'].includes(f.state) ? 'away' : f.state === 'busy' ? 'busy' : 'online',
-      sub: f.game ? f.game.name : STEAM_STATE[f.state] || 'Online', art: f.game?.header || '', shape: 'wide' })) } : null,
+      sub: f.game ? f.game.name : STEAM_STATE[f.state] || 'Online', art: f.game?.header || '', capsule: f.game?.capsule || '', game: f.game?.name || '', gameId: f.game?.appid, shape: 'wide' })) } : null,
     control: !!d.control,
     errors: d.errors || {},
   };
@@ -150,6 +152,8 @@ export function ConsolesScreen({ id }) {
   const note = (msg, action) => h('div.cs-note', h('div', msg), action ? h('button.pill.small', { type: 'button', onclick: (e) => { e.stopPropagation(); action.onClick(); } }, action.label) : null);
   const head = (title, sub) => h('div.cs-head', h('div.cs-title', title), sub ? h('div.cs-sub', sub) : null);
   const typeDot = (t) => h('i.cs-tt', { dataset: { t }, html: trophyIc() });
+  // ♡ save a game to the Wish Lists app (apps/wishlist.js)
+  const wishBtn = (name, art, artAlt, ref) => heartButton({ kind: 'game', title: name, art: art || artAlt || '', artAlt: artAlt || '', source: steam ? 'steam' : 'psn', ref: ref != null ? String(ref) : '' }, { className: 'cs-wish' });
 
   // ---------- Now
   function renderNow(m) {
@@ -213,7 +217,7 @@ export function ConsolesScreen({ id }) {
     pe.append(head('Recently played', m.recent.length ? `${m.recent.length} games` : ''));
     if (!m.recent.length) { pe.append(note(m.errors.recent || (steam && m.me.private ? 'Your game details are private on Steam' : 'Nothing played recently'))); return; }
     pe.append(list(m.recent.map((r) => row({ art: r.art, shape: r.shape, title: r.name, sub: r.playing ? `Playing now · ${r.sub}` : r.sub, cls: r.playing ? 'playing' : '',
-      right: steam && m.control ? h('button.ibtn.small.cs-go', { type: 'button', 'aria-label': `Start ${r.name}`, html: icon('play'), onclick: (e) => { e.stopPropagation(); start(r); } }) : null }))));
+      right: [wishBtn(r.name, r.capsule, r.art, r.key), steam && m.control ? h('button.ibtn.small.cs-go', { type: 'button', 'aria-label': `Start ${r.name}`, html: icon('play'), onclick: (e) => { e.stopPropagation(); start(r); } }) : null] }))));
   }
 
   // ---------- Trophies / achievements
@@ -228,9 +232,9 @@ export function ConsolesScreen({ id }) {
         h('div.cs-lvl-ring', h('div.cs-lvl-num', num(a.level)), h('div.cs-lvl-cap', `Level · ${a.tierPct || 0}%`))),
       h('div.cs-counts', TYPES.map((t) => h('div.cs-count', typeDot(t), h('b', num(a.counts?.[t])), h('span', t)))));
     } else if (a?.kind === 'achievements' && g) {
-      scroll.append(h('div.cs-level', { '--p': `${g.pct}` },
+      scroll.append(...[h('div.cs-level', { '--p': `${g.pct}` },
         h('div.cs-lvl-ring', h('div.cs-lvl-num', `${Math.round(g.pct)}%`), h('div.cs-lvl-cap', `${g.unlocked} of ${g.total}`))),
-      a.level != null ? h('div.cs-counts', h('div.cs-count.steam-lvl', h('i.cs-lvlbadge', String(a.level)), h('span', 'Steam level'))) : null);
+      a.level != null ? h('div.cs-counts', h('div.cs-count.steam-lvl', h('i.cs-lvlbadge', String(a.level)), h('span', 'Steam level'))) : null].filter(Boolean));
     }
     if (!g) { scroll.append(note(m.errors.game || m.errors.achievements || (steam ? 'No achievements for this game' : 'No trophies yet'))); return; }
     if (a.kind === 'trophies') scroll.append(h('div.cs-gprog', h('span', g.name), h('div.cs-bar', { '--p': `${g.pct}%` }), h('b', `${g.pct}%`)));
@@ -257,7 +261,7 @@ export function ConsolesScreen({ id }) {
     if (f.private) { pe.append(note('Your friends list is private on Steam — make it public under Edit Profile → Privacy Settings to see who’s online.')); return; }
     if (!f.online.length) { pe.append(note('None of your friends are online right now')); return; }
     pe.append(list(f.online.map((x) => row({ round: true, art: h('div.cs-fava', avatar(x.avatar, x.name, 'md'), h('i.cs-sdot', { dataset: { s: x.key } })), title: x.name, sub: x.sub,
-      right: x.art ? art(x.art, x.shape, x.sub, 'mini') : null, cls: x.key === 'ingame' ? 'playing' : '' }))));
+      right: [x.art ? art(x.art, x.shape, x.sub, 'mini') : null, x.game ? wishBtn(x.game, x.capsule, x.art, x.gameId) : null], cls: x.key === 'ingame' ? 'playing' : '' }))));
   }
 
   // ---------- states

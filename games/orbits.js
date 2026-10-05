@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Orbits — two ways to play with gravity on the round screen.
 //  Spinning: 30 hand-made levels. Touch where a planet should start, drag to set its speed and direction
 //    (a dotted line shows where it will go), let go to fling it. Keep planets circling the black holes until the

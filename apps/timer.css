@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* Timer (apps/timer.js) */
 .tm { position: absolute; inset: 0; --act: var(--ac); --sand: #f2c27a; }
 #app[data-mode="light"] .tm { --act: color-mix(in srgb, var(--ac) 55%, rgb(var(--ink))); --sand: #c98a32; }

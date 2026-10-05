@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Steam — your profile and status (online / away / in-game), the game being played now, recently played
 // games with hours, the current game's achievements (progress, latest unlocks, what's next) and the friends
 // who are online, from the Steam Web API (a free key from steamcommunity.com/dev/apikey). The key stays here
@@ -7,7 +8,11 @@
 // (steam://open/bigpicture) through the OS opener (start / open / xdg-open) — Steam must be installed here.
 //
 // Actions: GET status · POST setup {apiKey, user} · POST signout · GET summary · POST launch {appid} · POST bigpicture
-// config.json → "steam": { apiKey, steamId, language, control, opener, apiBase, cdnBase, mediaBase, stateFile }
+//          GET owned (every game you own: IPlayerService/GetOwnedGames with app info, cached 6 h — also in the summary as
+//          `owned` [{appid, name, hours}] for Decide, and the Collection app's Steam connection)
+//          Wish Lists app (apps/wishlist.js): GET store {term} (Steam store search) · GET wishlist (your Steam wishlist)
+//          · GET fetchjson {url} (JSON from the few public APIs the app searches when the browser can't reach them: fetchHosts)
+// config.json → "steam": { apiKey, steamId, language, control, opener, apiBase, cdnBase, mediaBase, storeBase, country, fetchHosts, stateFile, owned }
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -33,7 +38,9 @@ export function create({ cfg = {}, setStatus }) {
     apiBase: 'https://api.steampowered.com',
     cdnBase: 'https://cdn.cloudflare.steamstatic.com/steam/apps',
     mediaBase: 'https://media.steampowered.com/steamcommunity/public/images/apps',
-    language: 'english', control: true, opener: '', apiKey: '', steamId: '',
+    storeBase: 'https://store.steampowered.com', country: 'US',
+    fetchHosts: ['itunes.apple.com', 'store.steampowered.com', 'openlibrary.org'],
+    language: 'english', control: true, opener: '', apiKey: '', steamId: '', owned: true,
     stateFile: path.join(__dirname, '..', 'steam.json'),
     ...(cfg.steam || {}),
   };
@@ -101,6 +108,9 @@ export function create({ cfg = {}, setStatus }) {
     appid: g.appid, name: g.name, hours2w: Math.round((g.playtime_2weeks || 0) / 6) / 10, hours: Math.round((g.playtime_forever || 0) / 6) / 10,
     icon: g.img_icon_url ? `${c.mediaBase}/${g.appid}/${g.img_icon_url}.jpg` : '', ...art(g.appid),
   })));
+  // every game you own (private "game details" → an empty list); 6 h cache — it changes when you buy something
+  const owned = () => cached('owned', 6 * 3600e3, async () => ((await api('IPlayerService', 'GetOwnedGames', 1, { steamid: me(), include_appinfo: 1, include_played_free_games: 1 })).response?.games || [])
+    .filter((g) => g?.name).map((g) => ({ appid: g.appid, name: g.name, hours: Math.round((g.playtime_forever || 0) / 6) / 10, lastPlayed: g.rtime_last_played ? g.rtime_last_played * 1000 : null })));
   async function achievements(appid, current) {
     const [mine, schema, global] = await Promise.all([
       cached(`ach:${appid}`, current ? 60e3 : 5 * 60e3, () => api('ISteamUserStats', 'GetPlayerAchievements', 1, { steamid: me(), appid, l: c.language })
@@ -139,14 +149,15 @@ export function create({ cfg = {}, setStatus }) {
     const errors = {};
     const safe = (k, p) => p.catch((e) => { if (e.auth) throw e; errors[k] = e.message; return null; });
     try {
-      const [prof, lvl, games, fr] = await Promise.all([profile(), safe('level', level()), safe('recent', recent()), safe('friends', friends())]);
+      const [prof, lvl, games, fr, own] = await Promise.all([profile(), safe('level', level()), safe('recent', recent()), safe('friends', friends()), c.owned ? safe('owned', owned()) : null]);
       let now = prof.game ? { ...prof.game } : null;
       if (now) { const g = games?.find((x) => x.appid === now.appid); if (g) Object.assign(now, { hours: g.hours, hours2w: g.hours2w, icon: g.icon }); }
       let ach = null;
       const appid = now?.appid || games?.[0]?.appid;
       if (appid) { try { ach = await achievements(appid, !!now); } catch (e) { if (e.auth) throw e; errors.achievements = e.message; } }
       if (ach && !ach.name) ach.name = now?.name || games?.find((g) => g.appid === appid)?.name || '';
-      return { signedIn: true, profile: { ...prof, level: lvl }, now, achievements: ach, recent: games, friends: fr, control: !!c.control, errors, at: Date.now() };
+      return { signedIn: true, profile: { ...prof, level: lvl }, now, achievements: ach, recent: games, friends: fr, control: !!c.control, errors, at: Date.now(),
+        ...(own ? { owned: own.map(({ appid, name, hours }) => ({ appid, name, hours })) } : {}) };
     } catch (e) {
       if (e.auth) return { signedIn: false, error: e.message };
       throw e;
@@ -166,8 +177,77 @@ export function create({ cfg = {}, setStatus }) {
     });
   }
 
+  // ---------------------------------------------------------------- Wish Lists: store search, your wishlist, a small JSON fetcher
+  async function getJson(url, what) {
+    let r;
+    try { r = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Accept: 'application/json' } }); }
+    catch (e) { throw fail(`Can't reach ${what} (${e.cause?.code || e.message})`); }
+    const text = await r.text();
+    let j; try { j = JSON.parse(text); } catch { throw fail(`${what} answered ${r.status} without JSON`); }
+    if (!r.ok) throw fail(`${what} error ${r.status}`);
+    return j;
+  }
+  const yearOf = (t) => (t ? new Date(t * 1000).getUTCFullYear() : null);
+  async function storeSearch(term) {
+    term = String(term || '').trim().slice(0, 100);
+    if (!term) return { items: [] };
+    return cached(`store:${term.toLowerCase()}`, 10 * 60e3, async () => {
+      const j = await getJson(`${c.storeBase}/api/storesearch/?${new URLSearchParams({ term, l: c.language, cc: c.country })}`, 'the Steam store');
+      return { items: (j.items || []).filter((x) => x.type === 'app' || !x.type).slice(0, 20).map((x) => ({
+        appid: x.id, name: x.name, ...art(x.id), small: x.tiny_image || '', metascore: +x.metascore || null,
+        price: x.price ? { final: x.price.final / 100, currency: x.price.currency } : null,
+        platforms: Object.entries(x.platforms || {}).filter(([, v]) => v).map(([k]) => k),
+      })) };
+    });
+  }
+  /** Names, studio and year for appids (IStoreBrowseService/GetItems, 50 at a time). */
+  async function storeItems(ids) {
+    const out = new Map();
+    for (let i = 0; i < ids.length; i += 50) {
+      const input = { ids: ids.slice(i, i + 50).map((appid) => ({ appid })), context: { language: c.language, country_code: c.country }, data_request: { include_basic_info: true, include_release: true } };
+      try {
+        const j = await api('IStoreBrowseService', 'GetItems', 1, { input_json: JSON.stringify(input) });
+        for (const x of j.response?.store_items || []) if (x.appid && x.name) out.set(x.appid, { name: x.name, by: x.basic_info?.developers?.[0]?.name || x.basic_info?.publishers?.[0]?.name || '', year: yearOf(x.release?.steam_release_date || x.release?.original_release_date) });
+      } catch (e) { if (e.auth) throw e; log('steam', `store items: ${e.message}`); }
+    }
+    return out;
+  }
+  const wishlist = () => cached('wishlist', 10 * 60e3, async () => {
+    const j = await api('IWishlistService', 'GetWishlist', 1, { steamid: me() });
+    const rows = (j.response?.items || []).sort((a, b) => (a.priority || 0) - (b.priority || 0) || (b.date_added || 0) - (a.date_added || 0)).slice(0, 300);
+    const info = await storeItems(rows.map((x) => x.appid));
+    // anything GetItems didn't name: the store's appdetails (one app per call, so only a few)
+    let n = 0;
+    for (const x of rows) {
+      if (info.has(x.appid) || n++ >= 15) continue;
+      try {
+        const d = (await getJson(`${c.storeBase}/api/appdetails?${new URLSearchParams({ appids: x.appid, l: c.language, cc: c.country })}`, 'the Steam store'))?.[x.appid]?.data;
+        if (d?.name) info.set(x.appid, { name: d.name, by: d.developers?.[0] || '', year: parseInt(String(d.release_date?.date || '').match(/\d{4}/)?.[0], 10) || null });
+      } catch {}
+    }
+    return rows.filter((x) => info.has(x.appid)).map((x) => ({ appid: x.appid, ...info.get(x.appid), ...art(x.appid), priority: x.priority || 0, added: x.date_added ? x.date_added * 1000 : null }));
+  });
+
   const actions = {
+    async store({ term }) { return storeSearch(term); },
+    async wishlist() {
+      if (!ready()) throw fail(key() ? 'Add your Steam profile in Steam setup first' : 'Set up Steam (Home → Steam) to import your wishlist');
+      return { items: await wishlist() };
+    },
+    async fetchjson({ url }) {
+      let u;
+      try { u = new URL(String(url || '')); } catch { throw fail('bad url'); }
+      const hosts = Array.isArray(c.fetchHosts) ? c.fetchHosts : [];
+      if (!/^https?:$/.test(u.protocol) || !hosts.some((h) => u.hostname === h || u.hostname.endsWith(`.${h}`))) throw fail(`${u.hostname} is not on the bridge's list (steam.fetchHosts)`);
+      return cached(`fetch:${u.href}`, 5 * 60e3, () => getJson(u.href, u.hostname));
+    },
     async status() { return { signedIn: ready(), hasKey: !!key(), steamId: me(), name: st.name || '', control: !!c.control }; },
+    async owned({ force } = {}) {
+      if (!ready()) throw fail(key() ? 'Add your Steam profile in Steam setup first' : 'Set up Steam (Home → Steam) first');
+      if (force === '1' || force === true) cache.delete('owned');
+      const games = await owned();
+      return { items: games.map((g) => ({ ...g, ...art(g.appid) })), count: games.length, at: cache.get('owned')?.at || Date.now() };
+    },
     async setup({ apiKey, user }) {
       const k = String(apiKey || '').trim() || key();
       if (!/^[0-9A-F]{32}$/i.test(k || '')) throw fail('A Steam Web API key is 32 letters and digits (steamcommunity.com/dev/apikey)');

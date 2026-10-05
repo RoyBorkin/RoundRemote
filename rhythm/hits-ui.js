@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster's canvas UI kit: text in the right font and direction (Hebrew → Rubik, right to left), buttons with keyboard
 // focus, chips, tokens, year cards and the mystery record. One per round: makeUi(g, { he: () => bool, color: () => css }).
 import { TAU, clamp, THEME } from '../games/kit.js';

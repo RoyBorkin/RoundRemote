@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster Bingo, hot-seat on the round display. The real game: spin the disco ball for a category, the DJ plays a
 // song, everyone writes an answer within 25 seconds, the card is flipped, and whoever was right crosses a box of that
 // category's colour on their scorecard; the first to complete a line (row, column or diagonal) wins; a tie plays on

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Google Home — sends text commands to Google Assistant ("turn off the kitchen lights", "good night",
 // "broadcast dinner is ready") with the Google Assistant Service (the same API Home Assistant's
 // "Google Assistant SDK" integration uses), so it controls everything in your Google Home. Answers

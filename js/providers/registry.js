@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // All services shown on the home ring. Order = clockwise from the top.
 import { DemoProvider } from './demo.js';
 import { SpotifyProvider } from './spotify.js';

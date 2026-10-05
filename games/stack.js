@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Stack — an isometric tower of slabs. A new slab slides back and forth over the top (alternating
 // axes); tap to drop it. Whatever hangs over the slab below is sliced off and tumbles away, so the
 // tower gets narrower. Land it (almost) exactly for a "Perfect": nothing is cut, and from five

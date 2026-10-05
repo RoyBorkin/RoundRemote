@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // High scores: the 5 best places for every game (and every mode / option of a game), with the player's name, kept with the rest of the
 // settings (store key "gameScores"), so a settings profile copies them to another display too.
 import { store } from '../js/core/store.js';

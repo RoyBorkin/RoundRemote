@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Four more Kinetic Type variants, modelled on reference lyric videos. All of them work for
 // right-to-left lyrics too: every line carries dir="rtl"/"ltr", layouts use logical sides
 // (start / end), and fonts fall back to Hebrew-capable faces (Suez One, Rubik, Rubik Dirt, Karantina).

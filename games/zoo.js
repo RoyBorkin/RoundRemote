@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Zoo Splash — two teams of animal pucks on a little grassy island in the sea. On your turn pull one of
 // your animals back like a slingshot and let go: pucks slide, bump and bounce off the stone walls, and any
 // puck whose middle leaves the island falls into the sea. Knock the whole other team in to win.

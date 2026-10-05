@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Music streamer (Home → Fosi S3): StreamUnlimited "StreamSDK" streamers — the Fosi Audio S3 and other network
 // streamers built on StreamUnlimited modules, recognisable by their web page at http://<ip>/webclient.
 // Their small JSON API (port 80) gives everything the round screen needs:

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm analyser: PCM → Analysis (see RHYTHM_GUIDE.md "Analysis").
 //   analyzePCM(samples, sampleRate, { key, source, onProgress })   synchronous, chunked internally
 //   analyzePCMAsync(...)                                            same, yields to the event loop (UI stays alive)

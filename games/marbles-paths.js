@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Marble Chain — the six tracks. Pure geometry, no DOM: every path is a list of points in normalised screen
 // coordinates (centre 0,0 · radius of the round screen = 1 · y points down), resampled into an arc-length table
 // so the marbles can move by distance.

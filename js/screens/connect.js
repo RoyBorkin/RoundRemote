@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Per-service sign-in / setup screen. Each service signs in once; tokens are remembered.
 import { h, badge, iconBtn, onCircle, clear } from '../ui/dom.js';
 import { field } from '../ui/keyboard.js';
@@ -461,7 +462,7 @@ export function ConnectScreen({ id }) {
     } else if (st) {
       setStatus(st.hasClient ? 'One step left: sign in with Google.' : 'Google Home needs a (free) Google Cloud OAuth client — see the steps below.', 'warn');
       let cid = '', secret = '';
-      body.append(
+      body.append(...[
         h('div.note', '1. In console.cloud.google.com create a project, enable the “Google Assistant API”, set up the OAuth consent screen (add yourself as a test user) and create an OAuth client ID of type “Desktop app”.'),
         field({ label: 'Client ID', value: st.clientId || '', placeholder: '….apps.googleusercontent.com', onChange: (v) => { cid = v; } }),
         field({ label: 'Client secret', value: '', secret: true, placeholder: st.hasClient ? '(saved)' : 'GOCSPX-…', onChange: (v) => { secret = v; } }),
@@ -472,7 +473,7 @@ export function ConnectScreen({ id }) {
         h('div.note', `2. On the computer running the bridge, open ${base.replace(/\/\/[^:/]+/, '//localhost')}/api/adapters/googlehome/signin in a browser and sign in with your Google account (the one your Google Home uses).`),
         st.hasClient ? h('div.actions', btn('Sign in with Google', () => window.open(`${base}/api/adapters/googlehome/signin`, '_blank'), 'primary'), btn('Check again', () => render())) : null,
         h('div.note.dim', 'Or copy a credentials.json made with google-oauthlib-tool into the bridge folder as googlehome.json. Your speakers and displays work without signing in (Speakers tab).'),
-        h('div.actions', btn('Open anyway', () => openService(id))),
+        h('div.actions', btn('Open anyway', () => openService(id)))].filter(Boolean)
       );
     }
   }

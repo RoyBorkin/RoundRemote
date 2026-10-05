@@ -1,5 +1,6 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // PlayStation Network — your profile, presence (online / the game you're playing now), recently played
-// games with play time, trophies (level + counts, the current game's progress and latest trophies) and the
+// games with play time (and every game you've played, for the Collection app), trophies (level + counts, the current game's progress and latest trophies) and the
 // friends who are online. Same endpoints the PlayStation App uses, called directly like the psn-api
 // library does (github.com/achievements-app/psn-api) — no npm packages.
 //
@@ -10,7 +11,7 @@
 // Console power (optional): with the `playactor` CLI installed on this computer (npm i -g playactor, then a
 // one-time `playactor login --ps5`), GET console / POST console {action:'wake'|'standby'}.
 //
-// Actions: GET status · POST signin {npsso} · POST signout · GET summary · GET console · POST console {action}
+// Actions: GET status · POST signin {npsso} · POST signout · GET summary · GET titles · GET console · POST console {action}
 // config.json → "psn": { npsso, language, authBase, apiBase, stateFile, playactor: { bin, ip, hostId, ps4, args } | false }
 import fs from 'node:fs';
 import path from 'node:path';
@@ -147,17 +148,31 @@ export function create({ cfg = {}, setStatus }) {
     return { level: +j.trophyLevel || 0, progress: +j.progress || 0, tier: +j.tier || 0, counts: { platinum: 0, gold: 0, silver: 0, bronze: 0, ...(j.earnedTrophies || {}) } };
   });
   const HERO_TYPES = ['GAMEHUB_COVER_ART', 'BACKGROUND_LAYER_ART', 'FOUR_BY_THREE_BANNER', 'SIXTEEN_BY_NINE_BANNER', 'MASTER'];
-  const recent = () => cached('recent', 5 * 60e3, async () => {
-    const j = await api('/gamelist/v2/users/me/titles', { categories: 'ps4_game,ps5_native_game', limit: 12, offset: 0 });
-    return (j.titles || []).map((t) => {
-      const imgs = t.concept?.media?.images || [];
-      const hero = HERO_TYPES.map((k) => imgs.find((i) => i.type === k)?.url).find(Boolean) || '';
-      return {
-        titleId: t.titleId, name: t.localizedName || t.name, art: t.localizedImageUrl || t.imageUrl || '', hero,
-        platform: platformName(t.category), playtimeMin: isoMinutes(t.playDuration), playCount: t.playCount || 0,
-        lastPlayed: t.lastPlayedDateTime || null, titleIds: t.concept?.titleIds || [t.titleId],
-      };
-    });
+  const shapeTitle = (t) => {
+    const imgs = t.concept?.media?.images || [];
+    const hero = HERO_TYPES.map((k) => imgs.find((i) => i.type === k)?.url).find(Boolean) || '';
+    return {
+      titleId: t.titleId, name: t.localizedName || t.name, art: t.localizedImageUrl || t.imageUrl || '', hero,
+      platform: platformName(t.category), playtimeMin: isoMinutes(t.playDuration), playCount: t.playCount || 0,
+      lastPlayed: t.lastPlayedDateTime || null, titleIds: t.concept?.titleIds || [t.titleId],
+    };
+  };
+  const GAMELIST = '/gamelist/v2/users/me/titles', CATEGORIES = 'ps4_game,ps5_native_game';
+  const recent = () => cached('recent', 5 * 60e3, async () => ((await api(GAMELIST, { categories: CATEGORIES, limit: 12, offset: 0 })).titles || []).map(shapeTitle));
+  // every PS4 / PS5 game you've ever played (the same list, paged: 200 a page, up to 3000 games)
+  const allTitles = () => cached('titles', 30 * 60e3, async () => {
+    const out = [], seen = new Set();
+    let offset = 0, total = null;
+    for (let page = 0; page < 15; page++) {
+      const j = await api(GAMELIST, { categories: CATEGORIES, limit: 200, offset });
+      const list = j.titles || [];
+      for (const t of list) if (t?.titleId && !seen.has(t.titleId)) { seen.add(t.titleId); out.push(shapeTitle(t)); }
+      total = Number(j.totalItemCount) || total;
+      const next = Number(j.nextOffset);
+      if (!list.length || !Number.isFinite(next) || next <= offset || (total != null && next >= total)) break;
+      offset = next;
+    }
+    return { titles: out, total: total ?? out.length, at: Date.now() };
   });
   // the trophy set of a game: by its title id (PPSA…/CUSA…) when playing, else your most recently updated set
   const trophyTitleFor = (titleId) => cached(`tt:${titleId}`, 2 * 60e3, async () => {
@@ -273,6 +288,13 @@ export function create({ cfg = {}, setStatus }) {
     },
     async signout() { st = {}; save(); cache.clear(); status(); return { ok: true }; },
     summary,
+    /** GET /api/adapters/psn/titles[?force=1] → { titles: [{ titleId, name, art, platform, playtimeMin, playCount, lastPlayed }], total } — your whole played list. */
+    async titles(q = {}) {
+      if (!signedIn() && !c.npsso) throw new Error('Not signed in to PlayStation Network yet');
+      if (q.force) cache.delete('titles');
+      try { return await allTitles(); }
+      catch (e) { if (e.signin) throw new Error(e.message); throw e; }
+    },
     async console(body, { req }) {
       if (req.method !== 'POST') return consoleState();
       const action = body.action;

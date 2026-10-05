@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 1: clean "now playing" — round artwork, title, artist, album.
 // When the controls hide, Classic view can show one of:
 //   • the artwork full screen (clear or milky blur), or

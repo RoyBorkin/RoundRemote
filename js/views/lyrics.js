@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 3: synced lyrics with six selectable styles (Kinetic Type has thirteen variants).
 //   basic    – classic centred list that glides to the active line
 //   animated – (Kinetic Type variant) karaoke: words fill in as they're sung, lines rise & blur between

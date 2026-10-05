@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
 # Round Remote — Raspberry Pi setup (Raspberry Pi OS Bookworm, desktop image).
 # Installs Node + the bridge as a service, optional AirPlay receiver (shairport-sync),
 # and starts Chromium full-screen on the round display at boot.

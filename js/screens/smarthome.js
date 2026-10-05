@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Home category: smart-home screens.
 //   • Home Assistant — Favourites / Rooms / Scenes with round tiles and round control panels
 //   • Google Home   — Google Assistant commands (tiles you choose, ask anything, broadcast) and your speakers
@@ -202,7 +203,7 @@ function GoogleHomeScreen(svc, gh) {
   }
 
   function tile(ic, label, onTap, onHold, cls = '') {
-    const orb = h(`button.sh-orb${cls ? '.' + cls : ''}`, { type: 'button', html: icon(ic) });
+    const orb = h(`button.sh-orb${cls ? '.' + cls : ''}`, { type: 'button', 'aria-label': label, html: icon(ic) });
     let held = false;
     orb.onclick = (e) => { e.stopPropagation(); if (held) { held = false; return; } onTap(orb); };
     if (onHold) onLongPress(orb, () => { held = true; onHold(); });

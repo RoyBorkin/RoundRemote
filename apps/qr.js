@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // A small, dependency-free QR code encoder (ISO/IEC 18004): byte mode, versions 1–10, error correction M,
 // automatic mask selection. Enough for a URL of up to 213 bytes.
 //   qrEncode(text) → { size, version, mask, dark(x, y) → bool, modules: Uint8Array(size*size) }

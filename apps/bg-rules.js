@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Rules: short summaries of 40 games, written in our own words (not rulebook text).
 // Each: { id, name, he?, cat: board|classic|party|cards, players, time, goal, setup, turn, special, end, tips }
 // A section is a string (paragraph) or an array (bullet list). Editions and house rules vary — the notes say so.
@@ -22,6 +23,14 @@ export const RULES = [
     special: ['Rolling 7: anyone holding more than 7 cards discards half (round down). Move the robber to a new hex — it blocks production — and steal a card from a player there.', 'Distance rule: no settlement may be on a corner next to another settlement.', 'Development cards: knights (move the robber), progress cards and hidden victory points.', 'Longest Road (5+ connected segments) and Largest Army (3+ knights) are worth 2 points each, and can be taken away.'],
     end: 'The game ends the moment a player reaches 10 points on their own turn.',
     tips: ['Spread over different numbers and resources; 6 and 8 roll most often.', 'Ore and grain are the keys to cities and development cards.'] },
+
+  { id: 'talisman', name: 'Talisman', he: 'טליסמן', cat: 'board', players: '2–6', time: '2–4 hours',
+    goal: 'Grow your hero strong enough to reach the Crown of Command at the centre of the board — then use it to knock every other hero out of the game.',
+    setup: ['Each player draws (or picks) a character card and takes the Strength, Craft, Life, Fate and Gold it shows, plus its alignment (good, neutral or evil).', 'Heroes start on the space printed on their card, usually in the outer region.', 'Shuffle the Adventure, Spell and Purchase decks; characters that use spells draw their starting spells.'],
+    turn: ['Roll one die and move exactly that many spaces, clockwise or anticlockwise, within your region.', 'Then either meet another hero on your space (attack them or use a special ability) or do what the space says — often “draw 1 or 2 Adventure cards”.', 'Adventure cards are enemies to fight, strangers to meet, objects and followers to pick up, events and places.'],
+    special: ['Combat: you roll a die and add your Strength (plus weapons, followers and other bonuses); the enemy does the same with its Strength. The higher total wins, the loser loses 1 Life, a tie is a stand-off. Spirits and some foes fight psychic combat with Craft instead.', 'Enemies you defeat become trophies. At the start of your turn you may trade trophies worth 7 Strength (or 7 Craft) for +1 Strength (or Craft).', 'Fate: spend 1 to re-roll one of your own dice (once per roll).', 'Lose all your Life and your hero dies — you start again with a new character (in most editions, as long as nobody has reached the Crown yet).', 'Toad: some cards turn you into a toad for 3 turns — Strength 1, Craft 1, no objects or followers.', 'Regions: cross from outer to middle at the river or the Sentinel, and into the inner region through the Portal of Power or with help. You need a Talisman to cross the Valley of Fire to the Crown.'],
+    end: 'The first hero to reach the Crown of Command casts the Command Spell on each of their turns, costing every other hero a Life; the last hero standing wins. Many groups play a shorter variant (e.g. the first to reach the Crown wins).',
+    tips: ['Don’t rush inward — the inner region punishes weak heroes.', 'Keep Fate for the fights that matter.', 'Objects and followers are limited (usually 4 objects) — choose well.', 'This is the 4th edition flow; newer editions renamed or changed a few rules. Agree before you start!'] },
 
   { id: 'monopoly', name: 'Monopoly', he: 'מונופול', cat: 'board', players: '2–8', time: '1–3 hours',
     goal: 'Buy, rent and trade properties to bankrupt everyone else — be the last player with money.',

@@ -1,3 +1,4 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
 /* ==========================================================================
    Apps: the Apps ring reuses the Games ring styles (games/games.css). This file styles the shared app screen;
    each app may add its own apps/<id>.css (declared with `css` in the app's default export).
@@ -12,4 +13,4 @@
 .app-error { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 70%; text-align: center; }
 .app-error-t { font-family: var(--display); font-size: 4.6cqmin; font-weight: 700; }
 .app-error-m { margin-top: 1.6cqmin; font-size: 2.4cqmin; color: var(--muted); }
-.apps-hub .ap-home { left: 50%; top: 80%; }
+.apps-hub .ap-home { left: 50%; top: 78.2%; }   /* clear of the ring item at the bottom (20 apps) */

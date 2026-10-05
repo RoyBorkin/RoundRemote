@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Clock: four faces you swipe between — Analog (classic / minimal / neon / roman), Digital (with a seconds ring),
 // World (cities on a 24-hour ring, day and night) and Alarms (they play your music, or a built-in sound).
 // Inspired by abel-otegbola/clock-app (world clocks, alarm, stopwatch); the stopwatch and timer live in the Timer app.

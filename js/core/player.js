@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Player controller sits between the UI and the active Provider.
 // It adds optimistic updates (so the UI reacts instantly on a slow remote API),
 // guards against stale poll results right after a command, and exposes a smooth,

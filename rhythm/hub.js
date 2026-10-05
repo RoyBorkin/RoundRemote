@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Rhythm screen. Step 1: choose where the music plays (a ring of the music services, like Home).
 // Step 2: the six rhythm games on a ring around what's playing — the song (art, title, artist), a mini
 // transport, "Choose song", what the app has learned about the song (versions), and the selected game.
@@ -17,25 +18,14 @@ import { sfx } from '../games/kit.js';
 import { RHYTHM } from './index.js';
 import { currentSong, versions, selectedVersionId, selectVersion, newVersion, forget, markRelearn, needsRelearn, setActiveSong, SOURCE_SHORT, SOURCE_NAME, SOURCES, checkSource, learnJob, setVersionOffset } from './session.js';
 import { demoTick } from './clock.js';
+import { openSongLibrary, useService, signedIn } from './library.js';
 
 const MUSIC = SERVICES.filter((s) => (s.section || 'music') === 'music');
 const fmtDate = (t) => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
-const signedIn = (svc) => { const p = provider(svc.id); return !p.setupHint() && p.isAuthed(); };
 const fmtLen = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fmtOff = (ms) => `${ms > 0 ? '+' : ms < 0 ? '−' : '±'}${Math.abs(ms)} ms`;
 const SOURCE_ICON = { auto: 'sparkle', file: 'note', mic: 'mic', bridge: 'desktop', tempo: 'clock', chart: 'list' };
 const methodNow = () => (SOURCES.some((x) => x.id === store.get('rhythmSource')) ? store.get('rhythmSource') : 'auto');
-
-/** Make a service the player's provider (like openService, without leaving the Rhythm screen). */
-function useService(svc) {
-  const p = provider(svc.id);
-  store.set('rhythmService', svc.id);
-  store.set('lastService', svc.id);
-  const app = document.getElementById('app');
-  app.style.setProperty('--accent', svc.color);
-  app.style.setProperty('--brand', svc.color);
-  if (player.provider !== p) player.use(p);
-}
 
 /** Best score for this game and song (any difficulty), from the shell's top-5 lists. */
 function bestFor(gameId, key) {
@@ -123,6 +113,9 @@ export function RhythmHubScreen() {
 
   // service chip ("Change")
   const svcChip = h('button.rh-svc', { type: 'button', onclick: (e) => { e.stopPropagation(); sfx('click'); show('service'); } });
+  // the Library: every learned song and its versions, plays and best scores (replay any of them)
+  const libBtn = h('button.rh-lib-btn', { type: 'button', 'aria-label': 'Library of learned songs', onclick: (e) => { e.stopPropagation(); sfx('click'); openSongLibrary({ onChange: () => { renderLearned(); renderPlay(); } }); } },
+    h('span.rh-lib-btn-ic', { html: icon('library') }), h('span', 'Library'));
   // the song
   const art = h('div.rh-art');
   const title = h('div.rh-title'), artist = h('div.rh-artist');
@@ -143,7 +136,7 @@ export function RhythmHubScreen() {
   const gName = h('div.rh-gname'), gBlurb = h('div.rh-gblurb'), gBest = h('div.rh-gbest');
   const playBtn = h('button.gh-play.rh-play', { type: 'button', onclick: (e) => { e.stopPropagation(); play(); } }, 'Play');
   const gameBox = h('div.rh-game', gName, gBlurb, gBest, playBtn);
-  const center = h('div.rh-center', svcChip, songBox, transport, h('div.rh-sep'), gameBox);
+  const center = h('div.rh-center', h('div.rh-top', svcChip, libBtn), songBox, transport, h('div.rh-sep'), gameBox);
   const homeBtn = iconBtn('home', 'Home', () => go('home'), 'rh-home on-circle');
   const backBtn = iconBtn('back', 'Choose the service', () => show('service'), 'rh-back2 on-circle');
   const stepGames = h('div.rh-step.rh-step-games', ring, pointer, center, homeBtn, backBtn);
@@ -497,6 +490,7 @@ export function RhythmHubScreen() {
     else if (e.key === 'n' || e.key === 'MediaTrackNext') player.next();
     else if (e.key === 'p' || e.key === 'MediaTrackPrevious') player.prev();
     else if (e.key === '/' || e.key === 'b') chooseSong();
+    else if (e.key === 'l') openSongLibrary({ onChange: () => { renderLearned(); renderPlay(); } });
   };
   window.addEventListener('keydown', onKey);
 

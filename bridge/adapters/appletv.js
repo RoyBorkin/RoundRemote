@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Apple TV (and whatever is AirPlayed to it) through pyatv (https://pyatv.dev) — the library Home
 // Assistant uses. Needs Python + pyatv on the bridge computer:  pip install pyatv   (pi/setup.sh does it).
 //

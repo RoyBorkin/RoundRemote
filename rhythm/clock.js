@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm: the song clock. The music plays on the remote end, so "where are we in the song" comes from the
 // player's position — interpolated between polls, with a jump whenever a poll lands. Games need a steady
 // clock instead: songTime() follows player.position() smoothly (small backwards jitter is swallowed, bigger

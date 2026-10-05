@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Fret Fire — a round take on fret-highway rhythm games. Notes ride down a perspective highway from a
 // vanishing point near the top of the circle to a strike line of fret buttons on the lower part of the
 // screen. Lanes by difficulty (Easy 3, Medium 4, Hard+ 5), sustains with a glowing tail you keep held,

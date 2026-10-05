@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Spotify Web API provider (Authorization Code + PKCE, no server needed).
 // Uses the post-February-2026 API: playlist `items` (not `tracks`), search limit ≤ 10.
 import { Provider } from './base.js';

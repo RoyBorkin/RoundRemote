@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Windows media sessions (the players in the Windows volume/media flyout) through a small PowerShell
 // helper (bridge/tools/winmedia.ps1). One zone per app that's playing or paused:
 //   • the Apple Music app for Windows, iTunes, Cider, Sidra

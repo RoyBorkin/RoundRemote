@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm kit: the runtime every rhythm game (Fret Fire, Rhythm Rush, Chrono Ring, Beat Circles, Spin Beat) gets.
 // It learns the song if needed (and draws the learning screen), builds the chart for the chosen version and
 // difficulty, counts in while the song is started from 0 on the remote, runs the clock, judges hits, keeps
@@ -50,7 +51,7 @@ import { THEME, TAU, clamp, ease } from '../games/kit.js';
 import { go } from '../js/core/router.js';
 import { player } from '../js/core/player.js';
 import { store } from '../js/core/store.js';
-import { currentSong, selectedVersion, analysisFor, learnJob, needsRelearn, setActiveSong, SOURCE_TEXT, SOURCE_SHORT } from './session.js';
+import { currentSong, selectedVersion, analysisFor, learnJob, needsRelearn, setActiveSong, SOURCE_TEXT, SOURCE_SHORT, recordPlay, ensureTrackMeta } from './session.js';
 import * as clock from './clock.js';
 
 /** The five difficulties (same ids as rhythm/chart.js). */
@@ -263,6 +264,9 @@ export function rhythmGame(g, cfg = {}) {
     const acc = R.accuracy, gr = why === 'fail' ? 'F' : grade(acc);
     const title = why === 'fail' ? 'Song failed' : why === 'changed' ? 'The song changed' : c.miss === 0 && c.perfect + c.great + c.good > 0 ? 'Full combo!' : 'Song complete';
     g.score(R.score);
+    // the Library's stats for this version (plays, best, grade, full combo, accuracy)
+    const fc = c.miss === 0 && c.perfect + c.great + c.good > 0 && why !== 'fail';
+    if (C.game && R.version) recordPlay(R.version, { game: C.game, diff: R.diffId, score: R.score, grade: gr, acc, fc }, R.song).catch((e) => console.warn('[rhythm] stats', e));
     g.over(R.score, {
       title, win: why !== 'fail', label: `${R.diffName} · ${gr}`,
       note: `${(acc * 100).toFixed(1)}% · ${gr}  —  perfect ${c.perfect} · great ${c.great} · good ${c.good} · miss ${c.miss} · max combo ${R.maxCombo}`,
@@ -299,6 +303,7 @@ export function rhythmGame(g, cfg = {}) {
     chart.notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
     chart.notes.forEach((n, i) => { n.id = i; });
     Object.assign(R, { chart, notes: chart.notes, version: ver, analysis });
+    ensureTrackMeta(ver, song).catch(() => {});   // versions learned before the Library get the song's details
     const last = chart.notes.reduce((m, n) => Math.max(m, n.t + (n.dur || 0)), 0);
     const dur = chart.durMs || song.track.durationMs || analysis.durMs || 0;
     endAt = dur ? Math.min(dur - 300, last + 3000) : last + 3000;

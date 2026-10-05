@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Timer: Stopwatch (laps, a ring that sweeps once a minute), Timer (set it by turning the ring like a kitchen-timer
 // dial, or with presets; several can run at once) and Hourglass (falling sand you flip to restart / reverse).
 // When time is up your music plays (a playlist, or the song that was on) — or a built-in alarm sound — with a big Stop.
@@ -71,7 +72,7 @@ function timerDone(t) {
   E.timers = E.timers.filter((x) => x.id !== t.id);
   persist(); emit();
   ringAlarm({
-    time: '00:00', title: t.label || `${durName(t.total)} timer`, color: COLOR, icon: 'clock', what: E.what,
+    time: '00:00', title: t.label || `${durName(t.total)} timer`, color: COLOR, icon: 'clock', what: E.what, source: 'timer', message: `Your ${durName(t.total)} timer is up`,
     snooze: '+1 min', snoozeIcon: 'plus',
     onSnooze: () => { addTimer(60000, t.label || `${durName(t.total)} timer`); },
   });
@@ -80,7 +81,7 @@ function hourglassDone() {
   E.hg = { ...E.hg, state: 'done', remain: 0 };
   persist(); emit();
   ringAlarm({
-    time: '00:00', title: `Hourglass · ${durName(E.hg.total)}`, color: '#f2b45a', icon: 'clock', what: E.what,
+    time: '00:00', title: `Hourglass · ${durName(E.hg.total)}`, color: '#f2b45a', icon: 'clock', what: E.what, source: 'hourglass', message: 'The sand has run out',
     snooze: 'Flip', snoozeIcon: 'replay',
     onSnooze: () => { hgFlip(); },
   });

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The game screen: one round canvas plus the chrome every game shares — start card (how to play,
 // modes, best score), score at the top, pause, game over with the top-5 chart. Games only draw and play.
 //

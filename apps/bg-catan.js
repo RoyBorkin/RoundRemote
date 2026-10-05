@@ -1,10 +1,29 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Catan: 2d6 roller (red + yellow dice on a small tray) with a live distribution chart against the
 // expected curve, robber reminder on 7, turn order, optional "event deck" (36 cards = every 2d6 outcome, no
-// replacement) and a victory-point tracker (settlements, cities, longest road, largest army, VP cards).
+// replacement), a victory-point tracker (settlements, cities, longest road, largest army, VP cards) and a cheat
+// sheet: building costs, trade rates (bank, harbours, players) and what's in the development deck.
 import { h, clear } from '../js/ui/dom.js';
 import { openPanel } from '../js/ui/overlay.js';
 import { createTray, randFace, rnd } from './bg-dice-engine.js';
 import { seg, editPlayers, celebrate, confirm, svgIcon, IC, roster } from './bg-ui.js';
+
+// resources: colour + a small 24×24 glyph
+const RES = {
+  brick: { name: 'Brick', he: 'לבנים', color: '#b45309', d: 'M2 5h9v6H2zM13 5h9v6h-9zM2 13h3v6H2zM7 13h10v6H7zM19 13h3v6h-3z' },
+  lumber: { name: 'Lumber', he: 'עצים', color: '#166534', d: 'M12 1.5l6.5 8.5h-3.3l4.3 6.5H13v6h-2v-6H4.5l4.3-6.5H5.5z' },
+  wool: { name: 'Wool', he: 'צמר', color: '#65a30d', d: 'M7 9.5a3.2 3.2 0 0 1 5-2.6 3.3 3.3 0 0 1 5.6 1.6A3 3 0 0 1 18 14.6V16H6v-1.2A3 3 0 0 1 7 9.5zM8 17h2.2v4H8zM13.8 17H16v4h-2.2z' },
+  grain: { name: 'Grain', he: 'חיטה', color: '#ca8a04', d: 'M11 9h2v13h-2zM12 1.5c2.2 2.2 2.2 4.4 0 6.6-2.2-2.2-2.2-4.4 0-6.6zM6.5 6c3 .4 4.4 2 4.6 5.2-3-.4-4.4-2-4.6-5.2zM17.5 6c-.2 3.2-1.6 4.8-4.6 5.2.2-3.2 1.6-4.8 4.6-5.2zM6.5 11.5c3 .4 4.4 2 4.6 5.2-3-.4-4.4-2-4.6-5.2zM17.5 11.5c-.2 3.2-1.6 4.8-4.6 5.2.2-3.2 1.6-4.8 4.6-5.2z' },
+  ore: { name: 'Ore', he: 'עפרות', color: '#475569', d: 'M1.5 20.5l7.2-12.8 4.1 6.2 3-4.4 6.7 11z' },
+};
+// the building-costs card (base game)
+const COSTS = [
+  { name: 'Road', he: 'דרך', vp: 'Longest road (5+) = 2 VP', res: ['brick', 'lumber'] },
+  { name: 'Settlement', he: 'יישוב', vp: '1 VP', res: ['brick', 'lumber', 'wool', 'grain'] },
+  { name: 'City', he: 'עיר', vp: '2 VP · upgrades a settlement', res: ['grain', 'grain', 'ore', 'ore', 'ore'] },
+  { name: 'Development card', he: 'קלף פיתוח', vp: 'knight · progress · 1 VP', res: ['ore', 'wool', 'grain'] },
+];
+const resChip = (k) => h('span.bg-cat-res', { title: RES[k].name, '--rc': RES[k].color, html: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${RES[k].d}"/></svg>` });
 
 const P36 = (s) => (6 - Math.abs(s - 7)) / 36;
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -19,7 +38,8 @@ export function mount(el, ctx) {
   const vp = (p) => (S.vp[p.id] ||= { s: 2, c: 0, road: false, army: false, cards: 0 });
   const points = (p) => { const v = vp(p); return v.s + v.c * 2 + (v.road ? 2 : 0) + (v.army ? 2 : 0) + v.cards; };
 
-  const tabs = seg([{ v: 'dice', label: 'Dice' }, { v: 'points', label: 'Points' }], S.tab, (v) => { S.tab = v; save(); show(); }, 'bg-cat-tabs');
+  const TABS = ['dice', 'points', 'costs'];
+  const tabs = seg([{ v: 'dice', label: 'Dice' }, { v: 'points', label: 'Points' }, { v: 'costs', label: 'Costs & trade' }], S.tab, (v) => { S.tab = v; save(); show(); }, 'bg-cat-tabs');
   el.append(tabs);
 
   // ---------------------------------------------------------------- dice tab
@@ -146,15 +166,33 @@ export function mount(el, ctx) {
     if (!w) S.won = null;
   }
 
+  // ---------------------------------------------------------------- costs & trade cheat sheet
+  const costs = h('div.bg-cat-costs',
+    h('div.bg-cat-cost-list', COSTS.map((c) => h('div.bg-cat-cost',
+      h('div.bg-cat-cost-l', h('b', c.name, h('span', { dir: 'rtl' }, c.he)), h('small', c.vp)),
+      h('div.bg-cat-cost-r', c.res.map(resChip))))),
+    h('div.bg-cat-trade',
+      h('div.bg-cat-tr', h('b', '4 : 1'), h('small', 'Bank'), h('em', '4 alike → 1')),
+      h('div.bg-cat-tr', h('b', '3 : 1'), h('small', 'Any harbour'), h('em', '3 alike → 1')),
+      h('div.bg-cat-tr', h('b', '2 : 1'), h('small', 'Resource harbour'), h('em', '2 of its kind → 1'))),
+    h('div.bg-cat-legend', Object.keys(RES).map((k) => h('span.bg-cat-lg', resChip(k), h('small', RES[k].name)))),
+    h('div.bg-cat-notes',
+      h('p', h('b', 'Trading: '), 'only on your turn after rolling — any deal with other players (the active player must be in it), no gifts or promises. Harbours need a settlement or city on them.'),
+      h('p', h('b', 'Development deck (25): '), '14 knights · 5 victory points · 2 road building · 2 year of plenty · 2 monopoly. Play at most one per turn, not on the turn you bought it (VP cards excepted).')));
+  el.append(costs);
+
   function show() {
-    dice.hidden = S.tab !== 'dice'; pts.hidden = S.tab !== 'points';
+    dice.hidden = S.tab !== 'dice'; pts.hidden = S.tab !== 'points'; costs.hidden = S.tab !== 'costs';
     if (S.tab === 'points') drawPoints(); else { tray.redraw(); }
   }
   setupDice(); drawChart(); drawTurn(); show();
   return {
     key(e) {
       if (S.tab === 'dice' && (e.key === 'Enter' || e.key === ' ')) { roll(); return true; }
-      if (e.key === 'Tab' || (S.tab === 'dice' && e.key === 'ArrowRight') || (S.tab === 'points' && e.key === 'ArrowLeft' && S.sel === 0)) { S.tab = S.tab === 'dice' ? 'points' : 'dice'; tabs.set(S.tab); save(); show(); return true; }
+      if (e.key === 'Tab' || (S.tab !== 'points' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) || (S.tab === 'points' && e.key === 'ArrowLeft' && S.sel === 0)) {
+        const d = e.key === 'ArrowLeft' ? -1 : 1;
+        S.tab = TABS[(TABS.indexOf(S.tab) + d + TABS.length) % TABS.length]; tabs.set(S.tab); save(); show(); return true;
+      }
       if (S.tab === 'points' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { S.sel = (S.sel + (e.key === 'ArrowRight' ? 1 : -1) + S.players.length) % S.players.length; drawPoints(); return true; }
       return false;
     },

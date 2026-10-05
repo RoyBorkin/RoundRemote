@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Clue / Cluedo detective notepad: suspects, weapons and rooms (classic names, editable, US or UK
 // edition), a column per player with has ✓ / doesn't ✗ / maybe ?, solved rows highlighted, and a privacy cover.
 import { h, clear } from '../js/ui/dom.js';

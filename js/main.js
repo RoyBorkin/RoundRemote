@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Round Remote — boot, routing, OAuth redirects, keyboard shortcuts, idle dimming.
 import { store } from './core/store.js';
 import { initTheme } from './core/theme.js';
@@ -48,6 +49,13 @@ setTimeout(() => {
   import('../apps/clock-alarms.js').then((m) => m.startAlarms()).catch(() => {});
   const t = (store.get('appData') || {}).timer;
   if (t && ((t.timers || []).some((x) => x.state === 'run') || t.hg?.state === 'run')) import('../apps/timer.js').then((m) => m.startTimers()).catch(() => {});
+  const pt = (store.get('appData') || {}).playtime, bk = (store.get('appData') || {}).books;   // Play Time: a session running or a console linked · Bookmarks: a reminder on
+  if (pt && (Object.keys(pt.run || {}).length || (pt.profiles || []).some((p) => p.links?.length))) import('../apps/playtime-engine.js').then((m) => m.startPlaytime()).catch(() => {});
+  if ((bk?.reminders || []).some((r) => r.on)) import('../apps/books-store.js').then((m) => m.startReminders()).catch(() => {});
+  const ad = store.get('appData') || {};   // Plants & Pets: care tasks · Focus: a session on · Countdowns: a reminder set
+  if ((ad.plants?.tasks || []).length) import('../apps/plants-store.js').then((m) => m.startPlants()).catch(() => {});
+  if (ad.focus?.run?.phase && ad.focus.run.phase !== 'idle') import('../apps/focus-engine.js').then((m) => m.startFocus()).catch(() => {});
+  if ((ad.countdown?.events || []).some((e) => e.remind?.length)) import('../apps/countdown-store.js').then((m) => m.startCountdowns()).catch(() => {});
 }, 1500);
 
 // ---------- control size (XS … XL; L is the original size) ----------

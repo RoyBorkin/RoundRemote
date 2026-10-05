@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Beat Circles — a round take on the "click the circles" rhythm game (osu! standard style).
 // Circles pop up all over the round screen with a ring closing in on each; tap the circle the moment its ring
 // meets it. Numbered combos with cycling colours, follow lines from circle to circle, sliders (hold notes: a

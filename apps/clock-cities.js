@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // World clock cities: [name, country, IANA time zone, latitude, longitude] (coordinates for day / night).
 export const CITIES = [
   // Middle East

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rail Rush — three rail lanes running into a neon night city, seen from behind the runner.
 // Swipe left/right to switch lanes, up to jump (low barriers), down to roll (high barriers, or to drop
 // fast from a jump). Trains stand or come at you — switch lanes, or run up a ramp onto the roofs.

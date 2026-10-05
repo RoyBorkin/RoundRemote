@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // RPS Battle — the rules (pure, no drawing) and the COM player.
 // Board: 7 columns × 6 rows, cell index = row * 7 + col. Red starts in rows 4–5 (bottom), Blue in rows 0–1.
 // A piece: { id, side, w: 'R'|'P'|'S'|'F'|'T', revealed, moved }. Flag (F) and trap (T) never move.

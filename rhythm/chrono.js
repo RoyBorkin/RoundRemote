@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Chrono Ring — notes are born at the centre of the round screen and fly out to the judgement ring near the
 // rim; tap the ring where each one lands, right as it arrives. Holds are long arcs you keep pressed, slides
 // are chains of dots you follow with your finger along the ring (Hard+), flicks are swiped outward (Master).

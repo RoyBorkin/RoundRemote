@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Toasts, circular panels, and the "curved list" effect used by every scrolling list.
 import { h, iconBtn } from './dom.js';
 

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rope Snip — swipe across the ropes so the wrapped sweet swings and drops into the hungry critter's mouth.
 // Grab the three stars on the way. Bubbles float the sweet up (tap to pop), puffers blow air, ringed pins tie a
 // new rope on, spikes burst the sweet, some pins ride on rails and the arrow button flips gravity.

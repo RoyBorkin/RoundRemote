@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // YouTube on your TV — controls the YouTube app on a Google TV / Android TV / smart TV /
 // console, the same way the YouTube phone app does after "Link with TV code".
 //

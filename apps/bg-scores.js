@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Scores: players with colours, +/− by tapping (step 1/5/10) or typing, rounds with a history table,
 // totals and leader, undo, target score with a winner celebration, "lowest wins", several saved games.
 import { h, clear } from '../js/ui/dom.js';

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // View 5: Tone Visual — abstract shapes and colours that move with the music, in eight
 // styles (see tone-visuals.js). Sound comes from core/sound.js: simulated from playback by
 // default, or live from a microphone.

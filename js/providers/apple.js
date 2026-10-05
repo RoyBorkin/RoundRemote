@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Apple Music via MusicKit JS v3. MusicKit plays audio in *this* browser (on the Pi that
 // means the Pi's speakers/DAC), so this provider is a player rather than a remote.
 // Needs an Apple Music developer token (JWT): paste it in Settings, or let the bridge

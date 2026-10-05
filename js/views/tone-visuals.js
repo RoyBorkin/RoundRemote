@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The eight Tone Visual renderers. Each one is make(host, env) → { frame(F, t), resize(w, h), colors(env), destroy() }
 // where F is the sound-feature frame from core/sound.js and env = { accent:[r,g,b], palette:[[r,g,b]…], art, lite }.
 //

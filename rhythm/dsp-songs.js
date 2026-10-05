@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Demo songs as music: a deterministic arrangement (score) per Demo track (js/providers/demo.js d1…d7).
 // Pure data (no Web Audio): rhythm/synth.js turns these events into sound. Sections follow the Demo lyric
 // timings (verse / chorus starts), tempo is fitted so the sections land on bar lines.

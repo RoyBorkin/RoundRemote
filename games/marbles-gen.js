@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Marble Chain — procedural levels. Every level gets a new random layout: where the shooter sits, a smooth
 // track from an entry at the rim to the vortex (or two tracks, on Hard), all from a seeded RNG so a level can
 // be rebuilt exactly. Pure geometry, no DOM — same coordinates as marbles-paths.js (centre 0,0 · radius of the

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Google Home: Google Assistant text commands (through the bridge, signed in to your Google account) —
 // "turn off the kitchen lights", routines like "good night", broadcasts — plus your Google/Nest speakers
 // and displays, which the bridge already sees as Cast devices. Google offers no web API that lists and

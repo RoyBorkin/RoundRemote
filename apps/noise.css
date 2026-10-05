@@ -1,0 +1,98 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Sleep Sounds (apps/noise.js) */
+.ns { position: absolute; inset: 0; --b1: var(--ac); --b2: #312e81; --b3: #1e1b4b; --a: 34%; }
+#app[data-mode="light"] .ns { --a: 22%; }
+.ns [hidden] { display: none !important; }
+
+/* calm backdrop: big soft blobs + a few rising specks; only transforms / opacity animate (cheap on a Pi) */
+.ns-bg { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; pointer-events: none;
+  background: radial-gradient(circle at 50% 115%, color-mix(in srgb, var(--b1) 18%, var(--bg)) 0, var(--bg) 72%); transition: background 1.2s; }
+.ns-bg > i { position: absolute; width: 78cqmin; height: 78cqmin; border-radius: 50%; will-change: transform; opacity: .55; transition: opacity 1.2s;
+  animation: ns-drift 34s ease-in-out infinite alternate; animation-play-state: paused; }
+.ns-bg .b1 { left: -14cqmin; top: 34cqmin; background: radial-gradient(circle, color-mix(in srgb, var(--b1) var(--a), transparent) 0, transparent 66%); }
+.ns-bg .b2 { right: -18cqmin; top: -6cqmin; background: radial-gradient(circle, color-mix(in srgb, var(--b2) var(--a), transparent) 0, transparent 66%); animation-duration: 41s; animation-direction: alternate-reverse; }
+.ns-bg .b3 { left: 18cqmin; top: 50cqmin; width: 64cqmin; height: 64cqmin; background: radial-gradient(circle, color-mix(in srgb, var(--b3) var(--a), transparent) 0, transparent 66%); animation-duration: 29s; }
+@keyframes ns-drift { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(9cqmin, -7cqmin) scale(1.12); } 100% { transform: translate(-6cqmin, 5cqmin) scale(.94); } }
+.ns-parts i { position: absolute; bottom: -2cqmin; width: calc(.9cqmin * var(--s)); height: calc(.9cqmin * var(--s)); border-radius: 50%; will-change: transform, opacity;
+  background: color-mix(in srgb, var(--b1) 50%, rgb(var(--ink))); opacity: 0; animation: ns-rise 20s linear infinite; animation-play-state: paused; }
+@keyframes ns-rise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .55; } 80% { opacity: .35; } 100% { transform: translateY(-96cqmin); opacity: 0; } }
+.ns.playing .ns-bg > i, .ns.playing .ns-parts i { animation-play-state: running; }
+.ns:not(.playing) .ns-bg > i { opacity: .35; }
+.ns:not(.playing) .ns-parts i { opacity: 0; }
+
+.ns-status { position: absolute; left: 50%; top: 16.5%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: .4cqmin; white-space: nowrap; text-align: center; }
+.ns-status b { font-size: 2.2cqmin; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+.ns.playing .ns-status b { color: var(--fg); }
+.ns-status span { font-size: 2.5cqmin; color: var(--muted); font-weight: 600; max-width: 58cqmin; overflow: hidden; text-overflow: ellipsis; }
+.ns-timer { position: absolute; left: 50%; top: 24.5%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 1cqmin; padding: 1cqmin 2.4cqmin 1cqmin 1.8cqmin; border-radius: 99px; white-space: nowrap;
+  font-size: 2.5cqmin; font-weight: 700; background: var(--glass); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ns-timer i { display: grid; font-size: 3cqmin; }
+.ns-timer.on { color: var(--fg); border-color: color-mix(in srgb, var(--ac) 55%, transparent); }
+.ns-timer.on i { color: var(--ac); }
+#app[data-mode="light"] .ns-timer.on i { color: color-mix(in srgb, var(--ac) 75%, rgb(var(--ink))); }
+.ns-timer.dimming::after { content: ''; width: 1.4cqmin; height: 1.4cqmin; border-radius: 50%; background: #fbbf24; margin-left: .4cqmin; animation: ns-blink 2s ease-in-out infinite; }
+@keyframes ns-blink { 50% { opacity: .25; } }
+
+.ns-master { position: absolute; left: 50%; top: 45%; width: 33cqmin; height: 33cqmin; transform: translate(-50%, -50%); touch-action: none; cursor: grab; border-radius: 50%; }
+.ns-master svg { width: 100%; height: 100%; overflow: visible; }
+.ns-mtrack { fill: none; stroke: var(--line); stroke-width: 2.6; stroke-linecap: round; }
+.ns-marc { fill: none; stroke: var(--ac); stroke-width: 2.6; stroke-linecap: round; }
+.ns-mknob { fill: var(--bg); stroke: var(--ac); stroke-width: 1.6; }
+.ns-master.sel .ns-mtrack { stroke: var(--glass-2); }
+.ns-play { position: absolute; left: 50%; top: 45%; width: 21cqmin; height: 21cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 8.4cqmin;
+  background: var(--ac); color: #fff; box-shadow: 0 1.4cqmin 6cqmin color-mix(in srgb, var(--ac) 45%, transparent); transition: transform .18s var(--spring), background .4s; z-index: 1; }
+.ns-play .ic { transform: translateX(4%); }
+.ns.playing .ns-play { background: color-mix(in srgb, var(--ac) 30%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ac) 60%, transparent), 0 1.4cqmin 6cqmin color-mix(in srgb, var(--ac) 25%, transparent); color: var(--fg); }
+.ns.playing .ns-play .ic { transform: none; font-size: .8em; }
+.ns-play:active { transform: translate(-50%, -50%) scale(.93); }
+.ns-mval { position: absolute; left: 50%; top: 61.5%; transform: translate(-50%, -50%); font-size: 2.1cqmin; font-weight: 800; color: var(--dim); letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+.ns-side { position: absolute; top: 45%; width: 10cqmin; height: 10cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 4.6cqmin;
+  background: var(--glass); border: 1px solid var(--line); color: var(--muted); transition: transform .18s var(--spring); }
+.ns-side:active { transform: translate(-50%, -50%) scale(.9); }
+.ns-side.l { left: 17%; } .ns-side.r { left: 83%; }
+.ns-gear { position: absolute; left: 50%; top: 90%; width: 8cqmin; height: 8cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 3.8cqmin;
+  background: var(--glass); border: 1px solid var(--line); color: var(--muted); }
+.ns-gear:active { transform: translate(-50%, -50%) scale(.9); }
+
+/* the knobs */
+.ns-knobs { position: absolute; left: 50%; top: 74%; transform: translate(-50%, -50%); display: flex; gap: 4.4cqmin; align-items: flex-start; }
+.ns-knob { display: flex; flex-direction: column; align-items: center; gap: .8cqmin; width: 16cqmin; --kc: var(--ac); }
+.ns-kbtn { position: relative; width: 15cqmin; height: 15cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 5.4cqmin; touch-action: none;
+  background: radial-gradient(circle at 35% 30%, var(--glass-2), var(--glass) 70%); border: 1px solid var(--line); color: var(--fg); transition: transform .18s var(--spring); }
+.ns-kbtn:active { transform: scale(.95); }
+.ns-kbtn svg:not(.pk-li) { position: absolute; inset: -1.6cqmin; width: calc(100% + 3.2cqmin); height: calc(100% + 3.2cqmin); overflow: visible; pointer-events: none; }
+.ns-ktrack { fill: none; stroke: var(--line); stroke-width: 5; stroke-linecap: round; }
+.ns-karc { fill: none; stroke: var(--kc); stroke-width: 5; stroke-linecap: round; transition: d .08s; }
+.ns-kbtn .pk-li { color: var(--kc); }
+#app[data-mode="light"] .ns-kbtn .pk-li { color: color-mix(in srgb, var(--kc) 75%, rgb(var(--ink))); }
+.ns-knob.sel .ns-kbtn { box-shadow: 0 0 0 .6cqmin color-mix(in srgb, var(--kc) 40%, transparent); }
+.ns-knob.add .ns-kbtn { background: none; border: .4cqmin dashed var(--line); color: var(--dim); font-size: 4cqmin; width: 12cqmin; height: 12cqmin; margin-top: 1.5cqmin; }
+.ns-kname { font-size: 2.2cqmin; font-weight: 700; color: var(--muted); white-space: nowrap; display: flex; gap: .8cqmin; align-items: baseline; margin-top: .6cqmin; }
+.ns-kv { font-size: 1.9cqmin; color: var(--dim); font-variant-numeric: tabular-nums; }
+.ns-knobs[data-n="3"] .ns-knob:nth-child(2) { margin-top: 3cqmin; }
+.ns-knobs[data-n="3"] { top: 72%; }
+
+/* panels */
+.ns-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.4cqmin; }
+.ns-tile { width: 14cqmin; height: 14cqmin; border-radius: 3.4cqmin; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6cqmin;
+  background: var(--glass); border: 1px solid var(--line); font-size: 1.9cqmin; font-weight: 700; --kc: var(--ac); transition: transform .18s var(--spring); text-align: center; line-height: 1.1; }
+.ns-tile i { display: grid; font-size: 5cqmin; color: var(--kc); }
+#app[data-mode="light"] .ns-tile i { color: color-mix(in srgb, var(--kc) 75%, rgb(var(--ink))); }
+.ns-tile.on { border-color: var(--kc); background: color-mix(in srgb, var(--kc) 18%, transparent); }
+.ns-tile:active { transform: scale(.94); }
+.ns-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4cqmin; width: 96%; }
+.ns-preset { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: .4cqmin; padding: 1.6cqmin 2cqmin; border-radius: 3cqmin; text-align: left;
+  background: var(--glass); border: 1px solid var(--line); min-width: 0; transition: transform .18s var(--spring); }
+.ns-preset:active { transform: scale(.96); }
+.ns-preset b { font-size: 2.7cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; unicode-bidi: plaintext; }
+.ns-preset small { font-size: 1.9cqmin; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ns-pic { display: flex; gap: .6cqmin; margin-bottom: .4cqmin; }
+.ns-pic i { display: grid; font-size: 3.4cqmin; color: var(--kc); }
+#app[data-mode="light"] .ns-pic i { color: color-mix(in srgb, var(--kc) 75%, rgb(var(--ink))); }
+.ns-pdel { position: absolute; right: 1cqmin; top: 1cqmin; width: 4.4cqmin; height: 4.4cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 2.4cqmin; color: var(--dim); }
+
+/* screen dim (mounted on #app, above the app and its Back button) */
+.ns-dim { position: absolute; inset: 0; z-index: 85; border-radius: 50%; background: #000; opacity: 0; transition: opacity 1.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqmin; container-type: size; }
+.ns-dim.in { opacity: .94; }
+.ns-dclock { font-family: var(--display); font-size: 9cqmin; font-weight: 700; color: rgb(255 255 255 / .16); font-variant-numeric: tabular-nums; }
+.ns-dhint { font-size: 2.2cqmin; color: rgb(255 255 255 / .12); letter-spacing: .18em; text-transform: uppercase; font-weight: 700; }

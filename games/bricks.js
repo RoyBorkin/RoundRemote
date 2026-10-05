@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Bricks Breaker — a round take on the "ballz" brick breakers. The launcher sits in the middle; numbered
 // bricks sit on rings around it. Drag anywhere to aim (the dotted guide shows the first bounce), let go and
 // the whole volley streams out. Balls bounce off bricks and the rim and are caught again when they fall

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Dino Run — the flat 8-bit art. Every sprite is a little grid of letters (one letter = one pixel, '.' = empty)
 // mapped through a palette; the game pre-renders them once to tiny canvases and draws them scaled up with
 // smoothing off, snapped to the pixel grid. All characters are our own designs.

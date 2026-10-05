@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Google TV / Android TV through the Android TV Remote protocol (v2) — the protocol Google's own
 // "Google TV" phone remote uses: TLS on ports 6466/6467, paired once with a code shown on the TV.
 // Uses the androidtv-remote package (https://github.com/louis49/androidtv-remote, also used by

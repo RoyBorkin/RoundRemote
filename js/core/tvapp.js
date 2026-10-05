@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Google TV / Android TV without the bridge. Two ways:
 //
 // 1. Home Assistant — its built-in "Android TV Remote" integration pairs with the TV (code on the TV, the

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games — shared UI bits: icons, the ring menu, a round number pad, the player editor, celebration.
 import { h, clear } from '../js/ui/dom.js';
 import { openPanel, curve } from '../js/ui/overlay.js';

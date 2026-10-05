@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // "Player" choices for the Vinyl view (Settings → Music → Vinyl · Tape · CD, and ⋯ in the view):
 // the record (js/views/vinyl.js), a cassette, or a CD seen from the data side or the label side —
 // each with three styles. This file holds the lists and the cassette drawings (SVG, drawn once per

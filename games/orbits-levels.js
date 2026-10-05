@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Orbits — the "Spinning" levels and the little gravity simulator they run on (pure, no DOM, so the
 // tests can import it and search launch parameters headlessly with exactly the game's physics).
 //

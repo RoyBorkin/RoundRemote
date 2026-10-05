@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Frame-level features shared by the offline analyser and the LiveLearner (rhythm/analyzer.js).
 // One frame every HOP samples, centred on sample f·HOP (so frame f ↔ song time f·HOP/sr), window N (Hann).
 // Per frame: multi-band positive spectral flux (low < 200 Hz, mid 200–2000, high > 2000) on a log-magnitude

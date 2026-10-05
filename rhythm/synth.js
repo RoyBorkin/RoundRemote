@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Demo songs, audible: procedural instruments (Web Audio) playing the arrangements from rhythm/dsp-songs.js.
 //   DEMO_SONGS                      per Demo track id: { id, title, bpm, key, style, firstBeatMs, durMs, sections }
 //   demoTruth(id)                   ground truth for tests: { bpm, beats (ms), downbeats, sections }

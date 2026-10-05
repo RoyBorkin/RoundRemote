@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Plex for movies & shows: remote-controls Plex video players (Plex on a TV, Plex HTPC, Plex for
 // Android/Google TV, Apple TV, Roku…) through your Plex Media Server, and browses your libraries.
 // Shares the Plex sign-in with the music Plex tile.

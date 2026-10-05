@@ -1,0 +1,18 @@
+# The bridge's own settings, sign-ins and saved state (tokens and keys — never commit these)
+bridge/config.json
+bridge/*.p8
+bridge/psn.json
+bridge/steam.json
+bridge/googlehome.json
+bridge/youtube-tv.json
+bridge/androidtv.json
+bridge/appletv.json
+bridge/streamsdk.json
+bridge/roon-state.json
+bridge/tasks.json
+bridge/collection.json
+bridge/profiles/
+bridge/node_modules/
+bridge/package-lock.json
+node_modules/
+.DS_Store

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Lyric style "CRT TV": the lyrics on an old tube television.
 //  • phosphor-green glass with scanlines, an RGB shadow mask, a slow rolling hum bar, vignette and
 //    a faint flicker; live static noise underneath (stronger between lines, like a lost signal)

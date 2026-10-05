@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# © 2026 Roy Borkin. All rights reserved. See LICENSE.
 # Launch Round Remote full-screen on the round display.
 # Uses 127.0.0.1 (not "localhost") because Spotify only accepts loopback *IP* redirect URIs.
 URL="${ROUNDREMOTE_URL:-http://127.0.0.1:8765/}"

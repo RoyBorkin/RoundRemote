@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Hitster — the song deck. Well-known songs with the year they were ORIGINALLY released
 // (first single or album that carried this recording). { t: title, a: artist, y: year } plus, for songs
 // whose title is in another script, ta / aa: the title and artist as Latin-script services may list them.

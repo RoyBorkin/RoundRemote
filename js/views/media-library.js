@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Movies & shows library browser (Plex / Jellyfin): libraries → items → details, collections,
 // search, and "play on the TV". Lives in the media screen's Library tab.
 import { h, iconBtn, clear } from '../ui/dom.js';
@@ -7,6 +8,7 @@ import { createKeyboard, wantsKeyboard } from '../ui/keyboard.js';
 import { store } from '../core/store.js';
 import { fmtTime, debounce } from '../core/util.js';
 import { createItemsView, LIB_VIEWS } from './media-views.js';
+import { wishPill } from '../../apps/wishlist-store.js';
 
 const errMsg = (e) => e?.userMessage || e?.message || 'Something went wrong';
 const TYPE_ICON = { movie: 'film', show: 'tv', season: 'tv', episode: 'play', collection: 'stack', folder: 'library' };
@@ -197,6 +199,11 @@ export function createMediaLibrary({ provider, onPlayed, onNeedDevice, onContext
     if (provider.searchSubtitles && ['movie', 'episode'].includes(d.type)) {
       actions.append(h('button.pill', { type: 'button', onclick: (e) => { e.stopPropagation(); import('../screens/media-panels.js').then((m) => m.openSubtitleSearch(d)); } }, 'Subtitles'));
     }
+    // ♡ Wish list (apps/wishlist.js): the movie, or the show an episode / season belongs to — "watch later"
+    const wish = d.type === 'movie' ? { kind: 'movie', title: d.title, year: d.year, art: d.poster, by: d.directors?.[0] || '' }
+      : d.type === 'show' ? { kind: 'show', title: d.title, year: d.year, art: d.poster, by: d.studio || '' }
+        : ['season', 'episode'].includes(d.type) && d.show ? { kind: 'show', title: d.show, art: d.posterShow || (d.type === 'season' ? d.poster : '') } : null;
+    if (wish) actions.append(wishPill({ ...wish, source: provider.id === 'jellyfinvideo' ? 'jellyfin' : 'plex', ref: String(d.type === 'movie' || d.type === 'show' ? d.id : d.showId || ''), inLibrary: true }));
     const summary = h(`div.mdet-summary${spoiler ? '.spoiler' : ''}`, d.summary || '');
     if (spoiler) summary.onclick = (e) => { e.stopPropagation(); summary.classList.remove('spoiler'); };
     const credits = [

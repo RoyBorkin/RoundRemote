@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Subtitle languages: name (in its own language + English), ISO 639-1 (Plex) and ISO 639-2 (Jellyfin).
 export const SUB_LANGS = [
   { id: 'en', iso3: 'eng', name: 'English' }, { id: 'he', iso3: 'heb', name: 'עברית', en: 'Hebrew' },

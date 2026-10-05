@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Small helpers for the bridge (no dependencies).
 
 /** Decode the XML entities we meet in UPnP/DIDL payloads. */

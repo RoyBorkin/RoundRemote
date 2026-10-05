@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Rhythm Rush — a round take on the falling-tiles piano games. Tiles slide down lanes that curve in with the
 // round screen towards a soft horizon at the top; tap a tile's lane (or the tile itself) as it lands on the
 // line in the lower third. Long tiles are holds (keep pressing — a fill runs up the tile — and let go at the

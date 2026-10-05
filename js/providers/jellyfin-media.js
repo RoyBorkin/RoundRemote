@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Jellyfin for movies & shows: remote-controls any Jellyfin video client (Jellyfin on a TV, Android TV,
 // Jellyfin Media Player, the web app, Kodi with the Jellyfin add-on…) and browses your libraries.
 // Shares the Jellyfin sign-in with the music Jellyfin tile. Same media interface as plex-media.js.

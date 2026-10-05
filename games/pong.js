@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Circle Pong — keep the ball inside the circle. Your paddle is an arc on the rim that follows your
 // finger; every return is a point. Where the ball lands on the paddle sets its new angle, and it speeds
 // up a little with each hit.

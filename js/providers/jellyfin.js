@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Jellyfin provider: remote-controls any Jellyfin client session (web, Finamp, Jellyfin
 // Media Player, Kodi…) through the server's Sessions API. Sign in with Quick Connect
 // (no typing on the round screen) or username/password.

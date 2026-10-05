@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Pipe Link — boards, puzzle generator and a small solver.
 // A board is a graph of cells (adjacency lists) plus the geometry to draw it, in units of the screen radius R
 // (centre = 0,0). Two shapes: a polar board (rings × sectors around a hole) and a square grid.

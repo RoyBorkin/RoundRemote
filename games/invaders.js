@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Ring Invaders — a round take on the arcade classic. Your ship flies around the rim and fires inward;
 // the invaders pour out of the core in rings that slowly turn and step outward. Shields erode, a
 // mothership sometimes cruises past for big points, and if an invader reaches the rim it's over.

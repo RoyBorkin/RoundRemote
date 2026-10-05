@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Chart library for the Rhythm games: the Clone Hero / Rock Band / Guitar Hero community charts indexed by
 // Chorus Encore (enchor.us). The bridge does the network part (no CORS limits here):
 //   • search   POST https://api.enchor.us/search  { search, page, instrument, difficulty, drumType, drumsReviewed, source }

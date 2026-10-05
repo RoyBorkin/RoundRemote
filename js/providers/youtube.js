@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // YouTube and YouTube Music. Plays through the official YouTube IFrame player on this
 // display — or, with the bridge, remote-controls the YouTube app on your TV ("Link with TV
 // code", see bridge/adapters/youtubetv.js): pick the TV under Devices.

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Navigation helpers shared by screens.
 import { go } from './router.js';
 import { player } from './player.js';

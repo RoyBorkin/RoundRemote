@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Pipe Link — join each pair of matching dots with a pipe; pipes may not cross and every cell must be filled.
 // Endless generated puzzles (see flow-gen.js) on two board shapes: "Round" (rings × sectors around a hole that
 // holds the score) and "Square" (a classic grid inscribed in the circle), each in four sizes.

@@ -1,6 +1,9 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Built-in starter packs for the Tasks app and Truth or Dare: family-friendly truths, dares and tasks
-// in English and Hebrew. A trailing marker adds a tag: " #p" party · " #f" funny · " #a" active (moving about).
-// Items get stable ids (b:<lang>:<type>:<n>) so they can be hidden or edited like any other item.
+// in English and Hebrew, plus an 18+ set per language (cheeky, flirty, party and drinking challenges for consenting
+// adults — suggestive, never explicit; only drawn when 18+ mode is on). A trailing marker adds a tag:
+// " #p" party · " #f" funny · " #a" active (moving about). Items get stable ids so they can be hidden or edited like
+// any other item: b:<lang>:<t|d|k>:<n> (truth / dare / task), b:<lang>:x<t|d|k>:<n> for the 18+ set.
 
 const EN_TRUTHS = `
 What is the most embarrassing thing that happened to you at school? #f
@@ -270,16 +273,248 @@ const HE_TASKS = `
 תאר את הבוקר שלך בשלוש מילים בלבד.
 `;
 
+// ---------------------------------------------------------------- 18+ (adults only; skippable like every card)
+// "A sip" means any drink — water counts.
+
+const EN_X_TRUTHS = `
+Who in this room would you most like to go on a date with? #p
+What is the cheesiest pick-up line you have ever used — and did it work? #f
+What is the most embarrassing thing you have done to impress a crush? #f
+Have you ever sent a flirty text to the wrong person? What did it say? #f
+What is your biggest turn-off on a first date?
+What is the worst date you have ever been on? #f
+Have you ever had a crush on a friend's partner?
+What is the most daring thing you have done on a night out? #p
+Who is your guilty-pleasure celebrity crush?
+Who here would make the best wingman, and who the worst? #p
+Have you ever ghosted someone? Why?
+What is the most embarrassing thing you have done while tipsy? #f
+How far back have you scrolled on an ex's social media? #f
+What is the strangest place you have fallen asleep after a party? #f
+What would your dating-app bio say if it had to be 100% honest? #f
+Have you ever lied about your age? To whom?
+What is the most romantic thing anyone has done for you?
+What is your go-to move when you are flirting? #f
+Tell the story of your most awkward kiss — no names needed. #f
+Rate your own flirting skills from 1 to 10 — the group gets to argue. #p
+What is something you would only admit after two drinks?
+Have you ever been thrown out of a bar or a club? #f
+What is the cringiest late-night text you have ever sent? #f
+Who here gives off the most mysterious vibes? #p
+What is the biggest lie you have told on a date?
+Have you ever been caught checking someone out? #f
+What is your most unpopular dating opinion?
+What is the worst hangover you have ever had, and what caused it? #f
+If you had to marry someone in this room, who would it be? #p
+Have you ever pretended to love a gift from a partner?
+What was your most embarrassing moment on a dance floor? #f
+Have you ever had a secret relationship?
+What is the boldest message you have ever sent to a crush?
+Which ex would you still pick up the phone for at 2 a.m.?
+What is your biggest red flag, honestly? #f
+Who here do you think has the most secret admirers? #p
+Have you ever fallen for someone at first sight? What happened?
+What is the most embarrassing song you have sung at karaoke? #f
+What is something you find attractive that most people don't?
+What is the worst pick-up line anyone has tried on you? #f
+Have you ever forgotten someone's name right after kissing them? #f
+Which celebrity would you leave this party for, right now? #f
+What is the most awkward way you have been dumped — or dumped someone?
+Who here would you want next to you at a wild party, and why? #p
+What is the most spontaneous thing you have done after midnight?
+What is the weirdest thing you have found attractive on a date? #f
+Which player here would you swap phones with for a day — and who never? #p
+What is your most-used flirty emoji, and who got it last? #f
+What is the longest you have gone without a date, honestly?
+What is the most money you have spent trying to impress someone?
+`;
+
+const EN_X_DARES = `
+Take a sip of your drink without using your hands. #f
+Read out the last message you sent to your crush or partner — or take two sips. #p
+Do your best seductive slow-motion walk across the room. #f #a
+Serenade the player on your left with a love song. #f
+Try your best pick-up line on the player across from you. #f
+Show the group the last photo you took on a night out. #p
+Give the player on your right a 30-second shoulder rub — only if they say yes. #p
+Do a dramatic movie-style proposal to the player of your choice. #f
+Whisper a compliment into someone's ear. #p
+Give everyone your best flirty wink, one at a time. #f
+Dance like nobody's watching for 30 seconds — everyone is. #a #f
+Take a selfie with the player you think looks best tonight. #p
+Talk in a sultry voice until your next turn. #f
+Let the player on your left choose your next drink (water counts). #p
+Raise a toast to the most charming person here. #p
+Act out how you flirt at a bar — the group plays the bartender. #f
+Slow-dance with the player of your choice for 20 seconds, if they agree. #a
+Read your latest search history out loud — or take two sips. #f
+Swap one piece of clothing (a jacket, hat, socks…) with another player. #f
+Show the oldest photo of yourself on your phone. #f
+Show off your sexiest dance move — keep it PG-13! #a #f
+Describe your ideal date using only movie titles. #f
+Rate everyone's outfit tonight like a strict fashion critic. #f #p
+Act like a very nervous person on a first date for one minute. #f
+Send a harmless "thinking of you" text to the third person in your contacts. #p
+Do your smoothest body roll. #a #f
+Do your best impression of someone drunk-texting their ex. #f
+Give a heartfelt toast to tonight's host. #p
+Take a sip every time someone says your name until your next turn. #p
+Hold eye contact with the player across from you for 30 seconds without laughing. #p
+Speak only in pick-up lines until your next turn. #f
+Let the player on your right restyle your hair however they like. #f
+Show the group your dating-app profile, or act out what it would say. #f
+Do a 15-second TV commercial for your favourite drink. #f
+Strut across the room like it's a catwalk. #a #f
+Kiss the hand of the player on your left like in an old film — if they agree. #p
+Let the group read your last three messages — or take two sips. #p
+Sing the chorus of a love song to the bottle. #f
+Make up a cheesy love poem for the player across from you. #f
+Put on a cocktail-bartender show with whatever is on the table. #f #a
+Describe your celebrity crush without saying the name — the group guesses. #p
+Let someone draw a little heart on your cheek (with something washable). #f
+Act out a dramatic break-up scene with the player of your choice. #f
+Do your best impression of yourself after three drinks. #f
+Propose a toast in your best fake French accent. #f
+Give a dramatic reading of the last message you received. #f
+Text your best friend "I have something to tell you…" and reveal it's a game after five minutes. #f
+Pay someone your most charming compliment while holding eye contact. #p
+Do 10 push-ups — or take a sip for every one you skip. #a
+Let the group pick a new flirty nickname for you for the rest of the night. #f
+`;
+
+const EN_X_TASKS = `
+Never have I ever: say one thing you've never done — everyone who has done it takes a sip. #p
+Everyone points at who is most likely to text an ex tonight — the winner takes a sip. #p
+Everyone who is single takes a sip. #p
+Everyone in a relationship takes a sip. #p
+Pick a drinking buddy: whenever you sip, they sip, until your next turn. #p
+Make up a rule — anyone who breaks it takes a sip until the next spin. #p
+Categories: take turns naming cocktails — the first to get stuck takes a sip. #p
+You are the thumb master: when you put your thumb on the table, the last to copy takes a sip. #p
+Everyone who has been on a date this month takes a sip. #p
+Two truths and a lie about your love life — everyone who guesses wrong takes a sip. #p
+Whoever has the oldest message from an ex on their phone takes a sip. #f
+Rhyme time: say a word, go round the circle rhyming — the first to fail takes a sip. #p
+Best kisser vote: on three, everyone points at someone. The most-pointed-at gets a toast. #p #f
+Everyone shows their last-used emoji — the most boring one takes a sip. #p #f
+Social! Everyone raises a glass and takes a sip together. #p
+Question master: until your next turn, anyone who answers your questions takes a sip. #p
+Pick two players to swap seats and talk like each other until the next spin. #f
+Call heads or tails and flip a coin — wrong means a sip. #f
+Everyone who has ever drunk-texted takes a sip. #p #f
+Whoever has the most recent kiss story tells it — or takes two sips. #p
+Snake eyes: until your next turn, anyone who meets your eyes takes a sip. #p
+Everyone who has ever been on a blind date takes a sip. #p
+Hot seat: the group asks you three rapid-fire questions — every one you pass is a sip. #p
+Name three celebrity crushes in 10 seconds — or take a sip. #f
+The last person to touch their nose takes a sip. #a #p
+Everyone who used a dating app this year takes a sip. #p
+Accent round: everyone speaks with a French accent until the next spin — every slip costs a sip. #f
+Pick a "date" for the round: you two sit together until the next spin. #p
+Famous couples: go round naming them — the first to repeat one or freeze takes a sip. #p
+A toast to love — everyone who has ever been in love takes a sip. #p
+`;
+
+const HE_X_TRUTHS = `
+עם מי בחדר הזה היית רוצה לצאת לדייט? #p
+מה משפט הפתיחה הכי מביך שניסית — והאם זה עבד? #f
+מה הדבר הכי מביך שעשית כדי להרשים מישהו שמצא חן בעיניך? #f
+האם שלחת פעם הודעה מפלרטטת לאדם הלא נכון? מה היה כתוב בה? #f
+מה הדייט הכי גרוע שהיית בו? #f
+האם פעם נדלקת על בן או בת הזוג של חבר?
+מה הדבר הכי נועז שעשית ביציאה בלילה? #p
+על איזה סלב אתה נדלק בסתר?
+האם פעם נעלמת למישהו בלי להסביר? למה?
+מה הדבר הכי מביך שעשית כשהיית שתוי? #f
+כמה אחורה גללת פעם ברשתות של אקס? #f
+מה הדבר הכי רומנטי שמישהו עשה בשבילך?
+מה המהלך הקבוע שלך כשאתה מפלרטט? #f
+דרג את יכולות הפלרטוט שלך מ־1 עד 10 — והקבוצה תתווכח. #p
+מה ההודעה הכי מביכה ששלחת באמצע הלילה? #f
+מה השקר הכי גדול שסיפרת בדייט?
+האם פעם תפסו אותך בוהה במישהו? #f
+מה דעה לא פופולרית שיש לך על דייטים?
+מה ההנגאובר הכי קשה שהיה לך, וממה? #f
+אם היית חייב להתחתן עם מישהו מהחדר, מי זה היה? #p
+האם הייתה לך פעם מערכת יחסים סודית?
+מה הדגל האדום הכי גדול שלך, בכנות? #f
+למי כאן יש לדעתך הכי הרבה מעריצים סודיים? #p
+האם התאהבת פעם ממבט ראשון? מה קרה?
+מה השיר הכי מביך ששרת בקריוקי? #f
+מה משפט הפתיחה הכי גרוע שמישהו ניסה עליך? #f
+בשביל איזה סלב היית עוזב את המסיבה הזאת עכשיו? #f
+מה הפרידה הכי מביכה שהייתה לך?
+מה הדבר שהיית מודה בו רק אחרי שתי כוסות?
+מי כאן נראה לך הכי מסתורי? #p
+`;
+
+const HE_X_DARES = `
+קח שלוק מהמשקה שלך בלי להשתמש בידיים. #f
+הקרא את ההודעה האחרונה ששלחת לבן או בת הזוג — או קח שני שלוקים. #p
+עשה הליכה מפתה בהילוך איטי לאורך החדר. #f #a
+שיר שיר אהבה לשחקן משמאלך. #f
+נסה את משפט הפתיחה הכי טוב שלך על השחקן שמולך. #f
+עשה הצעת נישואין דרמטית כמו בסרטים לשחקן לבחירתך. #f
+לחש מחמאה באוזן של מישהו. #p
+קרוץ קריצה מפלרטטת לכל אחד בתורו. #f
+רקוד כאילו אף אחד לא רואה במשך 30 שניות — כולם רואים. #a #f
+דבר בקול מפתה עד התור הבא שלך. #f
+תן לשחקן משמאלך לבחור לך את המשקה הבא (גם מים נחשבים). #p
+הרם כוסית לכבוד האדם הכי מקסים כאן. #p
+רקוד סלואו 20 שניות עם שחקן לבחירתך, אם הוא מסכים. #a
+הקרא בקול את החיפוש האחרון שלך — או קח שני שלוקים. #f
+החלף פריט לבוש (כובע, ז׳קט, גרביים…) עם שחקן אחר. #f
+הראה את התמונה הכי ישנה שלך בטלפון. #f
+עשה את תנועת הריקוד הכי סקסית שלך — בגבולות הטעם הטוב! #a #f
+תאר את הדייט המושלם שלך רק בשמות של סרטים. #f
+דרג את הלבוש של כולם כמו מבקר אופנה קשוח. #f #p
+שחק מישהו לחוץ בדייט ראשון במשך דקה. #f
+קח שלוק בכל פעם שמישהו אומר את השם שלך, עד התור הבא שלך. #p
+החזק קשר עין עם השחקן שמולך 30 שניות בלי לצחוק. #p
+דבר רק במשפטי פתיחה עד התור הבא שלך. #f
+עשה חיקוי של עצמך אחרי שלוש כוסות. #f
+כתוב שיר אהבה מתקתק לשחקן שמולך. #f
+תאר את הסלב שאתה נדלק עליו בלי להגיד את שמו — הקבוצה מנחשת. #p
+צעד לאורך החדר כמו על מסלול תצוגת אופנה. #a #f
+שלח לחבר הכי טוב שלך "יש לי משהו לספר לך…" וגלה לו אחרי חמש דקות שזה רק משחק. #f
+עשה 10 שכיבות סמיכה — או קח שלוק על כל אחת שדילגת. #a
+נשק את היד של השחקן משמאלך כמו בסרט ישן — אם הוא מסכים. #p
+`;
+
+const HE_X_TASKS = `
+"אף פעם לא": אמור משהו שמעולם לא עשית — כל מי שכן עשה לוקח שלוק. #p
+כולם מצביעים על מי שהכי סביר שישלח הודעה לאקס הלילה — הוא לוקח שלוק. #p
+כל הרווקים והרווקות לוקחים שלוק. #p
+כל מי שבזוגיות לוקח שלוק. #p
+בחר שותף לשתייה: בכל פעם שאתה שותה, גם הוא שותה — עד התור הבא שלך. #p
+קבע חוק: מי שמפר אותו לוקח שלוק, עד הסיבוב הבא. #p
+קטגוריות: מנו קוקטיילים בתורות — מי שנתקע לוקח שלוק. #p
+שתי אמיתות ושקר על חיי האהבה שלך — כל מי שטועה לוקח שלוק. #p
+כל מי שהיה בדייט החודש לוקח שלוק. #p
+לחיים! כולם מרימים כוסית ולוקחים שלוק ביחד. #p
+מי שיש לו בטלפון את ההודעה הכי ישנה מאקס לוקח שלוק. #f
+הכיסא החם: הקבוצה שואלת אותך שלוש שאלות מהירות — כל שאלה שאתה מדלג עליה היא שלוק. #p
+מנה שלושה סלבס שאתה נדלק עליהם תוך 10 שניות, או קח שלוק. #f
+האחרון שנוגע באף לוקח שלוק. #a #p
+כל מי שהשתמש באפליקציית היכרויות השנה לוקח שלוק. #p
+כולם מדברים במבטא צרפתי עד הסיבוב הבא — מי שמתבלבל לוקח שלוק. #f
+בחר "דייט" לסיבוב: שניכם יושבים יחד עד הסיבוב הבא. #p
+כוסית לאהבה — כל מי שהיה פעם מאוהב לוקח שלוק. #p
+`;
+
 const TAG = { p: 'party', f: 'funny', a: 'active' };
-function parse(src, lang, type) {
+const LETTER = { truth: 't', dare: 'd', task: 'k' };
+function parse(src, lang, type, adult = false) {
   return src.trim().split('\n').map((line, i) => {
-    const tags = ['family'];
+    const tags = [adult ? '18+' : 'family'];
     const text = line.replace(/\s+#([pfa])\b/g, (_, t) => { tags.push(TAG[t]); return ''; }).trim();
-    return { id: `b:${lang}:${type[0]}:${i + 1}`, type, text, author: '', tags, session: '', created: 0, updated: 0, builtin: lang };
+    return { id: `b:${lang}:${adult ? 'x' : ''}${LETTER[type]}:${i + 1}`, type, text, author: '', tags, session: '', created: 0, updated: 0, builtin: lang };
   });
 }
 
 export const PACKS = {
-  en: { name: 'English starter pack', items: [...parse(EN_TRUTHS, 'en', 'truth'), ...parse(EN_DARES, 'en', 'dare'), ...parse(EN_TASKS, 'en', 'task')] },
-  he: { name: 'חבילת פתיחה בעברית', items: [...parse(HE_TRUTHS, 'he', 'truth'), ...parse(HE_DARES, 'he', 'dare'), ...parse(HE_TASKS, 'he', 'task')] },
+  en: { name: 'English starter pack', items: [...parse(EN_TRUTHS, 'en', 'truth'), ...parse(EN_DARES, 'en', 'dare'), ...parse(EN_TASKS, 'en', 'task'),
+    ...parse(EN_X_TRUTHS, 'en', 'truth', true), ...parse(EN_X_DARES, 'en', 'dare', true), ...parse(EN_X_TASKS, 'en', 'task', true)] },
+  he: { name: 'חבילת פתיחה בעברית', items: [...parse(HE_TRUTHS, 'he', 'truth'), ...parse(HE_DARES, 'he', 'dare'), ...parse(HE_TASKS, 'he', 'task'),
+    ...parse(HE_X_TRUTHS, 'he', 'truth', true), ...parse(HE_X_DARES, 'he', 'dare', true), ...parse(HE_X_TASKS, 'he', 'task', true)] },
 };

@@ -1,0 +1,72 @@
+/* © 2026 Roy Borkin. All rights reserved. See LICENSE. */
+/* Focus (apps/focus.js) */
+.fc { position: absolute; inset: 0; --pc: var(--ac); }
+.fc [hidden] { display: none !important; }
+.fc-ring { position: absolute; left: 50%; top: 50%; width: 92cqmin; height: 92cqmin; transform: translate(-50%, -50%); pointer-events: none; }
+.fc-ring svg { width: 100%; height: 100%; overflow: visible; }
+.fc-track { fill: none; stroke: var(--line); stroke-width: 5; }
+.fc-ticks line { stroke: var(--dim); stroke-width: .5; opacity: .5; }
+.fc-ticks line.q { stroke-width: .9; opacity: .9; }
+.fc-arc { fill: none; stroke: var(--pc); stroke-width: 5; stroke-linecap: round; transition: stroke .5s;
+  filter: drop-shadow(0 0 2.4px color-mix(in srgb, var(--pc) 60%, transparent)); }
+.fc-headg { transform-origin: 100px 100px; }
+.fc-head { fill: var(--bg); stroke: var(--pc); stroke-width: 2.6; transition: stroke .5s; }
+.fc-flash { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pc) 45%, transparent) 0, transparent 68%); }
+.fc.flashing .fc-flash { animation: fc-flash 2.6s ease-out; }
+@keyframes fc-flash { 0% { opacity: 0; } 12% { opacity: 1; } 30% { opacity: .35; } 45% { opacity: .9; } 100% { opacity: 0; } }
+.fc:not(.running)[data-phase="focus"] .fc-time, .fc:not(.running)[data-phase="short"] .fc-time, .fc:not(.running)[data-phase="long"] .fc-time { opacity: .72; }
+
+.fc-today { position: absolute; left: 50%; top: 18.6%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: .9cqmin; white-space: nowrap;
+  font-size: 2.4cqmin; padding: .8cqmin 2cqmin; border-radius: 99px; background: var(--glass); border: 1px solid var(--line); }
+.fc-today b { font-weight: 800; }
+.fc-today span { color: var(--muted); font-weight: 600; }
+.fc-today em { display: grid; font-size: 2.8cqmin; color: #f59e0b; margin-left: .6cqmin; }
+.fc-today span.n { color: var(--fg); font-weight: 800; margin-left: -.4cqmin; }
+.fc-phase { position: absolute; left: 50%; top: 29.5%; transform: translate(-50%, -50%); font-size: 2.6cqmin; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--pc); white-space: nowrap; transition: color .5s; }
+#app[data-mode="light"] .fc-phase { color: color-mix(in srgb, var(--pc) 75%, rgb(var(--ink))); }
+.fc-time { position: absolute; left: 50%; top: 41.5%; transform: translate(-50%, -50%); font-family: var(--display); font-weight: 700; font-size: 19cqmin; letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; transition: opacity .3s; }
+.fc-time.long { font-size: 14cqmin; }
+.fc-task { position: absolute; left: 50%; top: 53.6%; transform: translate(-50%, -50%); max-width: 56cqmin; display: flex; align-items: center; gap: 1cqmin; padding: .8cqmin 2cqmin; border-radius: 99px;
+  font-size: 2.9cqmin; font-weight: 700; white-space: nowrap; }
+.fc-task span { overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
+.fc-task span.ph { color: var(--dim); font-weight: 600; }
+.fc-task i { display: grid; font-size: 2.4cqmin; color: var(--dim); flex: none; }
+.fc-task:active { background: var(--glass); }
+.fc-dots { position: absolute; left: 50%; top: 60.5%; transform: translate(-50%, -50%); display: flex; gap: 1.6cqmin; }
+.fc-dots i { width: 2.2cqmin; height: 2.2cqmin; border-radius: 50%; border: .4cqmin solid var(--dim); transition: background .3s, border-color .3s; }
+.fc-dots i.on { background: var(--ac); border-color: var(--ac); }
+.fc-dots i.cur { border-color: var(--ac); animation: fc-cur 1.6s ease-in-out infinite; }
+@keyframes fc-cur { 50% { opacity: .35; } }
+
+.fc-play { position: absolute; left: 50%; top: 73%; width: 16cqmin; height: 16cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 7cqmin;
+  background: var(--pc); color: #fff; box-shadow: 0 1.2cqmin 5cqmin color-mix(in srgb, var(--pc) 45%, transparent); transition: transform .18s var(--spring), background .5s; }
+.fc-play .ic { transform: translateX(4%); }
+.fc-play.on .ic { transform: none; }
+.fc-play:active { transform: translate(-50%, -50%) scale(.92); }
+.fc-ctl { position: absolute; top: 73%; width: 10.5cqmin; height: 10.5cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 4.6cqmin;
+  background: var(--glass); border: 1px solid var(--line); color: var(--muted); transition: transform .18s var(--spring), opacity .3s; }
+.fc-ctl:active { transform: translate(-50%, -50%) scale(.9); }
+.fc-reset { left: 30.5%; } .fc-skip { left: 69.5%; }
+.fc-small { position: absolute; top: 87%; width: 8.4cqmin; height: 8.4cqmin; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; font-size: 4cqmin;
+  background: var(--glass); border: 1px solid var(--line); color: var(--muted); }
+.fc-small:active { transform: translate(-50%, -50%) scale(.9); }
+.fc-small.l { left: 42.5%; } .fc-small.r { left: 57.5%; }
+
+/* panels */
+.fc-rec { display: flex; align-items: center; gap: 1cqmin; width: 94%; border-radius: 3cqmin; background: var(--glass); border: 1px solid var(--line); }
+.fc-rec.on { border-color: var(--ac); }
+.fc-rect { flex: 1; min-width: 0; text-align: start; padding: 1.6cqmin 2.4cqmin; font-size: 2.8cqmin; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
+.fc-recx { width: 6cqmin; height: 6cqmin; border-radius: 50%; display: grid; place-items: center; font-size: 2.8cqmin; color: var(--dim); flex: none; margin-right: 1cqmin; }
+.fc-stats { display: flex; gap: 1.6cqmin; }
+.fc-stat { min-width: 22cqmin; padding: 1.6cqmin 2cqmin; border-radius: 3cqmin; background: var(--glass); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: .3cqmin; }
+.fc-stat b { font-family: var(--display); font-size: 4.4cqmin; white-space: nowrap; }
+.fc-stat span { font-size: 2cqmin; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.fc-bars { display: flex; align-items: flex-end; gap: 1.8cqmin; height: 22cqmin; padding: 0 2cqmin; }
+.fc-bar { width: 5.4cqmin; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: .5cqmin; }
+.fc-bar i { display: block; width: 100%; border-radius: 1.2cqmin 1.2cqmin .4cqmin .4cqmin; background: color-mix(in srgb, var(--ac) 45%, var(--glass-2)); min-height: .5cqmin; transition: height .6s var(--ease); }
+.fc-bar.today i { background: var(--ac); }
+.fc-bar small { font-size: 1.8cqmin; color: var(--muted); font-weight: 700; min-height: 2.2cqmin; }
+.fc-bar span { font-size: 2cqmin; color: var(--dim); font-weight: 800; }
+.fc-bar.today span { color: var(--fg); }

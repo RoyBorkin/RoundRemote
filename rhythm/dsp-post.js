@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Feature store → Analysis (shared by analyzePCM and LiveLearner.finish).
 //   onsets     multi-band peak picking with adaptive thresholds, merged across bands
 //   tempo      autocorrelation of the onset envelope + comb over 4 multiples + log-Gaussian prior (120 BPM),

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Calculator: the digits sit around the edge like the numbers on a clock (1 at one o'clock … 0 and the decimal
 // point at ten and eleven), the display and the operators in the middle. Correct precedence (× ÷ before + −),
 // %, ±, backspace, memory (the M key flips the function row to MC MR M+ M−), a history page and a tip / split helper.
@@ -238,7 +239,7 @@ export default {
       draw();
       curve(list);
       const clearBtn = h('button.pill.small.ca-hclear', { type: 'button', onclick: () => { history = []; app.save('history', history); draw(); app.sfx('drop'); } }, 'Clear history');
-      sub.append(list, history.length ? clearBtn : null, h('div.ca-hhint', 'Tap one to use its result'));
+      sub.append(...[list, history.length ? clearBtn : null, h('div.ca-hhint', 'Tap one to use its result')].filter(Boolean));
     }
 
     function buildTip() {

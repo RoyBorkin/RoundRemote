@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Shared bits for the games: sound effects, drawing helpers in the app's look, small maths.
 // Every game gets these through its `g` object (see shell.js) — e.g. g.sfx('pop'), g.draw.bg().
 import { store } from '../js/core/store.js';

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // The Games category: every game on a ring (like the services on Home). Tap one to see it in the middle,
 // tap Play (or the middle) to start. Drag around the ring, scroll, or use ← → to move through them.
 import { h, iconBtn } from '../js/ui/dom.js';

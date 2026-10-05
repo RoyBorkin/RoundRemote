@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Chrono Ring: chart (rhythm/chart.js) → positions on the ring and note kinds. Pure, deterministic (same chart +
 // difficulty + seed → same layout), no DOM — the game (rhythm/chrono.js) draws and judges what this returns.
 //

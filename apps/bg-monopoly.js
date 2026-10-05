@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Monopoly banker: balances (start 1500), pay / collect from the bank, pay another player, pass GO,
 // a transaction log with undo, and per-player property notes.
 import { h, clear } from '../js/ui/dom.js';

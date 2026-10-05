@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Plex provider — controls Plexamp (incl. Plexamp headless on a Pi) and Plex apps that
 // advertise as players, via your Plex Media Server. Sign-in uses a plex.tv PIN: either
 // type the 4-character code at plex.tv/link on your phone, or sign in on this screen.

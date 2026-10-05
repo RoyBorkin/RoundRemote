@@ -1,7 +1,10 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Truth or Dare: spin the bottle. Flick it (or tap it, press Enter, or turn the knob fast) and it spins with real
 // momentum, slows down and points at someone around the rim. "Spin only" just picks a person; "Truth or Dare"
 // then lets them choose Truth, Dare, Random or a Task and draws a card from the Tasks app's pool
 // (apps/tasks-store.js — respects its All / This session filter, tags and the 18+ setting), with scores.
+// Options: "Chicken = do a task" (chickening out flips the card to a penalty task — from the Tasks pool or a short
+// built-in list; refusing that too is a double chicken) and 18+ mode (age check once; mixed or adult-only cards).
 import { clear } from '../js/ui/dom.js';
 import { themeEvents } from '../js/core/theme.js';
 import { THEME, TAU, clamp } from '../games/kit.js';
@@ -11,6 +14,24 @@ const { TYPE_META } = T;
 const MIN_SPIN = 12, MAX_SPIN = 30;        // rad/s right after a counted spin
 const FRICTION_K = 1.6, FRICTION_V = 0.55;  // constant + speed-proportional slow-down
 const DEFAULT_PLAYERS = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
+const PENALTY_COLOR = '#fb923c';
+
+// built-in penalties for chickening out (the "Penalty list" source, and the fallback when the Tasks pool is empty)
+const PENALTIES = {
+  en: ['Sing a song the group picks — at least the chorus.', 'Do 10 push-ups.', 'Speak in an accent of the group’s choice for 2 rounds.',
+    'Do 20 jumping jacks.', 'Do the chicken dance for 15 seconds.', 'Let the group give you a silly nickname for the rest of the game.',
+    'Talk like a robot until your next turn.', 'Tell the group an embarrassing story.', 'Hold a plank for 30 seconds.',
+    'Compliment every player, one by one.', 'Cluck like a chicken every time you speak until your next turn.', 'Do your best opera singing for 15 seconds.',
+    'Stand on one leg until your next turn.', 'Do an impression of the player on your right.'],
+  he: ['שיר שיר שהקבוצה בוחרת — לפחות את הפזמון.', 'עשה 10 שכיבות סמיכה.', 'דבר במבטא שהקבוצה בוחרת במשך שני סיבובים.',
+    'עשה 20 קפיצות פיסוק.', 'רקוד את ריקוד התרנגולת 15 שניות.', 'תן לקבוצה לבחור לך כינוי מצחיק לשאר המשחק.',
+    'דבר כמו רובוט עד התור הבא שלך.', 'ספר לקבוצה סיפור מביך.', 'החזק פלאנק 30 שניות.', 'תן מחמאה לכל שחקן, אחד אחד.'],
+};
+const PENALTIES_18 = {
+  en: ['Take a sip of your drink.', 'Take two sips.', 'Finish your drink — or a glass of water.', 'Let the group pick your next drink.',
+    'Take a sip, then toast the player who dared you.', 'Take a sip without using your hands.'],
+  he: ['קח שלוק מהמשקה שלך.', 'קח שני שלוקים.', 'סיים את המשקה שלך — או כוס מים.', 'תן לקבוצה לבחור לך את המשקה הבא.', 'קח שלוק והרם כוסית לכבוד מי שאתגר אותך.'],
+};
 
 export default {
   css: './bottle.css',
@@ -25,7 +46,10 @@ export default {
     let noNames = app.data('noNames', false);
     let mode = app.data('mode', 'tod');          // 'spin' | 'tod'
     let showScores = app.data('showScores', true);
-    let scores = app.data('scores', {});         // name → { done, chicken }
+    let scores = app.data('scores', {});         // name → { done, chicken, double, paid }
+    let chickenTask = app.data('chickenTask', false);  // chickening out → a penalty task
+    let penaltySrc = app.data('penaltySrc', 'tasks');  // 'tasks' (the Tasks pool) | 'list' (built-in penalties)
+    let lastPenalty = '';
     const used = new Set();
     let theta = app.data('angle', 0.35);         // bottle angle: 0 = neck up, clockwise (radians)
     let omega = 0, spinning = false, counted = false, peak = 0;
@@ -99,6 +123,7 @@ export default {
         modeSeg.append(h(`button${mode === id ? '.on' : ''}`, { type: 'button', role: 'tab', 'aria-selected': String(mode === id),
           onclick: () => { if (mode !== id && !overlay) { mode = id; app.save('mode', id); app.sfx('tick'); render(); } } }, label));
       }
+      if (T.settings().adult) modeSeg.append(h('span.bt-18', { title: T.settings().mix === 'only' ? '18+ cards only' : '18+ cards mixed in', 'aria-label': '18+ mode on' }, '18+'));
       btnScores.hidden = mode !== 'tod' || noNames || !showScores;
     }
     function setHint(text, strong = false) { hint.textContent = text; hint.classList.toggle('strong', strong); }
@@ -349,9 +374,9 @@ export default {
       const chicken = h('button.pill.bt-chicken', { type: 'button', onclick: () => finish('chicken') }, 'Chicken');
       const again = h('button.bt-again', { type: 'button', 'aria-label': 'Another one', title: 'Another one', onclick: () => { app.sfx('tap'); showCard(asked, T.pick(asked === 'random' ? 'random' : t, used)); }, html: icon('refresh') });
       const card = h(`div.bt-card.${t}`, { '--k': meta.color },
-        h('div.bt-card-h', h('span.bt-card-type', meta.name), who ? h('span.bt-card-for', { dir: 'auto' }, `for ${who}`) : null),
+        h('div.bt-card-h', h('span.bt-card-type', meta.name, got && T.isAdult(got.item) ? h('b.bt-card-18', '18+') : null), who ? h('span.bt-card-for', { dir: 'auto' }, `for ${who}`) : null),
         got ? h(`div.bt-card-t${long ? '.' + long : ''}`, { dir: 'auto' }, text)
-          : h('div.bt-card-t.empty', `No ${meta.plural.toLowerCase()} to draw from`, h('small', 'Add some in the Tasks app, or switch the filter to All.')),
+          : h('div.bt-card-t.empty', `No ${meta.plural.toLowerCase()} to draw from`, h('small', T.settings().tags.length ? 'Try other tags, add some in the Tasks app, or switch the filter to All.' : 'Add some in the Tasks app, or switch the filter to All.')),
         got?.item.author ? h('div.bt-card-by', { dir: 'auto' }, `added by ${got.item.author}`) : null,
         got?.fellBack ? h('div.bt-card-note', 'Nothing in this session yet — from all') : null,
         got ? h('div.bt-card-acts', chicken, done, again)
@@ -361,16 +386,66 @@ export default {
       app.sfx('coin'); app.vibrate(12);
       if (got) setFocus([done, chicken, again], 0); else setFocus([...card.querySelectorAll('.pill')], 1);
     }
+    function addScore(key) {
+      const who = playerName();
+      if (!who || mode !== 'tod') return;
+      const s = { done: 0, chicken: 0, double: 0, paid: 0, ...(scores[who] || {}) };
+      s[key] = (s[key] || 0) + 1;
+      scores = { ...scores, [who]: s };
+      app.save('scores', scores);
+    }
     function finish(how) {
       const who = playerName();
-      if (who && mode === 'tod') {
-        const s = { done: 0, chicken: 0, ...(scores[who] || {}) };
-        s[how === 'done' ? 'done' : 'chicken']++;
-        scores = { ...scores, [who]: s };
-        app.save('scores', scores);
+      addScore(how === 'done' ? 'done' : 'chicken');
+      if (how === 'done') { app.sfx('score'); app.vibrate(20); closeOverlay(); return; }
+      app.sfx('over', { volume: 0.7 }); app.vibrate([20, 60, 20]);
+      if (chickenTask) { showPenalty(); return; }
+      app.toast(`${who || 'Someone'} chickened out!`);
+      closeOverlay();
+    }
+
+    // ------------------------------------------------------------ chickened out → penalty task
+    function penaltyList() {
+      const { packs, adult } = T.settings();
+      const langs = ['en', 'he'].filter((l) => packs[l]);
+      if (!langs.length) langs.push('en');
+      return langs.flatMap((l) => [...PENALTIES[l], ...(adult ? PENALTIES_18[l] : [])]);
+    }
+    function drawPenalty() {
+      if (penaltySrc === 'tasks') {
+        const got = T.pick('task', used);
+        if (got) { used.add(got.item.id); return { text: got.item.text, item: got.item, fellBack: got.fellBack }; }
       }
-      if (how === 'done') { app.sfx('score'); app.vibrate(20); }
-      else { app.sfx('over', { volume: 0.7 }); app.vibrate([20, 60, 20]); app.toast(`${who || 'Someone'} chickened out!`); }
+      const list = penaltyList().filter((t) => t !== lastPenalty);
+      return { text: list[Math.floor(Math.random() * list.length)], builtin: true, noPool: penaltySrc === 'tasks' };
+    }
+    function showPenalty(p = drawPenalty()) {
+      overlay = 'card';
+      clear(layer);
+      lastPenalty = p.text;
+      const who = playerName();
+      const long = p.text.length > 140 ? 'xl' : p.text.length > 80 ? 'l' : '';
+      const adult = p.item ? T.isAdult(p.item) : PENALTIES_18.en.includes(p.text) || PENALTIES_18.he.includes(p.text);
+      const done = h('button.pill.primary.bt-done', { type: 'button', onclick: () => finishPenalty('paid') }, 'Done');
+      const still = h('button.pill.bt-chicken', { type: 'button', onclick: () => finishPenalty('double') }, 'Still chicken');
+      const again = h('button.bt-again', { type: 'button', 'aria-label': 'Another penalty', title: 'Another penalty', onclick: () => { app.sfx('tap'); showPenalty(); }, html: icon('refresh') });
+      const card = h('div.bt-card.penalty', { '--k': PENALTY_COLOR },
+        h('div.bt-card-h', h('span.bt-card-type', 'Penalty', adult ? h('b.bt-card-18', '18+') : null),
+          h('span.bt-card-for', { dir: 'auto' }, who ? `${who} chickened out` : 'Chickened out')),
+        h(`div.bt-card-t${long ? '.' + long : ''}`, { dir: 'auto' }, p.text),
+        p.item?.author ? h('div.bt-card-by', { dir: 'auto' }, `added by ${p.item.author}`) : null,
+        p.noPool ? h('div.bt-card-note', 'No tasks to draw from — a classic penalty') : p.fellBack ? h('div.bt-card-note', 'Nothing in this session yet — from all') : null,
+        h('div.bt-card-acts', still, done, again));
+      layer.append(card);
+      el.classList.add('has-overlay');
+      app.vibrate(12);
+      setFocus([done, still, again], 0);
+    }
+    function finishPenalty(how) {
+      const who = playerName();
+      addScore(how);
+      if (how === 'paid') { app.sfx('score'); app.vibrate(20); app.toast(`Penalty done — ${who || 'they'}’re off the hook`); }
+      else { app.sfx('over', { volume: 0.8 }); app.vibrate([30, 60, 30, 60, 30]); app.toast(`${who || 'Someone'} is a double chicken!`); }
       closeOverlay();
     }
     function closeOverlay() {
@@ -402,7 +477,7 @@ export default {
           const drawP = () => {
             clear(box);
             box.append(h('div.bt-row', h('div.bt-row-l', h('div', 'No names'), h('div.bt-row-sub', 'The bottle just points at someone in the room')),
-              h(`button.switch${noNames ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(noNames), onclick: () => { noNames = !noNames; app.save('noNames', noNames); result = null; resultAt = 0; drawP(); render(); } })));
+              h(`button.switch${noNames ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(noNames), 'aria-label': 'No names', onclick: () => { noNames = !noNames; app.save('noNames', noNames); result = null; resultAt = 0; drawP(); render(); } })));
             if (!noNames) {
               players.forEach((name, i) => {
                 box.append(h('div.bt-prow', { '--pc': pColor(i) },
@@ -430,10 +505,16 @@ export default {
           body.append(box);
           const drawS = () => {
             clear(box);
-            const rows = players.map((name, i) => ({ name, i, ...(scores[name] || { done: 0, chicken: 0 }) })).sort((a, b) => b.done - a.done || a.chicken - b.chicken);
-            box.append(h('div.bt-shead', h('span'), h('span', 'Done'), h('span', 'Chicken')));
+            const rows = players.map((name, i) => ({ name, i, done: 0, chicken: 0, double: 0, paid: 0, ...(scores[name] || {}) }))
+              .sort((a, b) => b.done - a.done || (a.chicken + a.double) - (b.chicken + b.double) || b.paid - a.paid);
+            const dbl = chickenTask || rows.some((r) => r.double || r.paid);
+            box.classList.toggle('dbl', dbl);
+            box.append(h('div.bt-shead', h('span'), h('span', 'Done'), h('span', 'Chicken'), dbl ? h('span', { title: 'Refused the penalty too' }, 'Double') : null));
             rows.forEach((r, rank) => box.append(h(`div.bt-srow${rank === 0 && r.done ? '.lead' : ''}`, { '--pc': pColor(r.i) },
-              h('span.bt-srow-n', h('span.bt-dot'), h('span', { dir: 'auto' }, r.name)), h('b', String(r.done || 0)), h('span.bt-ch-n', String(r.chicken || 0)))));
+              h('span.bt-srow-n', h('span.bt-dot'), h('span', { dir: 'auto' }, r.name)), h('b', String(r.done)),
+              h('span.bt-ch-n', String(r.chicken), r.paid ? h('small', { title: 'Penalties done' }, ` ✓${r.paid}`) : null),
+              dbl ? h(`span.bt-ch-n${r.double ? '.bt-dbl' : ''}`, String(r.double)) : null)));
+            if (dbl) box.append(h('div.bt-row-sub.bt-center', '✓ penalties done · Double = refused the penalty too'));
             box.append(h('button.pill.danger.bt-addp', { type: 'button', onclick: () => { scores = {}; app.save('scores', scores); used.clear(); drawS(); render(); app.toast('Scores reset'); } }, 'Reset scores'));
           };
           drawS();
@@ -446,28 +527,42 @@ export default {
         build(body, panel) {
           const box = h('div.bt-plist.list');
           body.append(box);
-          const sw = (on, fn) => h(`button.switch${on ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(on), onclick: fn });
+          const sw = (on, fn, label) => h(`button.switch${on ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': label, onclick: fn });
           const drawSet = () => {
             clear(box);
-            const s = T.settings(), c = T.counts();
+            const s = T.settings(), c = T.counts(T.gameOpts());
             const chip = (on, label, fn) => h(`button.chip${on ? '.on' : ''}`, { type: 'button', onclick: fn }, label);
-            box.append(
+            box.append(...[   // (filter: a bare null would show up as the text "null")
               h('div.bt-sh', 'Mode'),
               h('div.chips', chip(mode === 'spin', 'Spin only', () => { mode = 'spin'; app.save('mode', mode); render(); drawSet(); }), chip(mode === 'tod', 'Truth or Dare', () => { mode = 'tod'; app.save('mode', mode); render(); drawSet(); })),
               h('div.bt-sh', 'Cards from'),
               h('div.chips', chip(s.filter === 'all', 'All', () => { T.setSettings({ filter: 'all' }); drawSet(); }), chip(s.filter === 'session', `This session (${T.session().id})`, () => { T.setSettings({ filter: 'session' }); drawSet(); })),
               h('div.bt-row-sub.bt-center', `${c.truth} truths · ${c.dare} dares · ${c.task} tasks`),
               h('div.bt-sh', 'Tags'),
-              h('div.chips.multi', ['family', 'party', 'funny', 'active', ...(s.adult ? ['18+'] : [])].map((t) => chip(s.tags.includes(t), T.TAG_NAMES[t], () => {
-                const set = new Set(s.tags); set.has(t) ? set.delete(t) : set.add(t); T.setSettings({ tags: [...set] }); drawSet();
+              h('div.chips.multi', ['family', 'party', 'funny', 'active'].map((t) => chip(s.tags.includes(t), T.TAG_NAMES[t], () => {
+                const set = new Set(s.tags); set.has(t) ? set.delete(t) : set.add(t); set.delete('18+'); T.setSettings({ tags: [...set] }); drawSet();
               }))),
-              h('div.bt-row-sub.bt-center', s.tags.length ? 'Only cards with these tags' : 'None picked = any tag'),
+              h('div.bt-row-sub.bt-center', s.tags.length ? `Only cards with these tags${s.adult && s.tags.includes('family') ? ' (Family hides 18+)' : ''}` : 'None picked = any tag'),
+              h('div.bt-sh', 'Grown-ups'),
+              h(`div.bt-row${s.adult ? '.bt-x18' : ''}`, h('span.bt-18.lg', '18+'), h('div.bt-row-l', h('div', '18+ mode'), h('div.bt-row-sub', s.adult ? 'Flirty, party & drinking cards' : 'Off — family friendly')),
+                sw(s.adult, async () => {
+                  if (!s.adult && !(await T.confirmAdult(app))) return;
+                  T.setSettings(s.adult ? { adult: false, tags: s.tags.filter((t) => t !== '18+') } : { adult: true, tags: s.tags.filter((t) => t !== '18+') });
+                  app.sfx('tick'); drawSet();
+                }, '18+ mode')),
+              s.adult ? h('div.chips', chip(s.mix === 'mixed', 'Mixed in', () => { T.setSettings({ mix: 'mixed' }); drawSet(); }), chip(s.mix === 'only', '18+ only', () => { T.setSettings({ mix: 'only' }); drawSet(); })) : null,
+              h('div.bt-sh', 'Chicken'),
+              h('div.bt-row', h('div.bt-row-l', h('div', 'Chicken = do a task'), h('div.bt-row-sub', chickenTask ? 'Chickening out flips to a penalty' : 'Off — chickening out just counts')),
+                sw(chickenTask, () => { chickenTask = !chickenTask; app.save('chickenTask', chickenTask); drawSet(); }, 'Chicken = do a task')),
+              chickenTask ? h('div.bt-sh.sub', 'Penalty from') : null,
+              chickenTask ? h('div.chips', chip(penaltySrc === 'tasks', 'Tasks pool', () => { penaltySrc = 'tasks'; app.save('penaltySrc', penaltySrc); drawSet(); }),
+                chip(penaltySrc === 'list', 'Penalty list', () => { penaltySrc = 'list'; app.save('penaltySrc', penaltySrc); drawSet(); })) : null,
+              chickenTask ? h('div.bt-row-sub.bt-center', penaltySrc === 'tasks' ? `A task from the pool (${c.task})` : `Sing a song, 10 push-ups, an accent…${s.adult ? ' or a sip' : ''}`) : null,
+              h('div.bt-sh', 'Score'),
               h('div.bt-row', h('div.bt-row-l', h('div', 'Keep score'), h('div.bt-row-sub', 'Points for every truth or dare done')),
-                sw(showScores, () => { showScores = !showScores; app.save('showScores', showScores); render(); drawSet(); })),
-              h('div.bt-row', h('div.bt-row-l', h('div', '18+ cards'), h('div.bt-row-sub', s.adult ? 'Included' : 'Hidden — family friendly')),
-                sw(s.adult, () => { T.setSettings({ adult: !s.adult, tags: s.tags.filter((t) => t !== '18+') }); drawSet(); })),
+                sw(showScores, () => { showScores = !showScores; app.save('showScores', showScores); render(); drawSet(); }, 'Keep score')),
               h('button.pill.bt-addp', { type: 'button', onclick: () => app.go('app', { id: 'tasks' }) }, 'Manage truths & dares'),
-            );
+            ].filter(Boolean));
           };
           drawSet();
           panel.onDestroy = T.events.on('change', () => { if (!panel.closed) drawSet(); });
@@ -492,6 +587,7 @@ export default {
 
     const offs = [
       themeEvents.on('change', () => { dirty = true; render(); }),
+      T.events.on('change', () => renderMode()),
       T.events.on('fresh', (items) => { const it = items[items.length - 1]; app.toast(`${it.author || 'Someone'} added a ${TYPE_META[it.type]?.name.toLowerCase() || 'task'}`); }),
       T.startSync({ every: 4000, passive: true }),
     ];
@@ -499,7 +595,7 @@ export default {
     render(); idleHint();
 
     // test hook (Playwright): spin with a given speed
-    el._bt = { spin: (w) => startSpin(w), state: () => ({ theta, omega, spinning, result, overlay, players: players.slice(), scores, mode, noNames }) };
+    el._bt = { spin: (w) => startSpin(w), state: () => ({ theta, omega, spinning, result, overlay, players: players.slice(), scores, mode, noNames, chickenTask, penaltySrc }) };
 
     return {
       destroy() { ro.disconnect(); for (const off of offs) off(); app.save('angle', ((theta % TAU) + TAU) % TAU); },

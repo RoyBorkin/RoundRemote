@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games Companion: a ring of tools — Dice, Coin, Scores, Games (companions for favourite games) and Rules.
 // Every tool is a sub-page (its own module, loaded when opened); Back returns to the ring.
 import { h, clear } from '../js/ui/dom.js';
@@ -17,7 +18,7 @@ export default {
     const host = h('div.bg-app');
     root.append(host);
     const stack = [];          // open pages: { el, inst, title, hideTitle }
-    let menu = null, alive = true, loading = false;
+    let menu = null, alive = true, loading = false, loadSeq = 0;
 
     function showMenu() {
       const page = h('div.bg-page.bg-home');
@@ -49,9 +50,10 @@ export default {
     async function push({ file, mount, title, color, opts }) {
       if (loading) return;
       loading = true;
+      const my = ++loadSeq;
       try {
         const fn = mount || (await import(file)).mount;
-        if (!alive) return;
+        if (!alive || my !== loadSeq) return;   // Back was pressed while it loaded → don't open it
         const el = h('div.bg-page', color ? { '--pc': color } : null);
         const entry = { el, inst: null, title: title || '', hideTitle: false };
         stack.push(entry);
@@ -62,7 +64,7 @@ export default {
       } catch (err) {
         console.error('[boardgames]', err);
         app.toast(`Couldn’t open: ${err.message || err}`);
-      } finally { loading = false; }
+      } finally { if (my === loadSeq) loading = false; }
     }
 
     function pop() {
@@ -90,7 +92,7 @@ export default {
     showMenu();
     return {
       back() {
-        if (loading) return true;            // a page is still opening
+        if (loading) { loadSeq++; loading = false; return true; }   // a page is still opening: cancel it
         const top = stack[stack.length - 1];
         if (!top) return false;
         if (top.inst?.back?.()) return true;

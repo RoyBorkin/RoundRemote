@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Shared helpers for the home-screen backdrops (js/ui/backdrops.js): colour maths, offscreen layers,
 // reusable unit gradients and small sprites. Everything here allocates only while a scene is being
 // built — never per frame.

@@ -1,3 +1,4 @@
+// © 2026 Roy Borkin. All rights reserved. See LICENSE.
 // Board Games → Taki (טאקי): whose turn and which way, the active colour, the +2 stack, open TAKI runs, and the
 // special cards with Hebrew + English names. Wins per player; a link to the full rules.
 import { h, clear } from '../js/ui/dom.js';

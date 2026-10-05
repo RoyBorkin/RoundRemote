@@ -41,7 +41,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv /opt/pyatv \
  && /opt/pyatv/bin/pip install --no-cache-dir --prefer-binary pyatv \
- && /opt/pyatv/bin/atvscript --version
+ && /opt/pyatv/bin/python -c "import pyatv, pyatv.scripts.atvscript; print('pyatv ok')" \
+ && test -x /opt/pyatv/bin/atvscript
+# (atvscript has no --version flag: argparse exits with code 2 — so the check above imports the package instead)
 
 FROM pyatv-${WITH_PYATV} AS pyatv
 
